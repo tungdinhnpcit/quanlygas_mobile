@@ -1,0 +1,368 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+// Hàm main khởi chạy ứng dụng
+void main() {
+  // Đảm bảo các binding được khởi tạo trước khi chạy app
+  WidgetsFlutterBinding.ensureInitialized();
+  // Thiết lập chế độ toàn màn hình và màu thanh trạng thái
+  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+  ));
+  runApp(const HongVanGasLoginApp());
+}
+
+// Widget gốc của ứng dụng
+class HongVanGasLoginApp extends StatelessWidget {
+  const HongVanGasLoginApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Hồng Vân Gas Login',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        // Định nghĩa bảng màu chính theo thương hiệu
+        primaryColor: const Color(0xFFD84315), // Màu cam đỏ lửa
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFFD84315),
+          primary: const Color(0xFFD84315),
+          secondary: const Color(0xFF1565C0), // Màu xanh dương đậm
+        ),
+        fontFamily: 'Roboto', // Sử dụng font mặc định hoặc font tùy chọn
+        useMaterial3: true,
+      ),
+      home: const LoginScreen(),
+    );
+  }
+}
+
+// Màn hình đăng nhập chính
+class LoginScreen extends StatefulWidget {
+  const LoginScreen({super.key});
+
+  @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _userController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  bool _isPasswordVisible = false;
+
+  @override
+  void dispose() {
+    _userController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  // Hàm xử lý sự kiện nhấn nút Đăng nhập thông thường
+  void _handleLogin() {
+    if (_formKey.currentState!.validate()) {
+      // Giả lập xử lý đăng nhập thành công
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Đang đăng nhập với tài khoản: ${_userController.text}'),
+          backgroundColor: Theme.of(context).primaryColor,
+        ),
+      );
+    }
+  }
+
+  // Hàm xử lý sự kiện nhấn nút Sinh trắc học (Biometric)
+  void _handleBiometricLogin() {
+    // Giả lập gọi API sinh trắc học (Vân tay/Face ID)
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        // Giả lập thời gian quét
+        Future.delayed(const Duration(seconds: 2), () {
+          Navigator.of(context).pop(); // Đóng dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Xác thực sinh trắc học thành công! Đang chuyển hướng...'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        });
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.fingerprint, size: 64, color: Color(0xFFD84315)),
+              const SizedBox(height: 16),
+              const Text('Vui lòng chạm vào cảm biến vân tay', textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              CircularProgressIndicator(color: Theme.of(context).primaryColor),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Lấy kích thước màn hình
+    final size = MediaQuery.of(context).size;
+
+    return Scaffold(
+      // Sử dụng Stack để đặt các lớp chồng lên nhau (Background -> Content)
+      body: Stack(
+        children: [
+          // --- Lớp 1: Background Thương hiệu ---
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Color(0xFFFF7043), // Cam sáng
+                  Color(0xFFD84315), // Đỏ cam chủ đạo
+                  Color(0xFF0D47A1), // Xanh dương đậm phía dưới
+                ],
+                stops: [0.0, 0.5, 1.0],
+              ),
+            ),
+          ),
+          // Lớp phủ họa tiết mờ (Giả lập bằng Icon lớn)
+          Positioned(
+            top: -50,
+            right: -50,
+            child: Icon(
+              Icons.local_fire_department_outlined,
+              size: size.width * 0.8,
+              color: Colors.white.withOpacity(0.05),
+            ),
+          ),
+          Positioned(
+            bottom: -100,
+            left: -50,
+            child: Icon(
+              Icons.local_fire_department,
+              size: size.width * 0.8,
+              color: Colors.white.withOpacity(0.05),
+            ),
+          ),
+
+          // --- Lớp 2: Nội dung Form Đăng nhập ---
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 40),
+                    // --- Logo & Tên Thương hiệu ---
+                    Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.1),
+                            border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.local_fire_department_rounded,
+                            size: 64,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        const Text(
+                          'HỒNG VÂN GAS',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const Text(
+                          'An toàn - Chất lượng - Tin cậy',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 48),
+
+                    // --- Các trường nhập liệu ---
+                    // Input Tài khoản
+                    TextFormField(
+                      controller: _userController,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: _buildInputDecoration(
+                        label: 'Số điện thoại hoặc Email',
+                        icon: Icons.person_outline,
+                      ),
+                      keyboardType: TextInputType.emailAddress,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Vui lòng nhập thông tin';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 20),
+                    // Input Mật khẩu
+                    TextFormField(
+                      controller: _passwordController,
+                      style: const TextStyle(color: Colors.white),
+                      obscureText: !_isPasswordVisible,
+                      decoration: _buildInputDecoration(
+                        label: 'Mật khẩu',
+                        icon: Icons.lock_outline,
+                        suffixIcon: IconButton(
+                          icon: Icon(
+                            _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                            color: Colors.white70,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              _isPasswordVisible = !_isPasswordVisible;
+                            });
+                          },
+                        ),
+                      ),
+                      validator: (value) {
+                        if (value == null || value.isEmpty) {
+                          return 'Vui lòng nhập mật khẩu';
+                        }
+                        return null;
+                      },
+                    ),
+
+                    // Nút Quên mật khẩu
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          // Xử lý quên mật khẩu
+                        },
+                        child: const Text(
+                          'Quên mật khẩu?',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+
+                    // --- Nút Đăng nhập chính ---
+                    ElevatedButton(
+                      onPressed: _handleLogin,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white, // Nền trắng
+                        foregroundColor: const Color(0xFFD84315), // Chữ màu cam đỏ
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
+                        ),
+                        elevation: 5,
+                      ),
+                      child: const Text(
+                        'ĐĂNG NHẬP',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+
+                    // --- Phần chia cách và Nút Biometric ---
+                    const Row(
+                      children: [
+                        Expanded(child: Divider(color: Colors.white54)),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'Hoặc đăng nhập bằng',
+                            style: TextStyle(color: Colors.white70),
+                          ),
+                        ),
+                        Expanded(child: Divider(color: Colors.white54)),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+
+                    // Nút Biometric (Vân tay/Face ID)
+                    Center(
+                      child: InkWell(
+                        onTap: _handleBiometricLogin,
+                        borderRadius: BorderRadius.circular(50),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white.withOpacity(0.15),
+                            border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+                          ),
+                          child: const Icon(
+                            Icons.fingerprint, // Icon đại diện cho Biometric
+                            size: 40,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Vân tay / Face ID',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                    ),
+                    const SizedBox(height: 40),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Hàm helper để tạo style cho InputDecoration
+  InputDecoration _buildInputDecoration({
+    required String label,
+    required IconData icon,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      prefixIcon: Icon(icon, color: Colors.white70),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: Colors.white.withOpacity(0.15), // Màu nền trong suốt
+      contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.white, width: 2),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.redAccent),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(30),
+        borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+      ),
+      errorStyle: const TextStyle(color: Colors.redAccent),
+    );
+  }
+}

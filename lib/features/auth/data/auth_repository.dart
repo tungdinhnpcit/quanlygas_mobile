@@ -5,6 +5,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/network/api_client.dart';
+import '../../../core/services/background_polling_service.dart';
 import 'auth_models.dart';
 
 class AuthRepository {
@@ -28,6 +29,8 @@ class AuthRepository {
     debugPrint('[FCM DEBUG] getToken() = ${fcmToken != null ? '${fcmToken.substring(0, 20)}...' : 'NULL'}');
     if (fcmToken != null) await _registerFcmToken(fcmToken);
     FirebaseMessaging.instance.onTokenRefresh.listen(_registerFcmToken);
+    // Đăng ký background polling (cho điện thoại không có GMS)
+    await BackgroundPollingService.registerPeriodicTask();
     return result;
   }
 
@@ -42,6 +45,9 @@ class AuthRepository {
   }
 
   Future<void> logout() async {
+    // Huỷ background polling khi logout
+    await BackgroundPollingService.cancelAll();
+
     final token = await _storage.read(key: 'refresh_token');
     if (token != null) {
       try {
@@ -87,6 +93,7 @@ class AuthRepository {
     await _storage.write(key: 'username',      value: r.username);
     await _storage.write(key: 'user_id',       value: r.userId.toString());
     await _storage.write(key: 'nhan_vien_id',  value: r.nhanVienId?.toString() ?? '');
+    await _storage.write(key: 'avatar_url',    value: r.avatarUrl ?? '');
   }
 
   Future<void> _clearSession() async {

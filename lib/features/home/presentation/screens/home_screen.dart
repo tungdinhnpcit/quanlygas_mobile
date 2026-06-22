@@ -2,99 +2,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/providers/user_info_provider.dart';
+import '../../../../core/router/app_routes.dart';
+import '../../../../core/utils/menu_icon_mapper.dart';
 import '../../../../features/menu/providers/menu_provider.dart';
-import '../widgets/menu_grid_item.dart';
+import '../../../../features/auth/data/auth_models.dart';
+import '../../../../features/thong_bao/presentation/providers/thong_bao_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final menusAsync   = ref.watch(menuProvider);
-    final userAsync    = ref.watch(userInfoProvider);
-    final colorScheme  = Theme.of(context).colorScheme;
+    final menusAsync = ref.watch(menuProvider);
+    final userAsync  = ref.watch(userInfoProvider);
+    final soChuaDoc  = ref.watch(soChuaDocProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(menuProvider);
         ref.invalidate(userInfoProvider);
+        ref.invalidate(soChuaDocProvider);
       },
-      child: CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(
-            child: _GreetingCard(userAsync: userAsync),
-          ),
-          menusAsync.when(
-            loading: () => const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator()),
-            ),
-            error: (e, _) => SliverFillRemaining(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline, size: 48, color: colorScheme.error),
-                    const SizedBox(height: 12),
-                    Text('Không tải được menu', style: TextStyle(color: colorScheme.error)),
-                    const SizedBox(height: 8),
-                    TextButton(
-                      onPressed: () => ref.invalidate(menuProvider),
-                      child: const Text('Thử lại'),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            data: (menus) {
-              if (menus.isEmpty) {
-                return const SliverFillRemaining(
-                  child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.apps, size: 56, color: Colors.white24),
-                        SizedBox(height: 12),
-                        Text('Không có chức năng nào', style: TextStyle(color: Colors.white38)),
-                      ],
-                    ),
-                  ),
-                );
-              }
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.05,
-                  ),
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final menu = menus[index];
-                      return MenuGridItem(
-                        menu: menu,
-                        index: index,
-                        onTap: () => context.go(menu.mobileRoute!),
-                      );
-                    },
-                    childCount: menus.length,
-                  ),
-                ),
-              );
-            },
-          ),
-        ],
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _HeaderSection(userAsync: userAsync, soChuaDoc: soChuaDoc),
+            _WhiteContent(menusAsync: menusAsync, userAsync: userAsync),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _GreetingCard extends StatelessWidget {
-  final AsyncValue userAsync;
-  const _GreetingCard({required this.userAsync});
+// ─── Header Section (gradient + user greeting) ─────────────────────────────
+
+class _HeaderSection extends StatelessWidget {
+  final AsyncValue<UserInfo> userAsync;
+  final AsyncValue<int> soChuaDoc;
+
+  const _HeaderSection({required this.userAsync, required this.soChuaDoc});
 
   String _greeting() {
     final h = DateTime.now().hour;
@@ -105,88 +58,588 @@ class _GreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final topPad = MediaQuery.of(context).padding.top;
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF00695C), Color(0xFF00897B)],
+          colors: [Color(0xFF00695C), Color(0xFF26A69A)],
         ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF00897B).withValues(alpha: 0.4),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Space cho status bar + transparent AppBar
+          SizedBox(height: topPad + kToolbarHeight),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 26),
+            child: userAsync.when(
+              loading: () => const SizedBox(height: 64),
+              error: (_, __) => _UserRow(
+                context: context,
+                info: null,
+                greeting: _greeting(),
+                soChuaDoc: soChuaDoc,
+              ),
+              data: (info) => _UserRow(
+                context: context,
+                info: info,
+                greeting: _greeting(),
+                soChuaDoc: soChuaDoc,
+              ),
+            ),
           ),
         ],
       ),
-      child: userAsync.when(
-        loading: () => const SizedBox(
-          height: 52,
-          child: Center(child: CircularProgressIndicator(color: Colors.white54, strokeWidth: 2)),
+    );
+  }
+}
+
+class _UserRow extends StatelessWidget {
+  final BuildContext context;
+  final UserInfo? info;
+  final String greeting;
+  final AsyncValue<int> soChuaDoc;
+
+  const _UserRow({
+    required this.context,
+    required this.info,
+    required this.greeting,
+    required this.soChuaDoc,
+  });
+
+  @override
+  Widget build(BuildContext outerContext) {
+    final name      = info?.fullName ?? 'Người dùng';
+    final avatarUrl = info?.avatarUrl;
+    final baseUrl   = AppConstants.baseApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
+
+    // Tạo chữ viết tắt từ họ tên (tối đa 2 chữ cái đầu)
+    final words    = name.trim().split(' ').where((w) => w.isNotEmpty).toList();
+    final initials = words.length >= 2
+        ? '${words.first[0]}${words.last[0]}'.toUpperCase()
+        : name.isNotEmpty
+            ? name[0].toUpperCase()
+            : 'GS';
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        // Avatar — tap → màn hình thông tin tài khoản
+        GestureDetector(
+          onTap: () => context.go(AppRoutes.thongTinTaiKhoan),
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white.withValues(alpha: 0.7), width: 2),
+              color: Colors.white.withValues(alpha: 0.2),
+            ),
+            child: ClipOval(
+              child: avatarUrl != null && avatarUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: '$baseUrl$avatarUrl',
+                      fit: BoxFit.cover,
+                      errorWidget: (_, __, ___) => _InitialsWidget(initials: initials),
+                    )
+                  : _InitialsWidget(initials: initials),
+            ),
+          ),
         ),
-        error: (_, __) => _buildContent('', ''),
-        data: (info) => _buildContent(info.fullName, info.roleCode),
+        const SizedBox(width: 12),
+
+        // Lời chào + tên — tap → màn hình thông tin tài khoản
+        Expanded(
+          child: GestureDetector(
+            onTap: () => context.go(AppRoutes.thongTinTaiKhoan),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        greeting,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.chevron_right, color: Colors.white60, size: 20),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+
+        // Bell thông báo
+        _NotificationBell(soChuaDoc: soChuaDoc, context: context),
+      ],
+    );
+  }
+}
+
+class _InitialsWidget extends StatelessWidget {
+  final String initials;
+  const _InitialsWidget({required this.initials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white.withValues(alpha: 0.15),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 18,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
+}
 
-  Widget _buildContent(String fullName, String roleCode) {
-    return Row(
-      children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.2),
-            shape: BoxShape.circle,
+class _NotificationBell extends StatelessWidget {
+  final AsyncValue<int> soChuaDoc;
+  final BuildContext context;
+
+  const _NotificationBell({required this.soChuaDoc, required this.context});
+
+  @override
+  Widget build(BuildContext outerContext) {
+    final count = soChuaDoc.valueOrNull ?? 0;
+    return GestureDetector(
+      onTap: () => context.go(AppRoutes.thongBaoList),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.notifications_outlined,
+              color: Colors.white,
+              size: 22,
+            ),
           ),
-          child: const Icon(Icons.person_rounded, color: Colors.white, size: 28),
-        ),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _greeting(),
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                fullName.isNotEmpty ? fullName : 'Người dùng',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 17,
-                  fontWeight: FontWeight.w700,
+          if (count > 0)
+            Positioned(
+              top: -1,
+              right: -1,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFFF5722),
+                  shape: BoxShape.circle,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                child: Text(
+                  count > 99 ? '99+' : '$count',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── White Content Area (rounded top, trắng đè lên gradient) ───────────────
+
+class _WhiteContent extends StatelessWidget {
+  final AsyncValue<List<MenuInfo>> menusAsync;
+  final AsyncValue<UserInfo> userAsync;
+
+  const _WhiteContent({required this.menusAsync, required this.userAsync});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(28),
+          topRight: Radius.circular(28),
+        ),
+      ),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).padding.bottom + 16,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 24),
+          _StatsRow(userAsync: userAsync),
+          const SizedBox(height: 24),
+          _MenuSection(menusAsync: menusAsync),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Stats Row (2 thẻ mini) ─────────────────────────────────────────────────
+
+class _StatsRow extends StatelessWidget {
+  final AsyncValue<UserInfo> userAsync;
+  const _StatsRow({required this.userAsync});
+
+  String _roleLabel(String roleCode) => switch (roleCode.toLowerCase()) {
+        'admin'    => 'Quản trị viên',
+        'quan-ly'  => 'Quản lý',
+        'ke-toan'  => 'Kế toán',
+        'lai-xe'   => 'Lái xe',
+        'giam-doc' => 'Giám đốc',
+        _          => roleCode.isNotEmpty ? roleCode : 'Người dùng',
+      };
+
+  String _formatDate(DateTime d) =>
+      '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+  @override
+  Widget build(BuildContext context) {
+    final info = userAsync.valueOrNull;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: _StatCard(
+              icon: Icons.badge_outlined,
+              label: 'Vai trò',
+              value: info != null ? _roleLabel(info.roleCode) : '...',
+              iconColor: const Color(0xFF00695C),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _StatCard(
+              icon: Icons.calendar_today_outlined,
+              label: 'Hôm nay',
+              value: _formatDate(DateTime.now()),
+              iconColor: const Color(0xFF1565C0),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color iconColor;
+
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.iconColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: iconColor.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: iconColor, size: 20),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: Color(0xFF718096),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A202C),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Menu Section: 4 cột + phần "Chức năng khác" (horizontal scroll) ────────
+
+class _MenuSection extends StatelessWidget {
+  final AsyncValue<List<MenuInfo>> menusAsync;
+  const _MenuSection({required this.menusAsync});
+
+  @override
+  Widget build(BuildContext context) {
+    return menusAsync.when(
+      loading: () => const Padding(
+        padding: EdgeInsets.all(40),
+        child: Center(child: CircularProgressIndicator()),
+      ),
+      error: (e, _) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Center(
+          child: Text('Không tải được menu: $e',
+              style: const TextStyle(color: Color(0xFFA0AEC0))),
+        ),
+      ),
+      data: (menus) {
+        if (menus.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.all(40),
+            child: Center(
+              child: Text('Không có chức năng nào',
+                  style: TextStyle(color: Color(0xFFA0AEC0))),
+            ),
+          );
+        }
+
+        // 8 menu đầu hiển thị dạng grid 4 cột, phần còn lại scroll ngang
+        final primary   = menus.take(8).toList();
+        final secondary = menus.skip(8).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Tiêu đề
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'Chức năng',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A202C),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Grid 4 cột — icon tròn
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: primary.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 4,
+                  mainAxisSpacing: 20,
+                  crossAxisSpacing: 4,
+                  childAspectRatio: 0.82,
+                ),
+                itemBuilder: (ctx, i) => _QuickActionItem(
+                  menu: primary[i],
+                  index: i,
+                  onTap: () => ctx.go(primary[i].mobileRoute!),
+                ),
+              ),
+            ),
+
+            // "Chức năng khác" — horizontal scroll nếu có > 8 menu
+            if (secondary.isNotEmpty) ...[
+              const SizedBox(height: 24),
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20),
+                child: Text(
+                  'Chức năng khác',
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1A202C),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height: 104,
+                child: ListView.separated(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  scrollDirection: Axis.horizontal,
+                  itemCount: secondary.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (ctx, i) => _SecondaryMenuItem(
+                    menu: secondary[i],
+                    index: i + 8,
+                    onTap: () => ctx.go(secondary[i].mobileRoute!),
+                  ),
+                ),
               ),
             ],
-          ),
-        ),
-        if (roleCode.isNotEmpty)
+          ],
+        );
+      },
+    );
+  }
+}
+
+// Icon tròn 4 cột (kiểu banking app)
+class _QuickActionItem extends StatelessWidget {
+  final MenuInfo menu;
+  final int index;
+  final VoidCallback onTap;
+
+  const _QuickActionItem({
+    required this.menu,
+    required this.index,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = kMenuCardColors[index % kMenuCardColors.length];
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            width: 58,
+            height: 58,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(20),
+              color: color.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
             ),
-            child: Text(
-              roleCode,
+            child: Icon(
+              mapMenuIcon(menu.menuCode),
+              size: 26,
+              color: color,
+            ),
+          ),
+          const SizedBox(height: 7),
+          Text(
+            menu.menuName,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF2D3748),
+              height: 1.25,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Card ngang dùng cho phần "Chức năng khác"
+class _SecondaryMenuItem extends StatelessWidget {
+  final MenuInfo menu;
+  final int index;
+  final VoidCallback onTap;
+
+  const _SecondaryMenuItem({
+    required this.menu,
+    required this.index,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = kMenuCardColors[index % kMenuCardColors.length];
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 90,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(mapMenuIcon(menu.menuCode), size: 28, color: color),
+            const SizedBox(height: 6),
+            Text(
+              menu.menuName,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.5,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF2D3748),
+                height: 1.2,
               ),
             ),
-          ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 }

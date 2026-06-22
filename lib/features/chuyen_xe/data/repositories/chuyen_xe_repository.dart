@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/chuyen_xe_model.dart';
 
@@ -50,8 +51,21 @@ class ChuyenXeRepository {
 
   /// Lấy chi tiết chuyến xe theo ID kèm danh sách hàng hóa và ảnh đã upload.
   Future<ChuyenXeModel> getById(int id) async {
-    final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$id');
-    return ChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+    debugPrint('[ChuyenXe] GET '+AppConstants.baseApiUrl+'/api/chuyen-xe/$id');
+    try{
+      final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$id');
+      return ChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+    }
+    on DioException catch (e)
+    {
+      debugPrint('[ChuyenXe] DioException getById: ${e.type} | status=${e.response?.statusCode} | message=${e.message}');
+      debugPrint('[ChuyenXe] response body: ${e.response?.data}');
+      rethrow;
+    }
+    catch (e) {
+      debugPrint('[ChuyenXe] ERROR getById: $e');
+      rethrow;
+    }
   }
 
   /// Nén ảnh xuống ≤ 1MB bằng cách giảm dần quality (85 → 20, bước 10).

@@ -20,8 +20,8 @@ class ChuyenXeListScreen extends ConsumerStatefulWidget {
 
 class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
   String?   _selectedStatus;
-  DateTime? _tuNgay;
-  DateTime? _denNgay;
+  DateTime? _tuNgay  = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+  DateTime? _denNgay = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
 
   // Quản lý theo lái xe (chỉ dùng cho admin/quanly/ketoan)
   bool _isAdmin = false;
@@ -54,7 +54,9 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
     if (isLaiXe) {
       final id = userInfo.nhanVienId;
       setState(() => _selectedNhanVienId = id);
-      ref.read(chuyenXeListProvider.notifier).load(nhanVienId: id);
+      final notifier = ref.read(chuyenXeListProvider.notifier);
+      notifier.setFilter(tuNgay: _tuNgay, denNgay: _denNgay);
+      notifier.load(nhanVienId: id);
     } else {
       // Tải danh sách lái xe từ API, filter client-side theo chức vụ
       try {
@@ -76,8 +78,9 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
           }
         });
         if (laiXeList.isNotEmpty) {
-          ref.read(chuyenXeListProvider.notifier)
-              .load(nhanVienId: laiXeList.first.id);
+          final notifier = ref.read(chuyenXeListProvider.notifier);
+          notifier.setFilter(tuNgay: _tuNgay, denNgay: _denNgay);
+          notifier.load(nhanVienId: laiXeList.first.id);
         }
       } catch (_) {
         // Lỗi tải lái xe — bỏ qua, list chuyến xe sẽ trống
@@ -470,13 +473,37 @@ class _ChuyenXeCard extends StatelessWidget {
                             fontSize: 13, color: Colors.grey)),
                   ],
                   const Spacer(),
-                  Text(
-                    fmtCurrency.format(item.tongTienThu),
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF00897B),
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        fmtCurrency.format(item.tongTienThu),
+                        style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF00897B),
+                        ),
+                      ),
+                      if (item.soTienNo != null && item.soTienNo! > 0) ...[
+                        const SizedBox(height: 2),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                size: 12, color: Colors.redAccent),
+                            const SizedBox(width: 2),
+                            Text(
+                              'Nợ: ${fmtCurrency.format(item.soTienNo!)}',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),

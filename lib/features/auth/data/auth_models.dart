@@ -89,6 +89,7 @@ class LoginResponse {
   final String refreshToken;
   final int expiresIn;
   final int? nhanVienId;
+  final String? avatarUrl;
 
   const LoginResponse({
     required this.userId,
@@ -103,6 +104,7 @@ class LoginResponse {
     required this.refreshToken,
     required this.expiresIn,
     this.nhanVienId,
+    this.avatarUrl,
   });
 
   factory LoginResponse.fromJson(Map<String, dynamic> json) => LoginResponse(
@@ -118,5 +120,6 @@ class LoginResponse {
         refreshToken: json['refreshToken'] as String,
         expiresIn:    json['expiresIn'] as int,
         nhanVienId:   json['nhanVienId'] as int?,
+        avatarUrl:    json['avatarUrl'] as String?,
       );
 }

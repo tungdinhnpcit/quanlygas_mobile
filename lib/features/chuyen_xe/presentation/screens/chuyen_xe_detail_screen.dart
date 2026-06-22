@@ -108,7 +108,23 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('Chuyến #${widget.chuyenXeId}'),
+        title: detailAsync.when(
+          loading: () => Text('Chuyến #${widget.chuyenXeId}'),
+          error: (_, __) => Text('Chuyến #${widget.chuyenXeId}'),
+          data: (cx) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                cx.tenNhanVien ?? 'Chuyến #${widget.chuyenXeId}',
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              ),
+              Text(
+                _fmtDateOnly.format(cx.ngayXuat.toLocal()),
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400),
+              ),
+            ],
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -257,21 +273,40 @@ class _TabChiTiet extends StatelessWidget {
           ),
           const SizedBox(height: 16),
 
-          // Danh sách hàng hóa
-          if (cx.chiTiet.isEmpty)
-            _EmptyState(
-                icon: Icons.inventory_2_outlined,
-                label: 'Chưa có hàng hóa trong chuyến')
-          else ...[
+          // Danh sách hàng hóa: nếu đã settle dùng ketThuc.chiTiet (có tên KH + giá), ngược lại dùng kế hoạch chuyến
+          if (cx.ketThuc != null && cx.ketThuc!.chiTiet.isNotEmpty) ...[
             _SectionLabel(
-                '${cx.chiTiet.length} cửa hàng trong chuyến'),
+                '${cx.ketThuc!.chiTiet.length} khách hàng đã mua'),
+            const SizedBox(height: 8),
+            ...cx.ketThuc!.chiTiet.asMap().entries.map((e) {
+              final i  = e.key;
+              final ct = e.value;
+              return GestureDetector(
+                onTap: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (_) => _KhachHangDetailSheet(
+                    cx: cx,
+                    khachHangId: ct.khachHangId,
+                    tenKhachHang: ct.tenKhachHang,
+                  ),
+                ),
+                child: _KetThucChiTietCard(index: i, item: ct),
+              );
+            }),
+          ] else if (cx.chiTiet.isNotEmpty) ...[
+            _SectionLabel('${cx.chiTiet.length} mặt hàng mang theo'),
             const SizedBox(height: 8),
             ...cx.chiTiet.asMap().entries.map((e) {
               final i  = e.key;
               final ct = e.value;
-              return _ChiTietCard(index: i, item: ct);
+              return _MatHangPlanCard(index: i, item: ct);
             }),
-          ],
+          ] else
+            _EmptyState(
+                icon: Icons.inventory_2_outlined,
+                label: 'Chưa có hàng hóa trong chuyến'),
           const SizedBox(height: 16),
 
           // Tổng tiền thu
@@ -361,12 +396,9 @@ class _ChiTietCard extends StatelessWidget {
                 Expanded(
                   child: _DataChip(
                       label: 'Mặt hàng',
-                      value: item.tenMatHang ??
-                          'ID ${item.matHangId}'),
+                      value: item.tenMatHang ?? 'ID ${item.matHangId}'),
                 ),
-                _DataChip(
-                    label: 'SL',
-                    value: '${item.soLuong} bình'),
+                _DataChip(label: 'SL', value: '${item.soLuong} bình'),
                 const SizedBox(width: 8),
                 _DataChip(
                     label: 'Đ/bình',
@@ -389,6 +421,158 @@ class _ChiTietCard extends StatelessWidget {
                 ],
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Card khách hàng khi chuyến đã kết thúc — hiển thị tên KH + mặt hàng + giá thực tế.
+class _KetThucChiTietCard extends StatelessWidget {
+  final int index;
+  final KetThucChiTietModel item;
+  const _KetThucChiTietCard({required this.index, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 14,
+                  backgroundColor:
+                      const Color(0xFF00897B).withValues(alpha: 0.15),
+                  child: Text(
+                    '${index + 1}',
+                    style: const TextStyle(
+                        color: Color(0xFF00897B),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    item.tenKhachHang ?? 'Khách hàng #${item.khachHangId}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700, fontSize: 14),
+                  ),
+                ),
+                Text(
+                  _fmtCurrency.format(item.thanhTien),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF00897B),
+                      fontSize: 14),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            const Divider(height: 1),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _DataChip(
+                      label: 'Mặt hàng',
+                      value: item.tenMatHang ?? 'ID ${item.matHangId}'),
+                ),
+                _DataChip(label: 'SL', value: '${item.soLuong} bình'),
+                const SizedBox(width: 8),
+                _DataChip(
+                    label: 'Đ/bình',
+                    value: _fmtCurrency.format(item.donGia)),
+              ],
+            ),
+            if (item.soVoBan > 0 || item.soVoThu > 0) ...[
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  _DataChip(
+                      label: 'Vỏ bán',
+                      value: '${item.soVoBan}',
+                      color: Colors.blue),
+                  const SizedBox(width: 8),
+                  _DataChip(
+                      label: 'Vỏ thu',
+                      value: '${item.soVoThu}',
+                      color: Colors.teal),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Card mặt hàng mang theo khi chuyến chưa kết thúc — chỉ hiển thị tên hàng + số lượng, không có tên khách hàng.
+class _MatHangPlanCard extends StatelessWidget {
+  final int index;
+  final ChuyenXeChiTietModel item;
+  const _MatHangPlanCard({required this.index, required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 13,
+              backgroundColor: const Color(0xFF00897B).withValues(alpha: 0.15),
+              child: Text(
+                '${index + 1}',
+                style: const TextStyle(
+                    color: Color(0xFF00897B),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    item.tenMatHang ?? 'Mặt hàng #${item.matHangId}',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  if (item.tenNhaCungCap != null) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      item.tenNhaCungCap!,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.55)),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Text(
+              '${item.soLuong} bình',
+              style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                  color: Color(0xFF00897B)),
+            ),
           ],
         ),
       ),
@@ -1072,6 +1256,398 @@ class _FullScreenGalleryState extends State<_FullScreenGallery> {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Bottom sheet: chi tiết một khách hàng trong chuyến ────────────────────
+
+class _KhachHangDetailSheet extends StatelessWidget {
+  final ChuyenXeModel cx;
+  final int khachHangId;
+  final String? tenKhachHang;
+
+  const _KhachHangDetailSheet({
+    required this.cx,
+    required this.khachHangId,
+    required this.tenKhachHang,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final kt = cx.ketThuc;
+
+    // Lọc dữ liệu của khách hàng này từ dữ liệu chuyến xe sẵn có
+    final hangs   = kt?.chiTiet.where((c) => c.khachHangId == khachHangId).toList() ?? [];
+    final gasDus  = kt?.gasDu.where((g) => g.khachHangId == khachHangId).toList() ?? [];
+    final noCus   = kt?.traNoCu.where((n) => n.khachHangId == khachHangId).toList() ?? [];
+
+    final tongHang  = hangs.fold(0.0, (s, c) => s + c.thanhTien);
+    final tongGas   = gasDus.fold(0.0, (s, g) => s + g.thanhTien);
+    final tongNo    = noCus.fold(0.0, (s, n) => s + n.soTien);
+    final tongCong  = tongHang + tongGas + tongNo;
+
+    final maxH = MediaQuery.of(context).size.height * 0.85;
+
+    return Container(
+      constraints: BoxConstraints(maxHeight: maxH),
+      decoration: const BoxDecoration(
+        color: Color(0xFFF5F6FA),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Header: tên khách hàng
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF00695C).withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.storefront_outlined,
+                      color: Color(0xFF00695C), size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        tenKhachHang ?? 'Khách hàng #$khachHangId',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF1A202C),
+                        ),
+                      ),
+                      Text(
+                        '${cx.tenNhanVien ?? 'Lái xe'} • ${_fmtDateOnly.format(cx.ngayXuat.toLocal())}',
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+
+          // Nội dung cuộn được
+          Flexible(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // ── Hàng mua
+                  if (hangs.isNotEmpty) ...[
+                    _SheetSection(
+                      icon: Icons.inventory_2_outlined,
+                      title: 'Hàng mua',
+                      color: const Color(0xFF00695C),
+                    ),
+                    const SizedBox(height: 8),
+                    ...hangs.map((c) => _SheetHangRow(item: c)),
+                    _SheetSubtotal(label: 'Tổng hàng', amount: tongHang,
+                        color: const Color(0xFF00695C)),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Gas dư mua lại
+                  if (gasDus.isNotEmpty) ...[
+                    _SheetSection(
+                      icon: Icons.local_gas_station_outlined,
+                      title: 'Gas dư mua lại',
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(height: 8),
+                    ...gasDus.map((g) => _SheetGasDuRow(item: g)),
+                    _SheetSubtotal(label: 'Tổng gas dư', amount: tongGas,
+                        color: Colors.orange),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Thu nợ cũ
+                  if (noCus.isNotEmpty) ...[
+                    _SheetSection(
+                      icon: Icons.receipt_long_outlined,
+                      title: 'Thu nợ cũ',
+                      color: Colors.purple,
+                    ),
+                    const SizedBox(height: 8),
+                    ...noCus.map((n) => _SheetNoCuRow(item: n)),
+                    _SheetSubtotal(label: 'Tổng nợ', amount: tongNo,
+                        color: Colors.purple),
+                    const SizedBox(height: 16),
+                  ],
+
+                  // ── Tổng cộng
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF00695C),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Tổng tiền thu',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600),
+                        ),
+                        Text(
+                          _fmtCurrency.format(tongCong),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Tiêu đề section trong sheet
+class _SheetSection extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  final Color color;
+  const _SheetSection(
+      {required this.icon, required this.title, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 16, color: color),
+        const SizedBox(width: 6),
+        Text(
+          title.toUpperCase(),
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: color,
+            letterSpacing: 0.8,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// Một dòng hàng mua
+class _SheetHangRow extends StatelessWidget {
+  final KetThucChiTietModel item;
+  const _SheetHangRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.tenMatHang ?? 'Mặt hàng #${item.matHangId}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+              Text(
+                _fmtCurrency.format(item.thanhTien),
+                style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF00695C),
+                    fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _DataChip(label: 'SL', value: '${item.soLuong} bình'),
+              const SizedBox(width: 8),
+              _DataChip(
+                  label: 'Đ/bình',
+                  value: _fmtCurrency.format(item.donGia)),
+              if (item.soVoThu > 0) ...[
+                const SizedBox(width: 8),
+                _DataChip(
+                    label: 'Vỏ thu',
+                    value: '${item.soVoThu}',
+                    color: Colors.teal),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Một dòng gas dư
+class _SheetGasDuRow extends StatelessWidget {
+  final GasDuChiTietModel item;
+  const _SheetGasDuRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.tenMatHang ?? 'Mặt hàng #${item.matHangId}',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    _DataChip(label: 'Số kg', value: '${item.soKg} kg'),
+                    const SizedBox(width: 8),
+                    _DataChip(
+                        label: 'Đ/kg',
+                        value: _fmtCurrency.format(item.donGia)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Text(
+            _fmtCurrency.format(item.thanhTien),
+            style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Colors.orange,
+                fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Một dòng thu nợ cũ
+class _SheetNoCuRow extends StatelessWidget {
+  final TraNoCuModel item;
+  const _SheetNoCuRow({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Nợ cũ',
+                    style: TextStyle(
+                        fontWeight: FontWeight.w600, fontSize: 13)),
+                if (item.ghiChu != null && item.ghiChu!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(item.ghiChu!,
+                      style: const TextStyle(
+                          fontSize: 12, color: Colors.grey)),
+                ],
+              ],
+            ),
+          ),
+          Text(
+            _fmtCurrency.format(item.soTien),
+            style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                color: Colors.purple,
+                fontSize: 13),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// Dòng tổng phụ mỗi section
+class _SheetSubtotal extends StatelessWidget {
+  final String label;
+  final double amount;
+  final Color color;
+  const _SheetSubtotal(
+      {required this.label, required this.amount, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, right: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          Text(
+            '$label: ',
+            style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.8)),
+          ),
+          Text(
+            _fmtCurrency.format(amount),
+            style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color),
           ),
         ],
       ),

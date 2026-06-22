@@ -133,6 +133,104 @@ class DaiLyItem {
       );
 }
 
+// ── Chi tiết bán hàng theo đại lý ───────────────────────────────────────────
+
+class DaiLyBanHangChiTietModel {
+  final int matHangId;
+  final String tenMatHang;
+  final int soLuong;
+  final double giaBan;
+  final double thanhTien;
+
+  DaiLyBanHangChiTietModel({
+    required this.matHangId,
+    required this.tenMatHang,
+    required this.soLuong,
+    required this.giaBan,
+    required this.thanhTien,
+  });
+
+  factory DaiLyBanHangChiTietModel.fromJson(Map<String, dynamic> j) =>
+      DaiLyBanHangChiTietModel(
+        matHangId:  j['matHangId'] as int,
+        tenMatHang: j['tenMatHang'] ?? '',
+        soLuong:    (j['soLuong'] as num).toInt(),
+        giaBan:     (j['giaBan'] as num).toDouble(),
+        thanhTien:  (j['thanhTien'] as num).toDouble(),
+      );
+}
+
+class DaiLyBanHangModel {
+  final int chuyenXeId;
+  final String maChuyenXe;
+  final DateTime ngayXuat;
+  final List<DaiLyBanHangChiTietModel> chiTiet;
+  final double tongTienBan;
+  final double tienNo;
+
+  DaiLyBanHangModel({
+    required this.chuyenXeId,
+    required this.maChuyenXe,
+    required this.ngayXuat,
+    required this.chiTiet,
+    required this.tongTienBan,
+    required this.tienNo,
+  });
+
+  factory DaiLyBanHangModel.fromJson(Map<String, dynamic> j) =>
+      DaiLyBanHangModel(
+        chuyenXeId:  j['chuyenXeId'] as int,
+        maChuyenXe:  j['maChuyenXe'] ?? '',
+        ngayXuat:    DateTime.parse(j['ngayXuat']),
+        chiTiet:     (j['chiTiet'] as List)
+            .map((e) => DaiLyBanHangChiTietModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        tongTienBan: (j['tongTienBan'] as num).toDouble(),
+        tienNo:      (j['tienNo'] as num).toDouble(),
+      );
+}
+
+// ── Đại lý lâu chưa mua ─────────────────────────────────────────────────────
+
+class KhachHangChuaMuaModel {
+  final int khachHangId;
+  final String maKhachHang;
+  final String tenKhachHang;
+  final String? soDienThoai;
+  final String? diaChi;
+  final DateTime? ngayMuaCuoiCung;
+  final int? soNgayChuaMua;
+  final double? latitude;
+  final double? longitude;
+
+  KhachHangChuaMuaModel({
+    required this.khachHangId,
+    required this.maKhachHang,
+    required this.tenKhachHang,
+    this.soDienThoai,
+    this.diaChi,
+    this.ngayMuaCuoiCung,
+    this.soNgayChuaMua,
+    this.latitude,
+    this.longitude,
+  });
+
+  factory KhachHangChuaMuaModel.fromJson(Map<String, dynamic> j) =>
+      KhachHangChuaMuaModel(
+        khachHangId:      j['khachHangId'] as int,
+        maKhachHang:      j['maKhachHang'] ?? '',
+        tenKhachHang:     j['tenKhachHang'] ?? '',
+        soDienThoai:      j['soDienThoai'] as String?,
+        diaChi:           j['diaChi'] as String?,
+        ngayMuaCuoiCung:  j['ngayMuaCuoiCung'] != null
+            ? DateTime.tryParse(j['ngayMuaCuoiCung'] as String)
+            : null,
+        soNgayChuaMua:    j['soNgayChuaMua'] as int?,
+        latitude:         (j['latitude'] as num?)?.toDouble(),
+        longitude:        (j['longitude'] as num?)?.toDouble(),
+      );
+}
+
 class TongQuanDashboard {
   final DateTime tuNgay;
   final DateTime denNgay;

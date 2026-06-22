@@ -57,6 +57,9 @@ dependencies:
   # Image compression (resize to under 1MB before upload)
   flutter_image_compress: ^2.3.0
 
+  # Background polling (cho điện thoại không có GMS)
+  workmanager: ^0.9.0+3
+
   # Utilities
   intl: ^0.20.2
   equatable: ^2.0.5
@@ -69,6 +72,17 @@ dev_dependencies:
   json_serializable: ^6.8.0
   json_annotation: ^4.9.0
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.1
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/
+
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  image_path: "assets/images/app_icon.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/app_icon.png"
+  min_sdk_android: 21

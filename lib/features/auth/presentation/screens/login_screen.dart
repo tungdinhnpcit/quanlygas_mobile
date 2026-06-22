@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../features/menu/providers/menu_provider.dart';
+import '../../../../features/thong_bao/presentation/providers/thong_bao_provider.dart';
 import '../../data/auth_repository.dart';
 import '../../data/biometric_service.dart';
 
@@ -82,6 +83,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         ref.invalidate(menuProvider);
         ref.invalidate(userInfoProvider);
+        ref.invalidate(soChuaDocProvider);
         context.go(AppRoutes.home);
       }
     } catch (_) {
@@ -116,6 +118,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (mounted) {
         ref.invalidate(menuProvider);
         ref.invalidate(userInfoProvider);
+        ref.invalidate(soChuaDocProvider);
         context.go(AppRoutes.home);
       }
     } catch (_) {
@@ -281,25 +284,10 @@ class _Background extends StatelessWidget {
 class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: const [
-        Icon(Icons.local_fire_department_rounded, size: 64, color: Color(0xFF00BCD4)),
-        SizedBox(height: 10),
-        Text(
-          'GAS MANAGER',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 28,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 3,
-          ),
-        ),
-        SizedBox(height: 4),
-        Text(
-          'Quản lý phân phối khí gas',
-          style: TextStyle(color: Colors.white54, fontSize: 14),
-        ),
-      ],
+    return Image.asset(
+      'assets/images/logo.png',
+      width: 180,
+      height: 180,
     );
   }
 }

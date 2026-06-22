@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'app.dart';
+import 'core/services/background_polling_service.dart';
 import 'core/services/notification_service.dart';
 import 'firebase_options.dart';
 
@@ -23,6 +24,9 @@ void main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('vi');
+
+  // Khởi tạo background polling (cho điện thoại không có GMS)
+  await BackgroundPollingService.init();
 
   // Register background handler before runApp
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);

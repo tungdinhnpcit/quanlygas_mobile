@@ -29,6 +29,7 @@ class ChuyenXeChiTietModel {
   final String? tenKhachHang;
   final int matHangId;
   final String? tenMatHang;
+  final String? tenNhaCungCap;
   final int soLuong;
   final double donGia;
   final double thanhTien;
@@ -41,6 +42,7 @@ class ChuyenXeChiTietModel {
     this.tenKhachHang,
     required this.matHangId,
     this.tenMatHang,
+    this.tenNhaCungCap,
     required this.soLuong,
     required this.donGia,
     required this.thanhTien,
@@ -49,16 +51,17 @@ class ChuyenXeChiTietModel {
   });
 
   factory ChuyenXeChiTietModel.fromJson(Map<String, dynamic> json) => ChuyenXeChiTietModel(
-        id:           json['id'] as int,
-        khachHangId:  json['khachHangId'] as int,
-        tenKhachHang: json['tenKhachHang'] as String?,
-        matHangId:    json['matHangId'] as int,
-        tenMatHang:   json['tenMatHang'] as String?,
-        soLuong:      json['soLuong'] as int,
-        donGia:       (json['donGia'] as num).toDouble(),
-        thanhTien:    (json['thanhTien'] as num).toDouble(),
-        soVoBan:      json['soVoBan'] as int? ?? 0,
-        soVoThu:      json['soVoThu'] as int? ?? 0,
+        id:             json['id'] as int,
+        khachHangId:    json['khachHangId'] as int? ?? 0,
+        tenKhachHang:   json['tenKhachHang'] as String?,
+        matHangId:      json['matHangId'] as int,
+        tenMatHang:     json['tenMatHang'] as String?,
+        tenNhaCungCap:  json['tenNhaCungCap'] as String?,
+        soLuong:        json['soLuong'] as int,
+        donGia:         (json['donGia'] as num? ?? 0).toDouble(),
+        thanhTien:      (json['thanhTien'] as num? ?? 0).toDouble(),
+        soVoBan:        json['soVoBan'] as int? ?? 0,
+        soVoThu:        json['soVoThu'] as int? ?? 0,
       );
 }
 
@@ -82,7 +85,7 @@ class VoThuChiTietModel {
   });
 
   factory VoThuChiTietModel.fromJson(Map<String, dynamic> json) => VoThuChiTietModel(
-        id:             json['id'] as int,
+        id:             json['id'] as int? ?? 0,
         nhaCungCapId:   json['nhaCungCapId'] as int?,
         tenNhaCungCap:  json['tenNhaCungCap'] as String?,
         matHangId:      json['matHangId'] as int,
@@ -152,6 +155,50 @@ class TraNoCuModel {
       );
 }
 
+// ---------- Kết thúc chuyến: Chi tiết từng khách hàng mua ----------
+
+class KetThucChiTietModel {
+  final int id;
+  final int khachHangId;
+  final String? tenKhachHang;
+  final int matHangId;
+  final String? tenMatHang;
+  final int soLuong;
+  final double donGia;
+  final double thanhTien;
+  final int soVoBan;
+  final int soVoThu;
+  final String? loaiVo;
+
+  const KetThucChiTietModel({
+    required this.id,
+    required this.khachHangId,
+    this.tenKhachHang,
+    required this.matHangId,
+    this.tenMatHang,
+    required this.soLuong,
+    required this.donGia,
+    required this.thanhTien,
+    required this.soVoBan,
+    required this.soVoThu,
+    this.loaiVo,
+  });
+
+  factory KetThucChiTietModel.fromJson(Map<String, dynamic> json) => KetThucChiTietModel(
+        id:           json['id'] as int? ?? 0,
+        khachHangId:  json['khachHangId'] as int? ?? 0,
+        tenKhachHang: json['tenKhachHang'] as String?,
+        matHangId:    json['matHangId'] as int? ?? 0,
+        tenMatHang:   json['tenMatHang'] as String?,
+        soLuong:      json['soLuong'] as int? ?? 0,
+        donGia:       (json['donGia'] as num? ?? 0).toDouble(),
+        thanhTien:    (json['thanhTien'] as num? ?? 0).toDouble(),
+        soVoBan:      json['soVoBan'] as int? ?? 0,
+        soVoThu:      json['soVoThu'] as int? ?? 0,
+        loaiVo:       json['loaiVo'] as String?,
+      );
+}
+
 // ---------- Kết thúc chuyến: Tổng hợp ----------
 
 class KetThucChuyenXeModel {
@@ -167,6 +214,7 @@ class KetThucChuyenXeModel {
   final double tongTienTraGasDu;
   final double tongThuNoCu;
   final String? ghiChu;
+  final List<KetThucChiTietModel> chiTiet;
   final List<VoThuChiTietModel> voThu;
   final List<GasDuChiTietModel> gasDu;
   final List<TraNoCuModel> traNoCu;
@@ -184,6 +232,7 @@ class KetThucChuyenXeModel {
     required this.tongTienTraGasDu,
     required this.tongThuNoCu,
     this.ghiChu,
+    required this.chiTiet,
     required this.voThu,
     required this.gasDu,
     required this.traNoCu,
@@ -204,6 +253,9 @@ class KetThucChuyenXeModel {
         tongTienTraGasDu: (json['tongTienTraGasDu'] as num? ?? 0).toDouble(),
         tongThuNoCu:      (json['tongThuNoCu'] as num? ?? 0).toDouble(),
         ghiChu:           json['ghiChu'] as String?,
+        chiTiet: (json['chiTiet'] as List? ?? [])
+            .map((e) => KetThucChiTietModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
         voThu: (json['voThu'] as List? ?? [])
             .map((e) => VoThuChiTietModel.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -228,6 +280,7 @@ class ChuyenXeModel {
   final String? tenNhanVien;
   final String trangThai;
   final double tongTienThu;
+  final double? soTienNo;
   final String? ghiChu;
   final bool isActive;
   final DateTime createdAt;
@@ -246,6 +299,7 @@ class ChuyenXeModel {
     this.tenNhanVien,
     required this.trangThai,
     required this.tongTienThu,
+    this.soTienNo,
     this.ghiChu,
     required this.isActive,
     required this.createdAt,
@@ -265,6 +319,7 @@ class ChuyenXeModel {
         tenNhanVien: json['tenNhanVien'] as String?,
         trangThai:   json['trangThai'] as String,
         tongTienThu: (json['tongTienThu'] as num).toDouble(),
+        soTienNo:    (json['soTienNo'] as num?)?.toDouble(),
         ghiChu:      json['ghiChu'] as String?,
         isActive:    json['isActive'] as bool? ?? true,
         createdAt:   DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),

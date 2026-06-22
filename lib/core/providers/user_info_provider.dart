@@ -8,6 +8,7 @@ class UserInfo {
   final String roleCode;
   final int userId;
   final int nhanVienId;
+  final String? avatarUrl;
 
   const UserInfo({
     required this.fullName,
@@ -15,6 +16,7 @@ class UserInfo {
     required this.roleCode,
     required this.userId,
     required this.nhanVienId,
+    this.avatarUrl,
   });
 }
 
@@ -25,11 +27,13 @@ final userInfoProvider = FutureProvider<UserInfo>((ref) async {
   final roleCode       = await storage.read(key: 'role_code') ?? '';
   final userIdStr      = await storage.read(key: 'user_id') ?? '0';
   final nhanVienIdStr  = await storage.read(key: 'nhan_vien_id') ?? '0';
+  final avatarUrl      = await storage.read(key: 'avatar_url');
   return UserInfo(
     fullName:    fullName,
     username:    username,
     roleCode:    roleCode,
     userId:      int.tryParse(userIdStr) ?? 0,
     nhanVienId:  int.tryParse(nhanVienIdStr) ?? 0,
+    avatarUrl:   (avatarUrl != null && avatarUrl.isNotEmpty) ? avatarUrl : null,
   );
 });

@@ -21,7 +21,7 @@ class TongQuanNotifier extends StateNotifier<AsyncValue<TongQuanDashboard>> {
   DateTime _denNgay;
 
   TongQuanNotifier(this._repo)
-      : _tuNgay  = DateTime.now().subtract(const Duration(days: 30)),
+      : _tuNgay  = DateTime.now().subtract(const Duration(days: 7)),
         _denNgay = DateTime.now(),
         super(const AsyncValue.loading()) {
     _load();
@@ -53,3 +53,17 @@ final tongQuanDashboardProvider =
     StateNotifierProvider.autoDispose<TongQuanNotifier, AsyncValue<TongQuanDashboard>>(
   (ref) => TongQuanNotifier(ref.read(tongQuanRepositoryProvider)),
 );
+
+/// Chi tiết bán hàng cho 1 đại lý — FutureProvider.family.autoDispose
+/// arg = (khachHangId, tuNgay, denNgay)
+final daiLyBanHangProvider = FutureProvider.autoDispose
+    .family<List<DaiLyBanHangModel>, (int, DateTime, DateTime)>((ref, args) {
+  final (khachHangId, tuNgay, denNgay) = args;
+  return ref.read(tongQuanRepositoryProvider).getDaiLyBanHang(khachHangId, tuNgay, denNgay);
+});
+
+/// Danh sách khách hàng lâu chưa mua
+final khachHangChuaMuaProvider =
+    FutureProvider.autoDispose<List<KhachHangChuaMuaModel>>((ref) {
+  return ref.read(tongQuanRepositoryProvider).getKhachHangChuaMua();
+});

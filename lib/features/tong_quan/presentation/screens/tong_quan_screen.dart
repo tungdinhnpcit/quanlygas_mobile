@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../data/models/tong_quan_model.dart';
 import '../providers/tong_quan_provider.dart';
 
@@ -136,9 +138,11 @@ class _TongQuanScreenState extends ConsumerState<TongQuanScreen> {
                 delegate: SliverChildListDelegate([
                   _KpiGrid(data: data),
                   const SizedBox(height: 16),
-                  _BinhBanSection(items: data.binhBanTheoMatHang),
-                  const SizedBox(height: 16),
-                  _DaiLySection(items: data.binhBanTheoDaiLy),
+                  _DaiLySection(
+                    items: data.binhBanTheoDaiLy,
+                    tuNgay: _tuNgay,
+                    denNgay: _denNgay,
+                  ),
                   const SizedBox(height: 8),
                 ]),
               ),
@@ -299,86 +303,17 @@ class _KpiCard extends StatelessWidget {
   }
 }
 
-// ── Bình gas theo danh mục ───────────────────────────────────────────────────
-
-class _BinhBanSection extends StatelessWidget {
-  final List<BinhBanItem> items;
-  const _BinhBanSection({required this.items});
-
-  @override
-  Widget build(BuildContext context) {
-    if (items.isEmpty) {
-      return _Section(
-        title: 'Bình gas theo danh mục',
-        icon: Icons.propane_tank_outlined,
-        child: const Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: 12),
-            child: Text('Không có dữ liệu', style: TextStyle(color: Colors.grey)),
-          ),
-        ),
-      );
-    }
-    final maxSl = items.map((e) => e.soLuong).fold(1, (a, b) => a > b ? a : b);
-    return _Section(
-      title: 'Bình gas theo danh mục',
-      icon: Icons.propane_tank_outlined,
-      child: Column(
-        children: items.map((item) {
-          final label = item.tenNhaCungCap != null
-              ? '${item.tenMatHang} · ${item.tenNhaCungCap}'
-              : item.tenMatHang;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(label,
-                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '${_num.format(item.soLuong)} bình',
-                      style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Color(0xFF00695C)),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                LinearProgressIndicator(
-                  value: maxSl > 0 ? item.soLuong / maxSl : 0,
-                  backgroundColor: Colors.grey.withValues(alpha: 0.15),
-                  valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF00897B)),
-                  borderRadius: BorderRadius.circular(4),
-                  minHeight: 5,
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${_vnd.format(item.thanhTien)} đ',
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
-                ),
-              ],
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
 // ── Doanh thu theo đại lý ────────────────────────────────────────────────────
 
 class _DaiLySection extends StatelessWidget {
   final List<DaiLyItem> items;
-  const _DaiLySection({required this.items});
+  final DateTime? tuNgay;
+  final DateTime? denNgay;
+  const _DaiLySection({
+    required this.items,
+    this.tuNgay,
+    this.denNgay,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -398,7 +333,13 @@ class _DaiLySection extends StatelessWidget {
       title: 'Doanh thu theo đại lý',
       icon: Icons.store_outlined,
       child: Column(
-        children: items.map((item) => _DaiLyRow(item: item)).toList(),
+        children: items
+            .map((item) => _DaiLyRow(
+                  item: item,
+                  tuNgay: tuNgay,
+                  denNgay: denNgay,
+                ))
+            .toList(),
       ),
     );
   }
@@ -406,7 +347,13 @@ class _DaiLySection extends StatelessWidget {
 
 class _DaiLyRow extends StatelessWidget {
   final DaiLyItem item;
-  const _DaiLyRow({required this.item});
+  final DateTime? tuNgay;
+  final DateTime? denNgay;
+  const _DaiLyRow({
+    required this.item,
+    this.tuNgay,
+    this.denNgay,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -415,7 +362,16 @@ class _DaiLyRow extends StatelessWidget {
     final isWarning = soNgay != null && soNgay > 30;
     final dayColor  = isWarning ? const Color(0xFFE65100) : Colors.grey;
 
-    return Padding(
+    return InkWell(
+      onTap: () => context.push(
+        AppRoutes.daiLyChiTiet(
+          item.khachHangId.toString(),
+          tuNgay: tuNgay,
+          denNgay: denNgay,
+        ),
+      ),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -490,6 +446,7 @@ class _DaiLyRow extends StatelessWidget {
           ),
           const Divider(height: 14, thickness: 0.5),
         ],
+      ),
       ),
     );
   }
