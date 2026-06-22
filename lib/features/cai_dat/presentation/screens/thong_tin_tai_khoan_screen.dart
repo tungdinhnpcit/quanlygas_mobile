@@ -22,7 +22,7 @@ class _ThongTinTaiKhoanScreenState extends ConsumerState<ThongTinTaiKhoanScreen>
   bool _uploading = false;
 
   static String get _staticBaseUrl =>
-      AppConstants.baseApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
+      AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
 
   Future<void> _pickAndUpload(int nhanVienId) async {
     final picker = ImagePicker();

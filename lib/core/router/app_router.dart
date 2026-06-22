@@ -209,13 +209,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (_, __) => const BatDauChuyenScreen(),
           ),
           GoRoute(
-            path: '/chuyen-xe/:id/ban-hang/nhap',
+            path: '/ban-hang/:id/nhap',
             builder: (_, state) => NhapBanHangScreen(
               chuyenXeServerId: int.tryParse(state.pathParameters['id']!),
             ),
           ),
           GoRoute(
-            path: '/chuyen-xe/offline/:localId/ban-hang/nhap',
+            path: '/ban-hang/offline/:localId/nhap',
             builder: (_, state) => NhapBanHangScreen(
               chuyenXeLocalId: int.tryParse(state.pathParameters['localId']!),
             ),
@@ -267,7 +267,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
       final online = await ConnectivityService.instance.checkOnline();
       if (!online) return;
       final result = await SyncService.instance.syncCatalog();
-      await SyncService.instance.markSyncedToday();
+      // Chỉ đánh dấu đã sync khi có ít nhất 1 loại dữ liệu được tải về thành công
+      if (result.totalSynced > 0) {
+        await SyncService.instance.markSyncedToday();
+      }
       if (result.hasNewItems && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
           content: Text(result.summary),
@@ -337,6 +340,12 @@ class _MainShellState extends ConsumerState<_MainShell> {
     AppRoutes.taoKhachHang:     'Tạo khách hàng',
   };
 
+  String _resolveTitle(String location) {
+    if (_featureTitles.containsKey(location)) return _featureTitles[location]!;
+    if (RegExp(r'^/ban-hang(/offline)?/[^/]+/nhap$').hasMatch(location)) return 'Nhập bán hàng';
+    return _tabTitles[_currentIndex];
+  }
+
   void _onTabTapped(int index) {
     final location = GoRouterState.of(context).uri.path;
     if (index == _currentIndex && location == _tabs[index].route) return;
@@ -350,7 +359,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
     final isTabRoute = location == AppRoutes.home ||
         _tabs.any((t) => t.route == location);
     final isHome     = location == AppRoutes.home;
-    final title      = _featureTitles[location] ?? _tabTitles[_currentIndex];
+    final title      = _resolveTitle(location);
 
     void goBack() {
       if (context.canPop()) {

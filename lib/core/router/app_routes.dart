@@ -41,8 +41,8 @@ class AppRoutes {
   static const String doiMatKhau         = '/doi-mat-khau';
 
   // Mobile driver — nhập bán hàng
-  static const String batDauChuyen       = '/chuyen-xe/bat-dau';
-  static String nhapBanHang(int chuyenXeId) => '/chuyen-xe/$chuyenXeId/ban-hang/nhap';
+  static const String batDauChuyen       = '/bat-dau-chuyen';
+  static String nhapBanHang(int chuyenXeId) => '/ban-hang/$chuyenXeId/nhap';
   static const String taoKhachHang       = '/khach-hang/tao-moi';
   static const String dongBo             = '/cai-dat/dong-bo';
 }

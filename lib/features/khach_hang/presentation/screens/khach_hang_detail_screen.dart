@@ -30,7 +30,7 @@ class _KhachHangDetailScreenState
 
   // Xây dựng URL ảnh từ đường dẫn tương đối trả về từ server
   String _buildImageUrl(String relativePath) {
-    final uri = Uri.parse(AppConstants.baseApiUrl);
+    final uri = Uri.parse(AppConstants.resolvedApiUrl);
     final serverRoot = '${uri.scheme}://${uri.host}:${uri.port}';
     return '$serverRoot$relativePath';
   }

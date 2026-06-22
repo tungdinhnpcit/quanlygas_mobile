@@ -66,7 +66,7 @@ Future<void> _doPoll() async {
   try {
     // Build API URL: /api/thong-bao/so-chua-doc?userId=123
     final uri = Uri.parse(
-      '${AppConstants.baseApiUrl}/api/thong-bao/so-chua-doc?userId=$userId',
+      '${AppConstants.resolvedApiUrl}/api/thong-bao/so-chua-doc?userId=$userId',
     );
 
     // Tạo GET request

@@ -112,6 +112,27 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
   @override
   Widget build(BuildContext context) {
     final id = int.tryParse(widget.chuyenXeId) ?? 0;
+    // Guard: id không hợp lệ (route conflict) — trả về trang lỗi thay vì crash
+    if (id <= 0) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Lỗi')),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              const SizedBox(height: 12),
+              Text('ID chuyến xe không hợp lệ: "${widget.chuyenXeId}"'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.go('/chuyen-xe'),
+                child: const Text('Quay lại danh sách'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final detailAsync = ref.watch(chuyenXeDetailProvider(id));
 
     return Scaffold(
@@ -943,7 +964,7 @@ class _TabAnh extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final baseUrl =
-        AppConstants.baseApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
+        AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
     final canUpload = !uploading;
 
     return SingleChildScrollView(

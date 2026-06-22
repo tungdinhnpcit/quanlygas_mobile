@@ -51,7 +51,7 @@ class ChuyenXeRepository {
 
   /// Lấy chi tiết chuyến xe theo ID kèm danh sách hàng hóa và ảnh đã upload.
   Future<ChuyenXeModel> getById(int id) async {
-    debugPrint('[ChuyenXe] GET '+AppConstants.baseApiUrl+'/api/chuyen-xe/$id');
+    debugPrint('[ChuyenXe] GET '+AppConstants.resolvedApiUrl+'/api/chuyen-xe/$id');
     try{
       final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$id');
       return ChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
@@ -132,6 +132,12 @@ class ChuyenXeRepository {
   Future<void> deleteBanHang(int chuyenXeId, int banHangId) async {
     await ApiClient.instance.dio
         .post('/api/chuyen-xe/$chuyenXeId/ban-hang/$banHangId/delete');
+  }
+
+  /// Nhập đầy đủ thông tin bán hàng 1 khách hàng: sản phẩm + gas dư + thanh toán.
+  Future<void> nhapKhachHang(int chuyenXeId, Map<String, dynamic> body) async {
+    await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/nhap-khach-hang', data: body);
   }
 
   /// Nén ảnh xuống ≤ 1MB bằng cách giảm dần quality (85 → 20, bước 10).

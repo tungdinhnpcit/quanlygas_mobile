@@ -113,7 +113,7 @@ class _UserRow extends StatelessWidget {
   Widget build(BuildContext outerContext) {
     final name      = info?.fullName ?? 'Người dùng';
     final avatarUrl = info?.avatarUrl;
-    final baseUrl   = AppConstants.baseApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
+    final baseUrl   = AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
 
     // Tạo chữ viết tắt từ họ tên (tối đa 2 chữ cái đầu)
     final words    = name.trim().split(' ').where((w) => w.isNotEmpty).toList();
