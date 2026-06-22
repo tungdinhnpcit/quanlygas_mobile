@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "671985858494",
+    "project_id": "quanlygas-ae3f6",
+    "storage_bucket": "quanlygas-ae3f6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:671985858494:android:ee1905e27eaf1d7ef2ebef",
+        "android_client_info": {
+          "package_name": "com.quanlygasapp.quan_ly_gas_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBLKmcdzPM80_voAcNxE5lESuKmHgFfWJI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

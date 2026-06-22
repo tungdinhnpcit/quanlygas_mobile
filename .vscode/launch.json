@@ -1,0 +1,40 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug (Android V2324A)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "10AE2K0F7T002Q0",
+      "args": ["--debug"]
+    },
+    {
+      "name": "Debug (Windows Desktop)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "windows",
+      "args": ["--debug"]
+    },
+    {
+      "name": "Debug (Chrome)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "chrome",
+      "args": ["--debug"]
+    },
+    {
+      "name": "Profile (Android)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "10AE2K0F7T002Q0",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "Release (Android)",
+      "request": "launch",
+      "type": "dart",
+      "deviceId": "10AE2K0F7T002Q0",
+      "flutterMode": "release"
+    }
+  ]
+}
