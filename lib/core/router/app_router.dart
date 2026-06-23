@@ -122,6 +122,42 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.batDauChuyen,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const BatDauChuyenScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/ban-hang/:id/nhap',
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: NhapBanHangScreen(
+            chuyenXeServerId: int.tryParse(state.pathParameters['id']!),
+          ),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/ban-hang/offline/:localId/nhap',
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: NhapBanHangScreen(
+            chuyenXeLocalId: int.tryParse(state.pathParameters['localId']!),
+          ),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.taoKhachHang,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const TaoKhachHangScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/dai-ly-chi-tiet/:id',
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
@@ -203,26 +239,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.dongBo,
             builder: (_, __) => const DongBoScreen(),
-          ),
-          GoRoute(
-            path: AppRoutes.batDauChuyen,
-            builder: (_, __) => const BatDauChuyenScreen(),
-          ),
-          GoRoute(
-            path: '/ban-hang/:id/nhap',
-            builder: (_, state) => NhapBanHangScreen(
-              chuyenXeServerId: int.tryParse(state.pathParameters['id']!),
-            ),
-          ),
-          GoRoute(
-            path: '/ban-hang/offline/:localId/nhap',
-            builder: (_, state) => NhapBanHangScreen(
-              chuyenXeLocalId: int.tryParse(state.pathParameters['localId']!),
-            ),
-          ),
-          GoRoute(
-            path: AppRoutes.taoKhachHang,
-            builder: (_, __) => const TaoKhachHangScreen(),
           ),
         ],
       ),
@@ -336,13 +352,10 @@ class _MainShellState extends ConsumerState<_MainShell> {
     AppRoutes.thongTinTaiKhoan: 'Thông tin tài khoản',
     AppRoutes.doiMatKhau:       'Đổi mật khẩu',
     AppRoutes.dongBo:           'Đồng bộ dữ liệu',
-    AppRoutes.batDauChuyen:     'Bắt đầu chuyến',
-    AppRoutes.taoKhachHang:     'Tạo khách hàng',
   };
 
   String _resolveTitle(String location) {
     if (_featureTitles.containsKey(location)) return _featureTitles[location]!;
-    if (RegExp(r'^/ban-hang(/offline)?/[^/]+/nhap$').hasMatch(location)) return 'Nhập bán hàng';
     return _tabTitles[_currentIndex];
   }
 

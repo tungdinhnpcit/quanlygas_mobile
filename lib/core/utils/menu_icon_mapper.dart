@@ -5,6 +5,7 @@ IconData mapMenuIcon(String menuCode) {
   return switch (menuCode.toUpperCase()) {
     'DASHBOARD'                    => Icons.dashboard_rounded,
     'CHUYEN_XE'   || 'CHUYENXE'   => Icons.local_shipping_rounded,
+    'BAT_DAU_CHUYEN' || 'BATDAUCHUYEN' => Icons.play_circle_rounded,
     'NHAP_HANG'   || 'NHAPHANG'    => Icons.move_to_inbox_rounded,
     'TON_KHO'     || 'TONKHO'      => Icons.warehouse_rounded,
     'BAO_CAO'     || 'BAOCAO'      => Icons.bar_chart_rounded,

@@ -96,7 +96,12 @@ class _TaoKhachHangScreenState extends ConsumerState<TaoKhachHangScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Tạo khách hàng'),
+        leading: BackButton(onPressed: () => context.pop()),
+      ),
+      body: Padding(
       padding: const EdgeInsets.all(16),
       child: Form(
         key: _formKey,
@@ -159,6 +164,7 @@ class _TaoKhachHangScreenState extends ConsumerState<TaoKhachHangScreen> {
           ],
         ),
       ),
+    ),
     );
   }
 }

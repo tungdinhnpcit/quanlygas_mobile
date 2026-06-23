@@ -43,7 +43,7 @@ class ApiClient {
 
   ApiClient._() {
     _dio = Dio(BaseOptions(
-      baseUrl: AppConstants.baseApiUrl,
+      baseUrl: AppConstants.resolvedApiUrl,
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 15),
       headers: {'Content-Type': 'application/json'},
@@ -103,7 +103,7 @@ class ApiClient {
     final refreshToken = await _storage.read(key: 'refresh_token');
     if (refreshToken == null) return false;
     try {
-      final resp = await Dio(BaseOptions(baseUrl: AppConstants.baseApiUrl))
+      final resp = await Dio(BaseOptions(baseUrl: AppConstants.resolvedApiUrl))
           .post('/api/auth/refresh', data: {'refreshToken': refreshToken});
       final data = resp.data as Map<String, dynamic>;
       await _storage.write(key: 'jwt_token',     value: data['accessToken'] as String);

@@ -1,5 +1,6 @@
 // lib/features/auth/presentation/screens/login_screen.dart
 import 'dart:ui';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,8 +87,22 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ref.invalidate(soChuaDocProvider);
         context.go(AppRoutes.home);
       }
-    } catch (_) {
-      setState(() => _error = 'Sai tên đăng nhập hoặc mật khẩu');
+    } catch (e) {
+      String msg;
+      if (e is DioException) {
+        if (e.type == DioExceptionType.connectionTimeout ||
+            e.type == DioExceptionType.receiveTimeout ||
+            e.type == DioExceptionType.connectionError) {
+          msg = 'Không kết nối được đến máy chủ (${e.requestOptions.baseUrl})';
+        } else if (e.response?.statusCode == 401 || e.response?.statusCode == 400) {
+          msg = 'Sai tên đăng nhập hoặc mật khẩu';
+        } else {
+          msg = 'Lỗi: ${e.message ?? e.type.name}';
+        }
+      } else {
+        msg = 'Lỗi: $e';
+      }
+      setState(() => _error = msg);
     } finally {
       if (mounted) setState(() => _loading = false);
     }

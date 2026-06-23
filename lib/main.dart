@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'app.dart';
+import 'core/config/device_config.dart';
+import 'core/constants/app_constants.dart';
 import 'core/services/background_polling_service.dart';
 import 'core/services/notification_service.dart';
 import 'firebase_options.dart';
@@ -21,6 +23,13 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Tự động chọn API URL: emulator → BE local, máy thật → production
+  AppConstants.resolvedApiUrl = await DeviceConfig.resolveApiUrl(
+    localUrl: AppConstants.localApiUrl,
+    prodUrl:  AppConstants.prodApiUrl,
+  );
+  debugPrint('[CONFIG] API URL = ${AppConstants.resolvedApiUrl}');
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDateFormatting('vi');

@@ -13,12 +13,17 @@ import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 
 class _SaleRow {
   int? matHangId;
+  String matHangLabel = '';
+  bool showMatHangDropdown = false;
+  final matHangSearchCtrl = TextEditingController();
+
   bool isVo = false;
   String loaiVo = 'thu'; // 'thu' hoặc 'ban'
   final soLuongCtrl = TextEditingController(text: '1');
-  final donGiaCtrl = TextEditingController(text: '0');
+  final donGiaCtrl = TextEditingController();
 
   void dispose() {
+    matHangSearchCtrl.dispose();
     soLuongCtrl.dispose();
     donGiaCtrl.dispose();
   }
@@ -33,10 +38,15 @@ class _SaleRow {
 
 class _GasDuRow {
   int? matHangId;
+  String matHangLabel = '';
+  bool showMatHangDropdown = false;
+  final matHangSearchCtrl = TextEditingController();
+
   final soKgCtrl = TextEditingController(text: '0');
-  final donGiaCtrl = TextEditingController(text: '0');
+  final donGiaCtrl = TextEditingController();
 
   void dispose() {
+    matHangSearchCtrl.dispose();
     soKgCtrl.dispose();
     donGiaCtrl.dispose();
   }
@@ -76,6 +86,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   List<Map<String, dynamic>> _khachHangList = [];
   List<Map<String, dynamic>> _matHangList = [];
   List<Map<String, dynamic>> _nhaCCList = [];
+  List<Map<String, dynamic>> _taiKhoanList = [];
 
   // Khách hàng
   Map<String, dynamic>? _selectedKhachHang;
@@ -90,8 +101,9 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   final List<_GasDuRow> _gasDuRows = [];
 
   // Thanh toán
-  final _tienMatCtrl = TextEditingController(text: '0');
-  final _tienCKCtrl = TextEditingController(text: '0');
+  final _tienMatCtrl = TextEditingController(text: '');
+  final _tienCKCtrl = TextEditingController(text: '');
+  int? _selectedTaiKhoanId;
 
   // Ghi chú
   final _ghiChuCtrl = TextEditingController();
@@ -145,11 +157,13 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     final kh = await _db.getKhachHangList();
     final mh = await _db.getMatHangList();
     final ncc = await _db.getNhaCungCapList();
+    final tk = await _db.getTaiKhoanList();
     if (mounted) {
       setState(() {
         _khachHangList = kh;
         _matHangList = mh;
         _nhaCCList = ncc;
+        _taiKhoanList = tk;
         _filteredKH = kh;
       });
     }
@@ -169,6 +183,15 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     final ma = mh['ma_mat_hang'] as String? ?? '';
     final ten = mh['ten_mat_hang'] as String? ?? '';
     return '$ma - $ten${maNcc.isNotEmpty ? ' ($maNcc)' : ''}';
+  }
+
+  List<Map<String, dynamic>> _filterMatHang(String query) {
+    if (query.isEmpty) return _matHangList.take(10).toList();
+    final q = query.toLowerCase();
+    return _matHangList.where((mh) {
+      final label = _matHangLabel(mh).toLowerCase();
+      return label.contains(q);
+    }).take(10).toList();
   }
 
   void _filterKH(String query) {
@@ -252,6 +275,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               .toList(),
           'tienMat': _tienMat,
           'tienCK': _tienCK,
+          if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
           'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
         });
         if (mounted) {
@@ -277,6 +301,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'so_vo_thu': r.soVoThu,
               'tien_mat': isFirstRow ? _tienMat : 0.0,
               'tien_ck': isFirstRow ? _tienCK : 0.0,
+              'tai_khoan_ck_id': isFirstRow ? _selectedTaiKhoanId : null,
               'ghi_chu': isFirstRow && _ghiChuCtrl.text.trim().isNotEmpty
                   ? _ghiChuCtrl.text.trim()
                   : null,
@@ -339,7 +364,12 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Nhập bán hàng'),
+        leading: BackButton(onPressed: () => context.pop()),
+      ),
+      body: SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -408,6 +438,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           const SizedBox(height: 16),
         ],
       ),
+    ),
     );
   }
 
@@ -543,6 +574,8 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   Widget _buildSaleRow(int index) {
     final row = _saleRows[index];
+    final filtered = _filterMatHang(row.matHangSearchCtrl.text);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
@@ -552,43 +585,85 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Autocomplete mặt hàng ──────────────────────────────────────
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Mặt hàng *',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  value: row.matHangId,
-                  hint: const Text('Chọn mặt hàng'),
-                  items: _matHangList
-                      .map((mh) => DropdownMenuItem<int>(
-                            value: mh['server_id'] as int,
-                            child: Text(_matHangLabel(mh),
-                                overflow: TextOverflow.ellipsis),
-                          ))
-                      .toList(),
-                  onChanged: (val) {
-                    final mh = _matHangList.firstWhere(
-                        (m) => m['server_id'] == val,
-                        orElse: () => {});
-                    setState(() {
-                      row.matHangId = val;
-                      row.isVo =
-                          (mh['don_vi_tinh'] as String? ?? '').toLowerCase() ==
-                              'vỏ';
-                      if (!row.isVo) {
-                        final dg = (mh['don_gia'] as num? ?? 0).toDouble();
-                        if (dg > 0) row.donGiaCtrl.text = dg.toStringAsFixed(0);
-                      }
-                    });
-                  },
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: row.matHangSearchCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Mặt hàng *',
+                        hintText: 'Gõ mã hoặc tên để tìm...',
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        suffixIcon: row.matHangId != null
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () => setState(() {
+                                  row.matHangId = null;
+                                  row.matHangLabel = '';
+                                  row.matHangSearchCtrl.clear();
+                                  row.isVo = false;
+                                  row.donGiaCtrl.clear();
+                                }),
+                              )
+                            : null,
+                      ),
+                      onTap: () => setState(() => row.showMatHangDropdown = true),
+                      onChanged: (_) => setState(() => row.showMatHangDropdown = true),
+                    ),
+                    if (row.showMatHangDropdown && filtered.isNotEmpty)
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 150),
+                        margin: const EdgeInsets.only(top: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 4)
+                          ],
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          itemBuilder: (ctx, i) {
+                            final mh = filtered[i];
+                            final label = _matHangLabel(mh);
+                            return ListTile(
+                              dense: true,
+                              title: Text(label,
+                                  style: const TextStyle(fontSize: 13)),
+                              onTap: () {
+                                final dg = (mh['don_gia'] as num? ?? 0).toDouble();
+                                final isVo = (mh['don_vi_tinh'] as String? ?? '')
+                                        .toLowerCase() ==
+                                    'vỏ';
+                                setState(() {
+                                  row.matHangId = mh['server_id'] as int;
+                                  row.matHangLabel = label;
+                                  row.matHangSearchCtrl.text = label;
+                                  row.showMatHangDropdown = false;
+                                  row.isVo = isVo;
+                                  if (!isVo && dg > 0) {
+                                    row.donGiaCtrl.text =
+                                        _fmtMoney.format(dg.toInt());
+                                  }
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
                 ),
               ),
               if (_saleRows.length > 1)
@@ -602,6 +677,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             ],
           ),
           const SizedBox(height: 8),
+          // ── Số lượng / đơn giá ────────────────────────────────────────
           if (row.isVo)
             Row(
               children: [
@@ -664,7 +740,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                   child: TextField(
                     controller: row.donGiaCtrl,
                     keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: [_ThousandsFormatter()],
                     decoration: const InputDecoration(
                       labelText: 'Đơn giá',
                       border: OutlineInputBorder(),
@@ -721,6 +797,8 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   Widget _buildGasDuRow(int index) {
     final row = _gasDuRows[index];
+    final filtered = _filterMatHang(row.matHangSearchCtrl.text);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
@@ -730,29 +808,74 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Autocomplete mặt hàng ──────────────────────────────────────
           Row(
             children: [
               Expanded(
-                child: DropdownButtonFormField<int>(
-                  isExpanded: true,
-                  decoration: const InputDecoration(
-                    labelText: 'Mặt hàng',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  value: row.matHangId,
-                  hint: const Text('Chọn mặt hàng'),
-                  items: _matHangList
-                      .map((mh) => DropdownMenuItem<int>(
-                            value: mh['server_id'] as int,
-                            child: Text(_matHangLabel(mh),
-                                overflow: TextOverflow.ellipsis),
-                          ))
-                      .toList(),
-                  onChanged: (val) => setState(() => row.matHangId = val),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    TextField(
+                      controller: row.matHangSearchCtrl,
+                      decoration: InputDecoration(
+                        labelText: 'Mặt hàng',
+                        hintText: 'Gõ mã hoặc tên để tìm...',
+                        prefixIcon: const Icon(Icons.search, size: 18),
+                        border: const OutlineInputBorder(),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 8),
+                        suffixIcon: row.matHangId != null
+                            ? IconButton(
+                                icon: const Icon(Icons.clear, size: 16),
+                                onPressed: () => setState(() {
+                                  row.matHangId = null;
+                                  row.matHangLabel = '';
+                                  row.matHangSearchCtrl.clear();
+                                }),
+                              )
+                            : null,
+                      ),
+                      onTap: () => setState(() => row.showMatHangDropdown = true),
+                      onChanged: (_) => setState(() => row.showMatHangDropdown = true),
+                    ),
+                    if (row.showMatHangDropdown && filtered.isNotEmpty)
+                      Container(
+                        constraints: const BoxConstraints(maxHeight: 150),
+                        margin: const EdgeInsets.only(top: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: const [
+                            BoxShadow(color: Colors.black12, blurRadius: 4)
+                          ],
+                        ),
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: filtered.length,
+                          itemBuilder: (ctx, i) {
+                            final mh = filtered[i];
+                            final label = _matHangLabel(mh);
+                            return ListTile(
+                              dense: true,
+                              title: Text(label,
+                                  style: const TextStyle(fontSize: 13)),
+                              onTap: () {
+                                setState(() {
+                                  row.matHangId = mh['server_id'] as int;
+                                  row.matHangLabel = label;
+                                  row.matHangSearchCtrl.text = label;
+                                  row.showMatHangDropdown = false;
+                                });
+                              },
+                            );
+                          },
+                        ),
+                      ),
+                  ],
                 ),
               ),
               IconButton(
@@ -788,7 +911,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                 child: TextField(
                   controller: row.donGiaCtrl,
                   keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  inputFormatters: [_ThousandsFormatter()],
                   decoration: const InputDecoration(
                     labelText: 'Đ/kg',
                     border: OutlineInputBorder(),
@@ -824,14 +947,16 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   Widget _buildThanhToanSection() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
+            // Tiền mặt
             Expanded(
               child: TextField(
                 controller: _tienMatCtrl,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [_ThousandsFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'Tiền mặt',
                   border: OutlineInputBorder(),
@@ -844,11 +969,12 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               ),
             ),
             const SizedBox(width: 8),
+            // Chuyển khoản
             Expanded(
               child: TextField(
                 controller: _tienCKCtrl,
                 keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                inputFormatters: [_ThousandsFormatter()],
                 decoration: const InputDecoration(
                   labelText: 'Chuyển khoản',
                   border: OutlineInputBorder(),
@@ -862,6 +988,40 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             ),
           ],
         ),
+        // Dropdown tài khoản nhận CK (nếu có dữ liệu)
+        if (_taiKhoanList.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          DropdownButtonFormField<int>(
+            isExpanded: true,
+            value: _selectedTaiKhoanId,
+            decoration: const InputDecoration(
+              labelText: 'Tài khoản nhận CK',
+              border: OutlineInputBorder(),
+              isDense: true,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            hint: const Text('Chọn tài khoản (không bắt buộc)'),
+            items: [
+              const DropdownMenuItem<int>(
+                value: null,
+                child: Text('— Không chọn —',
+                    style: TextStyle(color: Colors.grey)),
+              ),
+              ..._taiKhoanList.map((tk) {
+                final ten = tk['ten_tai_khoan'] as String? ?? '';
+                final nganHang = tk['ngan_hang'] as String?;
+                final label =
+                    nganHang != null ? '$ten — $nganHang' : ten;
+                return DropdownMenuItem<int>(
+                  value: tk['server_id'] as int,
+                  child: Text(label, overflow: TextOverflow.ellipsis),
+                );
+              }),
+            ],
+            onChanged: (v) => setState(() => _selectedTaiKhoanId = v),
+          ),
+        ],
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -941,6 +1101,26 @@ class _SummaryDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 32, width: 1, color: Colors.white30,
+    );
+  }
+}
+
+// ─── Thousands separator formatter ───────────────────────────────────────────
+
+class _ThousandsFormatter extends TextInputFormatter {
+  static final _fmt = NumberFormat('#,##0', 'vi_VN');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    final raw = newValue.text.replaceAll('.', '').replaceAll(',', '');
+    if (raw.isEmpty) return newValue.copyWith(text: '');
+    final n = int.tryParse(raw);
+    if (n == null) return oldValue;
+    final formatted = _fmt.format(n);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }

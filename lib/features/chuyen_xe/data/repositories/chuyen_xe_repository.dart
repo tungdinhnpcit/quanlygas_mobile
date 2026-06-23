@@ -1,9 +1,11 @@
 // lib/features/chuyen_xe/data/repositories/chuyen_xe_repository.dart
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
@@ -134,8 +136,18 @@ class ChuyenXeRepository {
         .post('/api/chuyen-xe/$chuyenXeId/ban-hang/$banHangId/delete');
   }
 
+  /// Mobile: lái xe kết thúc chuyến — đổi trangThai sang hoan-thanh.
+  Future<void> ketThucMobile(int chuyenXeId) async {
+    await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/ket-thuc-mobile');
+  }
+
   /// Nhập đầy đủ thông tin bán hàng 1 khách hàng: sản phẩm + gas dư + thanh toán.
   Future<void> nhapKhachHang(int chuyenXeId, Map<String, dynamic> body) async {
+    final token = await const FlutterSecureStorage().read(key: 'jwt_token');
+    debugPrint('[NHAP_KH] POST ${ApiClient.instance.dio.options.baseUrl}/api/chuyen-xe/$chuyenXeId/nhap-khach-hang');
+    debugPrint('[NHAP_KH] token: ${token != null ? '${token.substring(0, 20)}...(len=${token.length})' : 'NULL'}');
+    debugPrint('[NHAP_KH] body: ${const JsonEncoder.withIndent('  ').convert(body)}');
     await ApiClient.instance.dio
         .post('/api/chuyen-xe/$chuyenXeId/nhap-khach-hang', data: body);
   }

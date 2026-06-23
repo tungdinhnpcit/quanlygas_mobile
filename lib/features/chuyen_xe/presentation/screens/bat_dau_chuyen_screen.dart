@@ -99,6 +99,13 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
       final online = await ConnectivityService.instance.checkOnline();
 
       if (online) {
+        // Check xem hôm nay đã có chuyến dang-giao chưa
+        final activeTrip = await _repo.getActiveTripToday(_selectedNhanVienId!);
+        if (activeTrip != null) {
+          if (mounted) context.push(AppRoutes.chuyenXeDetail(activeTrip.id.toString()));
+          return;
+        }
+
         final trip = await _repo.createTrip(
           ngayXuat: today,
           xeId: _selectedXeId!,
@@ -116,9 +123,9 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
           'is_synced': 1,
           'created_at': DateTime.now().toIso8601String(),
         });
-        if (mounted) context.push(AppRoutes.nhapBanHang(trip.id));
+        if (mounted) context.push(AppRoutes.chuyenXeDetail(trip.id.toString()));
       } else {
-        final localId = await _db.insertChuyenXeOffline({
+        await _db.insertChuyenXeOffline({
           'ngay_xuat': todayStr,
           'xe_id': _selectedXeId,
           'bien_so_xe': _selectedBienSo,
@@ -128,7 +135,12 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
           'is_synced': 0,
           'created_at': DateTime.now().toIso8601String(),
         });
-        if (mounted) context.push('/ban-hang/offline/$localId/nhap');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Đã lưu offline. Đồng bộ khi có mạng để tiếp tục nhập bán hàng.'),
+          ));
+          context.go(AppRoutes.chuyenXeList);
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -144,7 +156,15 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
   Widget build(BuildContext context) {
     final today = DateFormat('dd/MM/yyyy').format(DateTime.now());
 
-    return Padding(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Bắt đầu chuyến'),
+        leading: BackButton(onPressed: () {
+          if (context.canPop()) context.pop();
+          else context.go(AppRoutes.home);
+        }),
+      ),
+      body: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -301,6 +321,7 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
           const SizedBox(height: 16),
         ],
       ),
+    ),
     );
   }
 }

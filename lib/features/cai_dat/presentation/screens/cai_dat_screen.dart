@@ -32,6 +32,13 @@ class CaiDatScreen extends ConsumerWidget {
         ),
         const Divider(height: 1, indent: 56),
         _SettingTile(
+          icon: Icons.sync_rounded,
+          title: 'Đồng bộ dữ liệu',
+          subtitle: 'Tải danh mục xe, hàng, khách hàng về máy',
+          onTap: () => context.push(AppRoutes.dongBo),
+        ),
+        const Divider(height: 1, indent: 56),
+        _SettingTile(
           icon: Icons.logout,
           title: 'Đăng xuất',
           subtitle: 'Thoát khỏi tài khoản',

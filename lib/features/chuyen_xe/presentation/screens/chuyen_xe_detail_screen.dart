@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../data/models/chuyen_xe_model.dart';
+import '../../data/repositories/chuyen_xe_repository.dart';
 import '../providers/chuyen_xe_provider.dart';
 
 // Formatter dùng chung trong file.
@@ -29,7 +30,9 @@ class ChuyenXeDetailScreen extends ConsumerStatefulWidget {
 
 class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     with SingleTickerProviderStateMixin {
+  final _repo = ChuyenXeRepository();
   bool _uploading = false;
+  bool _ketThucLoading = false;
   late final TabController _tabController;
 
   // Danh sách tab: index cố định, hiển thị tất cả
@@ -81,6 +84,48 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
         ),
       ),
     );
+  }
+
+  /// Lái xe xác nhận kết thúc chuyến — đổi trangThai sang hoan-thanh.
+  Future<void> _confirmKetThuc() async {
+    final id = int.tryParse(widget.chuyenXeId);
+    if (id == null) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Kết thúc chuyến?'),
+        content: const Text('Xác nhận bạn đã nhập xong tất cả khách hàng trong ngày.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Huỷ')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange.shade700),
+            child: const Text('Kết thúc'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _ketThucLoading = true);
+    try {
+      await _repo.ketThucMobile(id);
+      ref.invalidate(chuyenXeDetailProvider(id));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Chuyến xe đã kết thúc'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _ketThucLoading = false);
+    }
   }
 
   /// Xử lý chọn ảnh và upload lên server, tự động nén xuống ≤ 1MB.
@@ -220,6 +265,30 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
                   backgroundColor: const Color(0xFF00897B),
                 )
               : null,
+      bottomNavigationBar: detailAsync.valueOrNull?.trangThai == 'dang-giao'
+          ? SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                child: ElevatedButton.icon(
+                  onPressed: _ketThucLoading ? null : _confirmKetThuc,
+                  icon: _ketThucLoading
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        )
+                      : const Icon(Icons.check_circle_outline),
+                  label: const Text('Kết thúc chuyến'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange.shade700,
+                    foregroundColor: Colors.white,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            )
+          : null,
     );
   }
 }

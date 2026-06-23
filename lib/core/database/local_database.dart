@@ -17,7 +17,7 @@ class LocalDatabase {
     final dir = await getDatabasesPath();
     return openDatabase(
       join(dir, 'gasmanager.db'),
-      version: 3,
+      version: 4,
       onCreate: _create,
       onUpgrade: _onUpgrade,
     );
@@ -54,6 +54,22 @@ class LocalDatabase {
           created_at            TEXT
         )
       ''');
+    }
+    if (oldVersion < 4) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS cache_tai_khoan (
+          server_id     INTEGER PRIMARY KEY,
+          ma_tai_khoan  TEXT NOT NULL,
+          ten_tai_khoan TEXT NOT NULL,
+          loai          TEXT NOT NULL,
+          so_tai_khoan  TEXT,
+          ngan_hang     TEXT,
+          is_active     INTEGER DEFAULT 1
+        )
+      ''');
+      await db.execute(
+        'ALTER TABLE ban_hang_offline ADD COLUMN tai_khoan_ck_id INTEGER NULL',
+      );
     }
   }
 
@@ -163,6 +179,17 @@ class LocalDatabase {
         thanh_tien            REAL NOT NULL DEFAULT 0,
         is_synced             INTEGER NOT NULL DEFAULT 0,
         created_at            TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE cache_tai_khoan (
+        server_id     INTEGER PRIMARY KEY,
+        ma_tai_khoan  TEXT NOT NULL,
+        ten_tai_khoan TEXT NOT NULL,
+        loai          TEXT NOT NULL,
+        so_tai_khoan  TEXT,
+        ngan_hang     TEXT,
+        is_active     INTEGER DEFAULT 1
       )
     ''');
   }
@@ -279,6 +306,28 @@ class LocalDatabase {
   Future<void> clearNhanVienCache() async {
     final d = await db;
     await d.delete('cache_nhan_vien');
+  }
+
+  // ── Cache tài khoản công ty ──────────────────────────────────────────────
+
+  Future<void> upsertTaiKhoanList(List<Map<String, dynamic>> items) async {
+    final d = await db;
+    final batch = d.batch();
+    for (final item in items) {
+      batch.insert('cache_tai_khoan', item,
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Trả tài khoản không phải tiền mặt (ngan-hang, ca-nhan) để dùng cho dropdown CK.
+  Future<List<Map<String, dynamic>>> getTaiKhoanList() async {
+    final d = await db;
+    return d.query(
+      'cache_tai_khoan',
+      where: "is_active = 1 AND loai != 'tien-mat'",
+      orderBy: 'ten_tai_khoan ASC',
+    );
   }
 
   // ── Khách hàng ───────────────────────────────────────────────────────────
