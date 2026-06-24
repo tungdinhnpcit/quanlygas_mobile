@@ -1,4 +1,5 @@
 // lib/features/khach_hang/presentation/screens/tao_khach_hang_screen.dart
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/database/local_database.dart';
 import '../../../../core/network/api_client.dart';
 import '../../../../core/services/connectivity_service.dart';
+import '../../../../core/widgets/app_bottom_nav_bar.dart';
 
 class TaoKhachHangScreen extends ConsumerStatefulWidget {
   const TaoKhachHangScreen({super.key});
@@ -47,7 +49,9 @@ class _TaoKhachHangScreenState extends ConsumerState<TaoKhachHangScreen> {
       };
 
       if (online) {
-        final res = await ApiClient.instance.dio.post('/khach-hang', data: data);
+        debugPrint('[TaoKhachHang] POST /api/khach-hang data=$data');
+        final res = await ApiClient.instance.dio.post('/api/khach-hang', data: data);
+        debugPrint('[TaoKhachHang] Response ${res.statusCode}: ${res.data}');
         final serverId = res.data['id'] as int;
         // Cache vào SQLite
         await LocalDatabase.instance.upsertKhachHangList([{
@@ -85,9 +89,23 @@ class _TaoKhachHangScreenState extends ConsumerState<TaoKhachHangScreen> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+      if (e is DioException) {
+        debugPrint('[TaoKhachHang] DioException type=${e.type}');
+        debugPrint('[TaoKhachHang] status=${e.response?.statusCode}');
+        debugPrint('[TaoKhachHang] response=${e.response?.data}');
+        debugPrint('[TaoKhachHang] message=${e.message}');
+        debugPrint('[TaoKhachHang] url=${e.requestOptions.uri}');
+        final errMsg = e.response?.data?['message'] ?? e.message ?? e.toString();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi: $errMsg'), backgroundColor: Colors.red));
+        }
+      } else {
+        debugPrint('[TaoKhachHang] Error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+        }
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -101,6 +119,7 @@ class _TaoKhachHangScreenState extends ConsumerState<TaoKhachHangScreen> {
         title: const Text('Tạo khách hàng'),
         leading: BackButton(onPressed: () => context.pop()),
       ),
+      bottomNavigationBar: const AppBottomNavBar(),
       body: Padding(
       padding: const EdgeInsets.all(16),
       child: Form(

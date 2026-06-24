@@ -8,7 +8,8 @@ import '../../../../core/database/local_database.dart';
 import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/services/connectivity_service.dart';
-import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
+import '../../../../core/widgets/app_bottom_nav_bar.dart';
+import 'chuyen_xe_theo_ngay_screen.dart';
 
 class BatDauChuyenScreen extends ConsumerStatefulWidget {
   const BatDauChuyenScreen({super.key});
@@ -18,12 +19,12 @@ class BatDauChuyenScreen extends ConsumerStatefulWidget {
 }
 
 class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
-  final _repo = ChuyenXeRepository();
   final _db = LocalDatabase.instance;
 
   List<Map<String, dynamic>> _xeList = [];
   List<Map<String, dynamic>> _nhanVienList = [];
 
+  DateTime _selectedDate = DateTime.now();
   int? _selectedXeId;
   String? _selectedBienSo;
   int? _selectedNhanVienId;
@@ -63,7 +64,6 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
         preId = userNvId;
         preText = match.first['ho_ten'] as String;
       } else {
-        // Không có trong cache → dùng userNvId trực tiếp, tên chưa biết
         preId = userNvId;
         preText = userInfo?.fullName ?? '';
       }
@@ -79,73 +79,90 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
     }
   }
 
-  Future<void> _batDau() async {
+  /// Mở bottom sheet chọn ngày xuất — chọn xong đóng ngay, không cần nhấn OK.
+  Future<void> _pickDate() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: Row(
+                  children: [
+                    const Text('Chọn ngày xuất',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              CalendarDatePicker(
+                initialDate: _selectedDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now().add(const Duration(days: 30)),
+                onDateChanged: (picked) {
+                  setState(() => _selectedDate = picked);
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  /// Validate input và navigate sang màn hình danh sách chuyến xe theo ngày.
+  Future<void> _xemChuyenXe() async {
     if (_selectedXeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn xe')));
+          const SnackBar(content: Text('Vui lòng chọn xe')));
       return;
     }
     if (_selectedNhanVienId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn lái xe')));
+          const SnackBar(content: Text('Vui lòng chọn lái xe')));
       return;
     }
 
     setState(() => _loading = true);
-    final today = DateTime.now();
-    final todayStr = DateFormat('yyyy-MM-dd').format(today);
-
     try {
       final online = await ConnectivityService.instance.checkOnline();
-
-      if (online) {
-        // Check xem hôm nay đã có chuyến dang-giao chưa
-        final activeTrip = await _repo.getActiveTripToday(_selectedNhanVienId!);
-        if (activeTrip != null) {
-          if (mounted) context.push(AppRoutes.chuyenXeDetail(activeTrip.id.toString()));
-          return;
-        }
-
-        final trip = await _repo.createTrip(
-          ngayXuat: today,
-          xeId: _selectedXeId!,
-          nhanVienId: _selectedNhanVienId!,
-        );
-        await _db.insertChuyenXeOffline({
-          'server_id': trip.id,
-          'ma_chuyen_xe': trip.maChuyenXe,
-          'ngay_xuat': todayStr,
-          'xe_id': _selectedXeId,
-          'bien_so_xe': _selectedBienSo,
-          'nhan_vien_id': _selectedNhanVienId,
-          'trang_thai': 'dang-giao',
-          'loai': 'mobile',
-          'is_synced': 1,
-          'created_at': DateTime.now().toIso8601String(),
-        });
-        if (mounted) context.push(AppRoutes.chuyenXeDetail(trip.id.toString()));
-      } else {
-        await _db.insertChuyenXeOffline({
-          'ngay_xuat': todayStr,
-          'xe_id': _selectedXeId,
-          'bien_so_xe': _selectedBienSo,
-          'nhan_vien_id': _selectedNhanVienId,
-          'trang_thai': 'dang-giao',
-          'loai': 'mobile',
-          'is_synced': 0,
-          'created_at': DateTime.now().toIso8601String(),
-        });
+      if (!online) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Đã lưu offline. Đồng bộ khi có mạng để tiếp tục nhập bán hàng.'),
+            content: Text('Cần kết nối mạng để xem danh sách chuyến xe'),
+            backgroundColor: Colors.orange,
           ));
-          context.go(AppRoutes.chuyenXeList);
         }
+        return;
+      }
+
+      if (mounted) {
+        context.push(
+          AppRoutes.banHangTheoNgay,
+          extra: ChuyenXeTheoNgayArgs(
+            ngayXuat: _selectedDate,
+            xeId: _selectedXeId!,
+            bienSoXe: _selectedBienSo,
+            nhanVienId: _selectedNhanVienId!,
+            tenNhanVien: _nhanVienText.isNotEmpty ? _nhanVienText : null,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
+            SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -154,174 +171,197 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final today = DateFormat('dd/MM/yyyy').format(DateTime.now());
+    final dateLabel = DateFormat('dd/MM/yyyy').format(_selectedDate);
+    final dayLabel = DateFormat('dd/MM').format(_selectedDate);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bắt đầu chuyến'),
+        title: const Text('Bán hàng'),
         leading: BackButton(onPressed: () {
           if (context.canPop()) context.pop();
           else context.go(AppRoutes.home);
         }),
       ),
+      bottomNavigationBar: const AppBottomNavBar(),
       body: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Ngày xuất
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Ngày xuất', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 4),
-                  Text(today,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.w600)),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Chọn xe
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Chọn xe *', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 8),
-                  _xeList.isEmpty
-                      ? const Text('Đang tải danh sách xe...',
-                          style: TextStyle(color: Colors.grey))
-                      : DropdownButtonFormField<int>(
-                          isExpanded: true,
-                          value: _selectedXeId,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            contentPadding: EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 8),
-                          ),
-                          hint: const Text('Chọn xe'),
-                          items: _xeList
-                              .map((xe) => DropdownMenuItem<int>(
-                                    value: xe['server_id'] as int,
-                                    child: Text(xe['bien_so_xe'] as String),
-                                  ))
-                              .toList(),
-                          onChanged: (val) {
-                            final xe = _xeList.firstWhere(
-                                (e) => e['server_id'] == val);
-                            setState(() {
-                              _selectedXeId = val;
-                              _selectedBienSo = xe['bien_so_xe'] as String?;
-                            });
-                          },
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Ngày xuất — tappable date picker
+            InkWell(
+              onTap: _pickDate,
+              borderRadius: BorderRadius.circular(8),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Ngày xuất',
+                                style: Theme.of(context).textTheme.labelMedium),
+                            const SizedBox(height: 4),
+                            Text(
+                              dateLabel,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(fontWeight: FontWeight.w600),
+                            ),
+                          ],
                         ),
-                ],
+                      ),
+                      const Icon(Icons.calendar_today,
+                          color: Color(0xFF00897B), size: 20),
+                    ],
+                  ),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 12),
 
-          // Chọn lái xe
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Lái xe *', style: Theme.of(context).textTheme.labelMedium),
-                  const SizedBox(height: 8),
-                  _isNhanVien
-                      // Lái xe đăng nhập: chỉ hiển thị tên, không chọn được
-                      ? Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 12),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.shade400),
-                            borderRadius: BorderRadius.circular(4),
-                            color: Colors.grey.shade100,
+            // Chọn xe
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Chọn xe *',
+                        style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 8),
+                    _xeList.isEmpty
+                        ? const Text('Đang tải danh sách xe...',
+                            style: TextStyle(color: Colors.grey))
+                        : DropdownButtonFormField<int>(
+                            isExpanded: true,
+                            value: _selectedXeId,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                            ),
+                            hint: const Text('Chọn xe'),
+                            items: _xeList
+                                .map((xe) => DropdownMenuItem<int>(
+                                      value: xe['server_id'] as int,
+                                      child: Text(xe['bien_so_xe'] as String),
+                                    ))
+                                .toList(),
+                            onChanged: (val) {
+                              final xe = _xeList
+                                  .firstWhere((e) => e['server_id'] == val);
+                              setState(() {
+                                _selectedXeId = val;
+                                _selectedBienSo = xe['bien_so_xe'] as String?;
+                              });
+                            },
                           ),
-                          child: Text(
-                            _nhanVienText.isEmpty
-                                ? 'Không xác định'
-                                : _nhanVienText,
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                        )
-                      // Admin/QuanLy/KeToan: autocomplete chọn lái xe
-                      : _nhanVienList.isEmpty
-                          ? const Text(
-                              'Chưa có dữ liệu lái xe — vui lòng đồng bộ dữ liệu trước',
-                              style: TextStyle(color: Colors.orange))
-                          : Autocomplete<Map<String, dynamic>>(
-                              initialValue: TextEditingValue(text: _nhanVienText),
-                              optionsBuilder: (textValue) {
-                                if (textValue.text.isEmpty) return _nhanVienList;
-                                final q = textValue.text.toLowerCase();
-                                return _nhanVienList.where((nv) =>
-                                    (nv['ho_ten'] as String)
-                                        .toLowerCase()
-                                        .contains(q) ||
-                                    (nv['ma_nhan_vien'] as String)
-                                        .toLowerCase()
-                                        .contains(q));
-                              },
-                              displayStringForOption: (nv) =>
-                                  '${nv['ho_ten']} (${nv['ma_nhan_vien']})',
-                              onSelected: (nv) => setState(() {
-                                _selectedNhanVienId = nv['server_id'] as int;
-                                _nhanVienText =
-                                    '${nv['ho_ten']} (${nv['ma_nhan_vien']})';
-                              }),
-                              fieldViewBuilder: (ctx, ctrl, fn, onSubmit) =>
-                                  TextFormField(
-                                controller: ctrl,
-                                focusNode: fn,
-                                decoration: const InputDecoration(
-                                  border: OutlineInputBorder(),
-                                  contentPadding: EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 8),
-                                  hintText: 'Tìm theo tên hoặc mã NV',
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Chọn lái xe
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Lái xe *',
+                        style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 8),
+                    _isNhanVien
+                        // Lái xe đăng nhập: chỉ hiển thị tên, không chọn được
+                        ? Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.shade400),
+                              borderRadius: BorderRadius.circular(4),
+                              color: Colors.grey.shade100,
+                            ),
+                            child: Text(
+                              _nhanVienText.isEmpty
+                                  ? 'Không xác định'
+                                  : _nhanVienText,
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          )
+                        // Admin/QuanLy/KeToan: autocomplete chọn lái xe
+                        : _nhanVienList.isEmpty
+                            ? const Text(
+                                'Chưa có dữ liệu lái xe — vui lòng đồng bộ dữ liệu trước',
+                                style: TextStyle(color: Colors.orange))
+                            : Autocomplete<Map<String, dynamic>>(
+                                initialValue:
+                                    TextEditingValue(text: _nhanVienText),
+                                optionsBuilder: (textValue) {
+                                  if (textValue.text.isEmpty)
+                                    return _nhanVienList;
+                                  final q = textValue.text.toLowerCase();
+                                  return _nhanVienList.where((nv) =>
+                                      (nv['ho_ten'] as String)
+                                          .toLowerCase()
+                                          .contains(q) ||
+                                      (nv['ma_nhan_vien'] as String)
+                                          .toLowerCase()
+                                          .contains(q));
+                                },
+                                displayStringForOption: (nv) =>
+                                    '${nv['ho_ten']} (${nv['ma_nhan_vien']})',
+                                onSelected: (nv) => setState(() {
+                                  _selectedNhanVienId = nv['server_id'] as int;
+                                  _nhanVienText =
+                                      '${nv['ho_ten']} (${nv['ma_nhan_vien']})';
+                                }),
+                                fieldViewBuilder: (ctx, ctrl, fn, onSubmit) =>
+                                    TextFormField(
+                                  controller: ctrl,
+                                  focusNode: fn,
+                                  decoration: const InputDecoration(
+                                    border: OutlineInputBorder(),
+                                    contentPadding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
+                                    hintText: 'Tìm theo tên hoặc mã NV',
+                                  ),
                                 ),
                               ),
-                            ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
 
-          const Spacer(),
-          ElevatedButton.icon(
-            onPressed: _loading ? null : _batDau,
-            icon: _loading
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.play_arrow_rounded),
-            label: Text(_loading ? 'Đang tạo...' : 'Bắt đầu chuyến'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF00897B),
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
+            const Spacer(),
+            ElevatedButton.icon(
+              onPressed: _loading ? null : _xemChuyenXe,
+              icon: _loading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.list_alt_rounded),
+              label: Text(_loading
+                  ? 'Đang kiểm tra...'
+                  : 'Xem chuyến xe ngày $dayLabel'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF00897B),
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)),
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-        ],
+            const SizedBox(height: 16),
+          ],
+        ),
       ),
-    ),
     );
   }
 }

@@ -52,7 +52,7 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: _tabs.length, vsync: this);
+    _tabController = TabController(length: _tabs.length, initialIndex: _banHangTabIndex, vsync: this);
     _tabController.addListener(() => setState(() {}));
   }
 
@@ -128,6 +128,46 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     }
   }
 
+  /// Lái xe xác nhận xóa chuyến xe — toàn bộ dữ liệu sẽ bị xóa vĩnh viễn.
+  Future<void> _xoaChuyenXe() async {
+    final id = int.tryParse(widget.chuyenXeId);
+    if (id == null) return;
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa chuyến xe?'),
+        content: const Text(
+            'Toàn bộ dữ liệu bán hàng và ảnh sẽ bị xóa vĩnh viễn. Không thể hoàn tác.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huỷ')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    try {
+      await _repo.deleteTrip(id);
+      if (!mounted) return;
+      ref.invalidate(chuyenXeListProvider);
+      if (context.canPop()) context.pop();
+      else context.go(AppRoutes.home);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi xóa: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   /// Xử lý chọn ảnh và upload lên server, tự động nén xuống ≤ 1MB.
   Future<void> _handleUpload(ChuyenXeModel cx) async {
     final source = await _pickSource();
@@ -199,6 +239,21 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
             ],
           ),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.home_outlined),
+            tooltip: 'Trang chủ',
+            onPressed: () => context.go(AppRoutes.home),
+          ),
+          if (detailAsync.valueOrNull != null &&
+              detailAsync.valueOrNull!.trangThai != 'hoan-thanh' &&
+              detailAsync.valueOrNull!.trangThai != 'huy')
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: 'Xóa chuyến xe',
+              onPressed: _xoaChuyenXe,
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           isScrollable: true,
@@ -388,7 +443,7 @@ class _TabChiTiet extends StatelessWidget {
           // Danh sách hàng hóa: nếu đã settle dùng ketThuc.chiTiet (có tên KH + giá), ngược lại dùng kế hoạch chuyến
           if (cx.ketThuc != null && cx.ketThuc!.chiTiet.isNotEmpty) ...[
             _SectionLabel(
-                '${cx.ketThuc!.chiTiet.length} khách hàng đã mua'),
+                '${cx.ketThuc!.chiTiet.map((c) => c.khachHangId).toSet().length} khách hàng đã mua'),
             const SizedBox(height: 8),
             ...cx.ketThuc!.chiTiet.asMap().entries.map((e) {
               final i  = e.key;
@@ -694,15 +749,102 @@ class _MatHangPlanCard extends StatelessWidget {
 
 // ── Tab 1b: Bán hàng (lái xe nhập) ────────────────────────────────────────
 
-class _TabBanHang extends StatelessWidget {
+class _TabBanHang extends ConsumerStatefulWidget {
   final ChuyenXeModel cx;
   const _TabBanHang({required this.cx});
 
   @override
+  ConsumerState<_TabBanHang> createState() => _TabBanHangState();
+}
+
+class _TabBanHangState extends ConsumerState<_TabBanHang> {
+  final _repo = ChuyenXeRepository();
+  final Set<int> _deleting = {};
+
+  Future<void> _delete(BanHangKhachHangModel b) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa dòng bán hàng?'),
+        content: Text(
+            '${b.tenKhachHang ?? "Khách"} — ${b.tenMatHang ?? ""}\nDòng này sẽ bị xóa khỏi chuyến.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huỷ')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _deleting.add(b.id));
+    try {
+      await _repo.deleteBanHang(widget.cx.id, b.id);
+      if (!mounted) return;
+      ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _deleting.remove(b.id));
+    }
+  }
+
+  Future<void> _deleteAllForKhachHang(List<BanHangKhachHangModel> rows) async {
+    final khachTen = rows.first.tenKhachHang ?? 'Khách';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa toàn bộ dữ liệu khách hàng?'),
+        content: Text('Xóa tất cả ${rows.length} dòng bán hàng của "$khachTen" khỏi chuyến.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huỷ')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Xóa tất cả'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    for (final b in rows) setState(() => _deleting.add(b.id));
+    try {
+      for (final b in rows) {
+        await _repo.deleteBanHang(widget.cx.id, b.id);
+      }
+      if (!mounted) return;
+      ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      for (final b in rows) if (mounted) setState(() => _deleting.remove(b.id));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##0', 'vi_VN');
+    final cx = widget.cx;
     final items = cx.banHang;
     final total = items.fold<double>(0, (s, b) => s + b.thanhTien);
+    final canDelete =
+        cx.trangThai != 'hoan-thanh' && cx.trangThai != 'huy';
 
     if (items.isEmpty) {
       return const Center(
@@ -720,49 +862,193 @@ class _TabBanHang extends StatelessWidget {
       );
     }
 
+    // Nhóm theo khachHangId, giữ thứ tự xuất hiện đầu tiên
+    final groups = <int, List<BanHangKhachHangModel>>{};
+    for (final b in items) {
+      groups.putIfAbsent(b.khachHangId, () => []).add(b);
+    }
+    final groupEntries = groups.entries.toList();
+
     return Column(
       children: [
         Expanded(
-          child: ListView.separated(
+          child: ListView.builder(
             padding: const EdgeInsets.fromLTRB(12, 60, 12, 80),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            itemCount: groupEntries.length,
             itemBuilder: (_, i) {
-              final b = items[i];
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
+              final entry = groupEntries[i];
+              final rows = entry.value;
+              final khachTen = rows.first.tenKhachHang ?? '—';
+              final khachTotal  = rows.fold<double>(0, (s, b) => s + b.thanhTien);
+              final soBinhBan   = rows.where((b) => b.soVoThu == 0 && b.soVoBan == 0).fold(0, (s, b) => s + b.soLuong);
+              final soVoThu     = rows.fold(0, (s, b) => s + b.soVoThu);
+              final tienDaTra   = rows.fold(0.0, (s, b) => s + b.tienMat + b.tienCK);
+              final tienNo      = (khachTotal - tienDaTra).clamp(0.0, double.infinity);
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 10),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+                elevation: 2,
+                child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    // Header: tên khách + tổng tiền khách đó
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      decoration: const BoxDecoration(
+                        color: Color(0xFF00897B),
+                        borderRadius:
+                            BorderRadius.vertical(top: Radius.circular(10)),
+                      ),
+                      child: Row(
                         children: [
-                          Text(b.tenKhachHang ?? '—',
+                          const Icon(Icons.person_outline,
+                              size: 16, color: Colors.white70),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              khachTen,
                               style: const TextStyle(
-                                  fontWeight: FontWeight.w600, fontSize: 13)),
-                          Text(b.tenMatHang ?? '—',
-                              style: const TextStyle(
-                                  color: Colors.grey, fontSize: 12)),
-                          if (b.soVoThu > 0 || b.soVoBan > 0)
-                            Text(
-                              'Vỏ thu: ${b.soVoThu}  |  Kho→KH: ${b.soVoBan}',
-                              style: const TextStyle(
-                                  color: Colors.blueGrey, fontSize: 11),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  color: Colors.white),
                             ),
+                          ),
+                          if (canDelete)
+                            IconButton(
+                              icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.white70),
+                              onPressed: () => _deleteAllForKhachHang(rows),
+                              tooltip: 'Xóa khách hàng này',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            ),
+                          Text(
+                            '${fmt.format(khachTotal)}đ',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: Colors.white),
+                          ),
                         ],
                       ),
                     ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('${b.soLuong} × ${fmt.format(b.donGia)}đ',
-                            style: const TextStyle(fontSize: 12)),
-                        Text('${fmt.format(b.thanhTien)}đ',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF00897B))),
-                      ],
+                    // Danh sách mặt hàng
+                    ...rows.asMap().entries.map((e) {
+                      final idx = e.key;
+                      final b = e.value;
+                      return Column(
+                        children: [
+                          if (idx > 0)
+                            const Divider(height: 1, indent: 14, endIndent: 14),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(14, 10, 10, 10),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text.rich(
+                                        TextSpan(
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                                          children: [
+                                            TextSpan(text: '${b.maMatHang != null ? "${b.maMatHang} - " : ""}${b.tenMatHang ?? "—"}'),
+                                            if (b.maNhaCungCap != null)
+                                              TextSpan(
+                                                text: ' (${b.maNhaCungCap} - ${b.tenNhaCungCap ?? ""})',
+                                                style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.normal),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${b.soLuong} × ${fmt.format(b.donGia)}đ  →  ${fmt.format(b.thanhTien)}đ',
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Color(0xFF00897B),
+                                            fontWeight: FontWeight.w600),
+                                      ),
+                                      if (b.soVoThu > 0 || b.soVoBan > 0)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(top: 2),
+                                          child: Text(
+                                            'Vỏ thu: ${b.soVoThu}  |  Kho→KH: ${b.soVoBan}',
+                                            style: const TextStyle(
+                                                color: Colors.blueGrey,
+                                                fontSize: 11),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (canDelete)
+                                  _deleting.contains(b.id)
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.red))
+                                      : IconButton(
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(
+                                              minWidth: 32, minHeight: 32),
+                                          icon: const Icon(
+                                              Icons.delete_outline,
+                                              size: 20,
+                                              color: Colors.red),
+                                          onPressed: () => _delete(b),
+                                        ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                    // Stats footer: số bình bán, vỏ thu, tiền nợ
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: const BorderRadius.vertical(
+                            bottom: Radius.circular(10)),
+                        border: Border(
+                            top: BorderSide(color: Colors.grey.shade200)),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 8),
+                      child: Row(
+                        children: [
+                          _StatChip(
+                            icon: Icons.propane_tank_outlined,
+                            label: '$soBinhBan bình',
+                            color: Colors.teal.shade700,
+                          ),
+                          const SizedBox(width: 10),
+                          _StatChip(
+                            icon: Icons.recycling,
+                            label: '$soVoThu vỏ thu',
+                            color: Colors.blueGrey,
+                          ),
+                          const Spacer(),
+                          tienNo > 0
+                              ? _StatChip(
+                                  icon: Icons.warning_amber_rounded,
+                                  label: 'Nợ ${fmt.format(tienNo)}đ',
+                                  color: Colors.red,
+                                )
+                              : _StatChip(
+                                  icon: Icons.check_circle_outline,
+                                  label: 'Đã thu đủ',
+                                  color: Colors.green,
+                                ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -776,7 +1062,7 @@ class _TabBanHang extends StatelessWidget {
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Tổng (${items.length} KH)',
+              Text('Tổng (${groupEntries.length} KH)',
                   style: const TextStyle(fontWeight: FontWeight.w600)),
               Text('${fmt.format(total)}đ',
                   style: const TextStyle(
@@ -2037,6 +2323,29 @@ class _DataChip extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Chip icon + label nhỏ dùng trong stats footer của customer card.
+class _StatChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const _StatChip(
+      {required this.icon, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 12,
+                  color: color,
+                  fontWeight: FontWeight.w500)),
+        ],
+      );
 }
 
 /// Chip thông tin với icon + label + value theo hàng ngang.

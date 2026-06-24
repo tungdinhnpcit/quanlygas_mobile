@@ -11,6 +11,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../data/models/khach_hang_model.dart';
 import '../providers/khach_hang_provider.dart';
 
@@ -160,6 +161,7 @@ class _KhachHangDetailScreenState
 
     return Scaffold(
       appBar: AppBar(title: const Text('Chi tiết khách hàng')),
+      bottomNavigationBar: const AppBottomNavBar(),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(

@@ -98,23 +98,51 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
 
   Future<void> _pickDate({required bool isTuNgay}) async {
     final initial = (isTuNgay ? _tuNgay : _denNgay) ?? DateTime.now();
-    final picked = await showDatePicker(
+    await showModalBottomSheet<void>(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                child: Row(
+                  children: [
+                    Text(isTuNgay ? 'Từ ngày' : 'Đến ngày',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Spacer(),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              CalendarDatePicker(
+                initialDate: initial,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+                onDateChanged: (picked) {
+                  setState(() {
+                    if (isTuNgay) {
+                      _tuNgay = picked;
+                      if (_denNgay != null && _denNgay!.isBefore(picked)) _denNgay = null;
+                    } else {
+                      _denNgay = picked;
+                      if (_tuNgay != null && _tuNgay!.isAfter(picked)) _tuNgay = null;
+                    }
+                  });
+                  Navigator.pop(ctx);
+                  _applyFilter();
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (picked == null) return;
-    setState(() {
-      if (isTuNgay) {
-        _tuNgay = picked;
-        if (_denNgay != null && _denNgay!.isBefore(picked)) _denNgay = null;
-      } else {
-        _denNgay = picked;
-        if (_tuNgay != null && _tuNgay!.isAfter(picked)) _tuNgay = null;
-      }
-    });
-    _applyFilter();
   }
 
   void _clearDateFilter() {

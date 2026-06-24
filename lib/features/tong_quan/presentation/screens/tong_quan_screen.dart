@@ -31,23 +31,52 @@ class _TongQuanScreenState extends ConsumerState<TongQuanScreen> {
   }
 
   Future<void> _pickDate({required bool isFrom}) async {
-    final picked = await showDatePicker(
+    final initial = isFrom ? _tuNgay : _denNgay;
+    await showModalBottomSheet<void>(
       context: context,
-      initialDate: isFrom ? _tuNgay : _denNgay,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                child: Row(
+                  children: [
+                    Text(isFrom ? 'Từ ngày' : 'Đến ngày',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Spacer(),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              CalendarDatePicker(
+                initialDate: initial,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                onDateChanged: (picked) {
+                  setState(() {
+                    if (isFrom) {
+                      _tuNgay = picked;
+                      if (_tuNgay.isAfter(_denNgay)) _denNgay = _tuNgay;
+                    } else {
+                      _denNgay = picked;
+                      if (_denNgay.isBefore(_tuNgay)) _tuNgay = _denNgay;
+                    }
+                  });
+                  Navigator.pop(ctx);
+                  ref.read(tongQuanDashboardProvider.notifier).setDateRange(_tuNgay, _denNgay);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (picked == null) return;
-    setState(() {
-      if (isFrom) {
-        _tuNgay = picked;
-        if (_tuNgay.isAfter(_denNgay)) _denNgay = _tuNgay;
-      } else {
-        _denNgay = picked;
-        if (_denNgay.isBefore(_tuNgay)) _tuNgay = _denNgay;
-      }
-    });
-    ref.read(tongQuanDashboardProvider.notifier).setDateRange(_tuNgay, _denNgay);
   }
 
   @override

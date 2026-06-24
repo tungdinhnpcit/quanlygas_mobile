@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../khach_hang/data/models/khach_hang_model.dart';
 import '../../../khach_hang/presentation/providers/khach_hang_provider.dart';
 import '../../data/models/tong_quan_model.dart';
@@ -53,22 +54,50 @@ class _DaiLyChiTietScreenState extends ConsumerState<DaiLyChiTietScreen>
 
   Future<void> _pickDate({required bool isFrom}) async {
     final initial = isFrom ? _tuNgay : _denNgay;
-    final picked  = await showDatePicker(
+    await showModalBottomSheet<void>(
       context: context,
-      initialDate: initial,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                child: Row(
+                  children: [
+                    Text(isFrom ? 'Từ ngày' : 'Đến ngày',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Spacer(),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(ctx)),
+                  ],
+                ),
+              ),
+              CalendarDatePicker(
+                initialDate: initial,
+                firstDate: DateTime(2020),
+                lastDate: DateTime.now(),
+                onDateChanged: (picked) {
+                  setState(() {
+                    if (isFrom) {
+                      _tuNgay = picked;
+                      if (_tuNgay.isAfter(_denNgay)) _denNgay = _tuNgay;
+                    } else {
+                      _denNgay = picked;
+                      if (_denNgay.isBefore(_tuNgay)) _tuNgay = _denNgay;
+                    }
+                  });
+                  Navigator.pop(ctx);
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (picked == null) return;
-    setState(() {
-      if (isFrom) {
-        _tuNgay = picked;
-        if (_tuNgay.isAfter(_denNgay)) _denNgay = _tuNgay;
-      } else {
-        _denNgay = picked;
-        if (_denNgay.isBefore(_tuNgay)) _tuNgay = _denNgay;
-      }
-    });
   }
 
   /// Mở app điện thoại với số đã cho
@@ -115,6 +144,7 @@ class _DaiLyChiTietScreenState extends ConsumerState<DaiLyChiTietScreen>
           ],
         ),
       ),
+      bottomNavigationBar: const AppBottomNavBar(),
       body: TabBarView(
         controller: _tabController,
         children: [

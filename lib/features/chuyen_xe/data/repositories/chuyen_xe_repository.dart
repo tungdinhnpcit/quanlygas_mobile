@@ -12,21 +12,23 @@ import '../../../../core/network/api_client.dart';
 import '../models/chuyen_xe_model.dart';
 
 class ChuyenXeRepository {
-  /// Lấy danh sách chuyến xe của lái xe theo nhanVienId, hỗ trợ lọc trạng thái, khoảng ngày và phân trang.
+  /// Lấy danh sách chuyến xe của lái xe theo nhanVienId, hỗ trợ lọc trạng thái, khoảng ngày, xe và phân trang.
   Future<List<ChuyenXeModel>> getList({
     required int nhanVienId,
+    int? xeId,
     String? trangThai,
     DateTime? tuNgay,
     DateTime? denNgay,
     int page = 1,
     int pageSize = 50,
   }) async {
-    debugPrint('[ChuyenXe] getList() nhanVienId=$nhanVienId trangThai=$trangThai tuNgay=$tuNgay denNgay=$denNgay');
+    debugPrint('[ChuyenXe] getList() nhanVienId=$nhanVienId xeId=$xeId trangThai=$trangThai tuNgay=$tuNgay denNgay=$denNgay');
     try {
       final res = await ApiClient.instance.dio.get(
         '/api/chuyen-xe',
         queryParameters: {
           'nhanVienId': nhanVienId,
+          if (xeId    != null) 'xeId':     xeId,
           if (trangThai != null) 'trangThai': trangThai,
           if (tuNgay  != null) 'tuNgay':  tuNgay.toIso8601String(),
           if (denNgay != null) 'denNgay': denNgay.toIso8601String(),
@@ -134,6 +136,11 @@ class ChuyenXeRepository {
   Future<void> deleteBanHang(int chuyenXeId, int banHangId) async {
     await ApiClient.instance.dio
         .post('/api/chuyen-xe/$chuyenXeId/ban-hang/$banHangId/delete');
+  }
+
+  /// Xóa chuyến xe (chỉ dùng khi chuyến chưa kết thúc / kỳ chưa chốt).
+  Future<void> deleteTrip(int chuyenXeId) async {
+    await ApiClient.instance.dio.post('/api/chuyen-xe/$chuyenXeId/delete');
   }
 
   /// Mobile: lái xe kết thúc chuyến — đổi trangThai sang hoan-thanh.

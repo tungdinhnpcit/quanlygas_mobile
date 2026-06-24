@@ -79,11 +79,10 @@ class SyncService {
     debugPrint('[SYNC] Bắt đầu sync catalog, baseUrl=${ApiClient.instance.dio.options.baseUrl}');
 
     try {
-      // Mặt hàng
-      final mhRes = await _dio.get('/api/mat-hang',
-          queryParameters: {'pageSize': 500, 'isActive': true});
-      debugPrint('[SYNC] mat-hang: ${(mhRes.data['items'] as List?)?.length ?? 0} items');
-      final mhItems = (mhRes.data['items'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      // Mặt hàng — dùng /all để lấy toàn bộ, tránh bị cap pageSize
+      final mhRes = await _dio.get('/api/mat-hang/all');
+      debugPrint('[SYNC] mat-hang: ${(mhRes.data as List?)?.length ?? 0} items');
+      final mhItems = (mhRes.data as List?)?.cast<Map<String, dynamic>>() ?? [];
       if (mhItems.isNotEmpty) {
         final existingMh = await _db.getMatHangList();
         final existingIds = existingMh.map((e) => e['server_id']).toSet();

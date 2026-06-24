@@ -33,6 +33,7 @@ import '../../features/cai_dat/presentation/screens/thong_tin_tai_khoan_screen.d
 import '../../features/cai_dat/presentation/screens/doi_mat_khau_screen.dart';
 import '../../features/cai_dat/presentation/screens/dong_bo_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/bat_dau_chuyen_screen.dart';
+import '../../features/chuyen_xe/presentation/screens/chuyen_xe_theo_ngay_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/nhap_ban_hang_screen.dart';
 import '../../features/khach_hang/presentation/screens/tao_khach_hang_screen.dart';
 import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart';
@@ -114,6 +115,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.taoKhachHang,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const TaoKhachHangScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/khach-hang/:id',
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
@@ -126,6 +135,15 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
           child: const BatDauChuyenScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.banHangTheoNgay,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: ChuyenXeTheoNgayScreen(
+              args: state.extra as ChuyenXeTheoNgayArgs),
         ),
       ),
       GoRoute(
@@ -146,14 +164,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           child: NhapBanHangScreen(
             chuyenXeLocalId: int.tryParse(state.pathParameters['localId']!),
           ),
-        ),
-      ),
-      GoRoute(
-        parentNavigatorKey: _rootNavigatorKey,
-        path: AppRoutes.taoKhachHang,
-        pageBuilder: (_, state) => CupertinoPage(
-          key: state.pageKey,
-          child: const TaoKhachHangScreen(),
         ),
       ),
       GoRoute(

@@ -28,7 +28,9 @@ class BanHangKhachHangModel {
   final int khachHangId;
   final String? tenKhachHang;
   final int matHangId;
+  final String? maMatHang;
   final String? tenMatHang;
+  final String? maNhaCungCap;
   final String? tenNhaCungCap;
   final String? donViTinh;
   final int soLuong;
@@ -36,6 +38,8 @@ class BanHangKhachHangModel {
   final double thanhTien;
   final int soVoBan;
   final int soVoThu;
+  final double tienMat;
+  final double tienCK;
   final String? ghiChu;
   final DateTime createdAt;
 
@@ -44,7 +48,9 @@ class BanHangKhachHangModel {
     required this.khachHangId,
     this.tenKhachHang,
     required this.matHangId,
+    this.maMatHang,
     this.tenMatHang,
+    this.maNhaCungCap,
     this.tenNhaCungCap,
     this.donViTinh,
     required this.soLuong,
@@ -52,6 +58,8 @@ class BanHangKhachHangModel {
     required this.thanhTien,
     required this.soVoBan,
     required this.soVoThu,
+    this.tienMat = 0,
+    this.tienCK = 0,
     this.ghiChu,
     required this.createdAt,
   });
@@ -62,7 +70,9 @@ class BanHangKhachHangModel {
         khachHangId:   json['khachHangId'] as int,
         tenKhachHang:  json['tenKhachHang'] as String?,
         matHangId:     json['matHangId'] as int,
+        maMatHang:     json['maMatHang'] as String?,
         tenMatHang:    json['tenMatHang'] as String?,
+        maNhaCungCap:  json['maNhaCungCap'] as String?,
         tenNhaCungCap: json['tenNhaCungCap'] as String?,
         donViTinh:     json['donViTinh'] as String?,
         soLuong:       json['soLuong'] as int,
@@ -70,6 +80,8 @@ class BanHangKhachHangModel {
         thanhTien:     (json['thanhTien'] as num).toDouble(),
         soVoBan:       json['soVoBan'] as int? ?? 0,
         soVoThu:       json['soVoThu'] as int? ?? 0,
+        tienMat:       (json['tienMat'] as num? ?? 0).toDouble(),
+        tienCK:        (json['tienCK']  as num? ?? 0).toDouble(),
         ghiChu:        json['ghiChu'] as String?,
         createdAt:     DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       );

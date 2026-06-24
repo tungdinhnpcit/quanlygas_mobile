@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 
 import '../../../../core/database/local_database.dart';
 import '../../../../core/services/connectivity_service.dart';
+import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 
 // ─── Helper state classes ────────────────────────────────────────────────────
@@ -43,19 +44,20 @@ class _GasDuRow {
   final matHangSearchCtrl = TextEditingController();
 
   final soKgCtrl = TextEditingController(text: '0');
-  final donGiaCtrl = TextEditingController();
+  final tongTienCtrl = TextEditingController();
 
   void dispose() {
     matHangSearchCtrl.dispose();
     soKgCtrl.dispose();
-    donGiaCtrl.dispose();
+    tongTienCtrl.dispose();
   }
 
   double get soKg =>
       double.tryParse(soKgCtrl.text.replaceAll(',', '')) ?? 0;
-  double get donGia =>
-      double.tryParse(donGiaCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
-  double get thanhTien => soKg * donGia;
+  double get tongTien =>
+      double.tryParse(tongTienCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+  double get thanhTien => tongTien;
+  double get donGia => soKg > 0 ? tongTien / soKg : 0;
 }
 
 // ─── Screen ──────────────────────────────────────────────────────────────────
@@ -266,11 +268,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                   })
               .toList(),
           'gasDu': _gasDuRows
-              .where((r) => r.matHangId != null && r.soKg > 0)
+              .where((r) => r.matHangId != null && r.soKg > 0 && r.tongTien > 0)
               .map((r) => {
                     'matHangId': r.matHangId,
                     'soKg': r.soKg,
-                    'donGia': r.donGia,
+                    'donGia': r.donGia,  // computed: tongTien / soKg
                   })
               .toList(),
           'tienMat': _tienMat,
@@ -310,7 +312,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             });
             isFirstRow = false;
           }
-          for (final r in _gasDuRows.where((g) => g.matHangId != null && g.soKg > 0)) {
+          for (final r in _gasDuRows.where((g) => g.matHangId != null && g.soKg > 0 && g.tongTien > 0)) {
             await _db.insertBanHangGasDuLocal({
               'chuyen_xe_server_id': widget.chuyenXeServerId,
               'chuyen_xe_local_id': widget.chuyenXeLocalId,
@@ -369,6 +371,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         title: const Text('Nhập bán hàng'),
         leading: BackButton(onPressed: () => context.pop()),
       ),
+      bottomNavigationBar: const AppBottomNavBar(),
       body: SingleChildScrollView(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -490,7 +493,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             ),
             const SizedBox(width: 8),
             OutlinedButton.icon(
-              onPressed: () => context.push('/khach-hang/tao-moi'),
+              onPressed: () async {
+                await context.push('/khach-hang/tao-moi');
+                if (mounted) _loadCaches();
+              },
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Tạo'),
               style: OutlinedButton.styleFrom(
@@ -909,11 +915,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               const SizedBox(width: 8),
               Expanded(
                 child: TextField(
-                  controller: row.donGiaCtrl,
+                  controller: row.tongTienCtrl,
                   keyboardType: TextInputType.number,
                   inputFormatters: [_ThousandsFormatter()],
                   decoration: const InputDecoration(
-                    labelText: 'Đ/kg',
+                    labelText: 'Tổng tiền',
                     border: OutlineInputBorder(),
                     isDense: true,
                     suffixText: 'đ',
@@ -922,21 +928,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                   ),
                   onChanged: (_) => setState(() {}),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  const Text('Thành tiền',
-                      style: TextStyle(fontSize: 11, color: Colors.grey)),
-                  Text(
-                    '${_fmtMoney.format(row.thanhTien)} đ',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.orange,
-                        fontSize: 13),
-                  ),
-                ],
               ),
             ],
           ),
