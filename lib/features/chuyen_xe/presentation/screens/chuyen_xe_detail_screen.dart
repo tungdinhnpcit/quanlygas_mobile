@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../data/models/chuyen_xe_model.dart';
 import '../../data/repositories/chuyen_xe_repository.dart';
@@ -157,7 +158,10 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     try {
       await _repo.deleteTrip(id);
       if (!mounted) return;
-      ref.invalidate(chuyenXeListProvider);
+      final nhanVienId = ref.read(userInfoProvider).value?.nhanVienId ?? 0;
+      ref.read(chuyenXeListProvider.notifier).load(
+        nhanVienId: nhanVienId > 0 ? nhanVienId : null,
+      );
       if (context.canPop()) context.pop();
       else context.go(AppRoutes.home);
     } catch (e) {

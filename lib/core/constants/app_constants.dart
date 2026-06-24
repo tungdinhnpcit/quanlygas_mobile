@@ -4,7 +4,7 @@ class AppConstants {
   static const String notificationChannelName = 'QuanLyGas Thông Báo';
   static const String notificationChannelDesc =
       'Thông báo chuyến xe và cập nhật từ hệ thống';
-  static const String localApiUrl = 'http://10.0.2.2:5001';
+  static const String localApiUrl = 'http://192.168.31.123:5001';
   static const String prodApiUrl  = 'http://apimba.npc.com.vn:8202/apimanager';
   // Được set bởi DeviceConfig.resolveApiUrl() trong main() trước khi runApp
   static String resolvedApiUrl = prodApiUrl;

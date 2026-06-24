@@ -38,7 +38,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   void initState() {
     super.initState();
     if (kDebugMode) {
-      _usernameCtrl.text = 'admin';
+      _usernameCtrl.text = 'thuoclv';
       _passwordCtrl.text = '123456';
     }
     _checkBiometric();

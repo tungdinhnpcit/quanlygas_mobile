@@ -685,85 +685,84 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           const SizedBox(height: 8),
           // ── Số lượng / đơn giá ────────────────────────────────────────
           if (row.isVo)
-            Row(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Loại vỏ:', style: TextStyle(fontSize: 13)),
-                const SizedBox(width: 8),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'thu', label: Text('Vỏ thu')),
-                    ButtonSegment(value: 'ban', label: Text('Vỏ bán')),
-                  ],
-                  selected: {row.loaiVo},
-                  onSelectionChanged: (s) =>
-                      setState(() => row.loaiVo = s.first),
-                  style: ButtonStyle(
-                    visualDensity: VisualDensity.compact,
-                    textStyle: WidgetStateProperty.all(
-                        const TextStyle(fontSize: 12)),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: row.soLuongCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'Số lượng',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      suffixText: 'vỏ',
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                Row(
+                  children: [
+                    const Text('Loại vỏ:', style: TextStyle(fontSize: 13)),
+                    const SizedBox(width: 8),
+                    SegmentedButton<String>(
+                      segments: const [
+                        ButtonSegment(value: 'thu', label: Text('Vỏ thu')),
+                        ButtonSegment(value: 'ban', label: Text('Vỏ bán')),
+                      ],
+                      selected: {row.loaiVo},
+                      onSelectionChanged: (s) =>
+                          setState(() => row.loaiVo = s.first),
+                      style: ButtonStyle(
+                        visualDensity: VisualDensity.compact,
+                        textStyle: WidgetStateProperty.all(
+                            const TextStyle(fontSize: 12)),
+                      ),
                     ),
-                    onChanged: (_) => setState(() {}),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: row.soLuongCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Số lượng',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    suffixText: 'vỏ',
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
+                  onChanged: (_) => setState(() {}),
                 ),
               ],
             )
           else
-            Row(
+            Column(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: row.soLuongCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(
-                      labelText: 'Số lượng',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      suffixText: 'bình',
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    ),
-                    onChanged: (_) => setState(() {}),
+                TextField(
+                  controller: row.soLuongCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: const InputDecoration(
+                    labelText: 'Số lượng',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    suffixText: 'bình',
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
+                  onChanged: (_) => setState(() {}),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextField(
-                    controller: row.donGiaCtrl,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [_ThousandsFormatter()],
-                    decoration: const InputDecoration(
-                      labelText: 'Đơn giá',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                      suffixText: 'đ',
-                      contentPadding:
-                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                    ),
-                    onChanged: (_) => setState(() {}),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: row.donGiaCtrl,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [_ThousandsFormatter()],
+                  decoration: const InputDecoration(
+                    labelText: 'Đơn giá',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                    suffixText: 'đ',
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
+                  onChanged: (_) => setState(() {}),
                 ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const Text('Thành tiền',
-                        style: TextStyle(fontSize: 11, color: Colors.grey)),
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
                     Text(
                       '${_fmtMoney.format(row.thanhTien)} đ',
                       style: const TextStyle(
@@ -894,42 +893,34 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: row.soKgCtrl,
-                  keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    labelText: 'Số kg',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    suffixText: 'kg',
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: row.tongTienCtrl,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [_ThousandsFormatter()],
-                  decoration: const InputDecoration(
-                    labelText: 'Tổng tiền',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                    suffixText: 'đ',
-                    contentPadding:
-                        EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  ),
-                  onChanged: (_) => setState(() {}),
-                ),
-              ),
-            ],
+          TextField(
+            controller: row.soKgCtrl,
+            keyboardType:
+                const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Số kg',
+              border: OutlineInputBorder(),
+              isDense: true,
+              suffixText: 'kg',
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: row.tongTienCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [_ThousandsFormatter()],
+            decoration: const InputDecoration(
+              labelText: 'Tổng tiền',
+              border: OutlineInputBorder(),
+              isDense: true,
+              suffixText: 'đ',
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onChanged: (_) => setState(() {}),
           ),
         ],
       ),
@@ -940,44 +931,36 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            // Tiền mặt
-            Expanded(
-              child: TextField(
-                controller: _tienMatCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [_ThousandsFormatter()],
-                decoration: const InputDecoration(
-                  labelText: 'Tiền mặt',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  suffixText: 'đ',
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-            const SizedBox(width: 8),
-            // Chuyển khoản
-            Expanded(
-              child: TextField(
-                controller: _tienCKCtrl,
-                keyboardType: TextInputType.number,
-                inputFormatters: [_ThousandsFormatter()],
-                decoration: const InputDecoration(
-                  labelText: 'Chuyển khoản',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  suffixText: 'đ',
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-            ),
-          ],
+        // Tiền mặt
+        TextField(
+          controller: _tienMatCtrl,
+          keyboardType: TextInputType.number,
+          inputFormatters: [_ThousandsFormatter()],
+          decoration: const InputDecoration(
+            labelText: 'Tiền mặt',
+            border: OutlineInputBorder(),
+            isDense: true,
+            suffixText: 'đ',
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        // Chuyển khoản
+        TextField(
+          controller: _tienCKCtrl,
+          keyboardType: TextInputType.number,
+          inputFormatters: [_ThousandsFormatter()],
+          decoration: const InputDecoration(
+            labelText: 'Chuyển khoản',
+            border: OutlineInputBorder(),
+            isDense: true,
+            suffixText: 'đ',
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          onChanged: (_) => setState(() {}),
         ),
         // Dropdown tài khoản nhận CK (nếu có dữ liệu)
         if (_taiKhoanList.isNotEmpty) ...[
