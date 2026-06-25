@@ -871,7 +871,8 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     for (final b in items) {
       groups.putIfAbsent(b.khachHangId, () => []).add(b);
     }
-    final groupEntries = groups.entries.toList();
+    final groupEntries = groups.entries.toList()
+      ..sort((a, b) => a.value.first.createdAt.compareTo(b.value.first.createdAt));
 
     return Column(
       children: [
