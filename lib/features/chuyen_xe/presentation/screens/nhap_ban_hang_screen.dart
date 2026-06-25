@@ -393,7 +393,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
       ),
       bottomNavigationBar: const AppBottomNavBar(),
       body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(12),
           child: Column(
