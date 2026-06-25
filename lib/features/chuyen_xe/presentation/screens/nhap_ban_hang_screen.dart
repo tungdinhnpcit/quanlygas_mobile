@@ -13,6 +13,7 @@ import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 // ─── Helper state classes ────────────────────────────────────────────────────
 
 class _SaleRow {
+  final GlobalKey containerKey = GlobalKey();
   int? matHangId;
   String matHangLabel = '';
   bool showMatHangDropdown = false;
@@ -38,6 +39,7 @@ class _SaleRow {
 }
 
 class _GasDuRow {
+  final GlobalKey containerKey = GlobalKey();
   int? matHangId;
   String matHangLabel = '';
   bool showMatHangDropdown = false;
@@ -110,6 +112,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   // Ghi chú
   final _ghiChuCtrl = TextEditingController();
 
+  // GlobalKeys cho scroll-to-top
+  final _khachHangSectionKey = GlobalKey();
+  final _thanhToanSectionKey = GlobalKey();
+  final _ghiChuKey = GlobalKey();
+
   bool _saving = false;
 
   // ── Computed ─────────────────────────────────────────────────────────────
@@ -172,6 +179,19 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   }
 
   // ── Helpers ──────────────────────────────────────────────────────────────
+
+  /// Scroll đến widget để hiện tại top, dismiss keyboard
+  void _ensureVisible(GlobalKey key) {
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    FocusScope.of(context).unfocus();
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.0,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOut,
+    );
+  }
 
   /// Label mặt hàng: "MA - Tên (MaNCC)"
   String _matHangLabel(Map<String, dynamic> mh) {
@@ -372,17 +392,20 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         leading: BackButton(onPressed: () => context.pop()),
       ),
       bottomNavigationBar: const AppBottomNavBar(),
-      body: SingleChildScrollView(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
           // ── Summary bar ──────────────────────────────────────────────────
           _buildSummaryBar(),
           const SizedBox(height: 10),
 
           // ── Khách hàng ───────────────────────────────────────────────────
           _SectionCard(
+            key: _khachHangSectionKey,
             title: 'Khách hàng',
             child: _buildKhachHangSection(),
           ),
@@ -404,6 +427,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
           // ── Thanh toán ───────────────────────────────────────────────────
           _SectionCard(
+            key: _thanhToanSectionKey,
             title: 'Thanh toán',
             child: _buildThanhToanSection(),
           ),
@@ -411,6 +435,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
           // ── Ghi chú ──────────────────────────────────────────────────────
           TextField(
+            key: _ghiChuKey,
             controller: _ghiChuCtrl,
             maxLines: 2,
             decoration: const InputDecoration(
@@ -419,6 +444,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
+            onTap: () => _ensureVisible(_ghiChuKey),
           ),
           const SizedBox(height: 16),
 
@@ -439,9 +465,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             ),
           ),
           const SizedBox(height: 16),
-        ],
+            ],
+          ),
+        ),
       ),
-    ),
     );
   }
 
@@ -488,7 +515,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                   isDense: true,
                 ),
                 onChanged: _filterKH,
-                onTap: () => setState(() => _showKhDropdown = true),
+                onTap: () {
+                  _ensureVisible(_khachHangSectionKey);
+                  setState(() => _showKhDropdown = true);
+                },
               ),
             ),
             const SizedBox(width: 8),
@@ -583,6 +613,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     final filtered = _filterMatHang(row.matHangSearchCtrl.text);
 
     return Container(
+      key: row.containerKey,
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -623,7 +654,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                               )
                             : null,
                       ),
-                      onTap: () => setState(() => row.showMatHangDropdown = true),
+                      onTap: () {
+                        _ensureVisible(row.containerKey);
+                        setState(() => row.showMatHangDropdown = true);
+                      },
                       onChanged: (_) => setState(() => row.showMatHangDropdown = true),
                     ),
                     if (row.showMatHangDropdown && filtered.isNotEmpty)
@@ -721,6 +755,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
+                  onTap: () => _ensureVisible(row.containerKey),
                   onChanged: (_) => setState(() {}),
                 ),
               ],
@@ -740,6 +775,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
+                  onTap: () => _ensureVisible(row.containerKey),
                   onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 8),
@@ -755,6 +791,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     contentPadding:
                         EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                   ),
+                  onTap: () => _ensureVisible(row.containerKey),
                   onChanged: (_) => setState(() {}),
                 ),
                 const SizedBox(height: 8),
@@ -805,6 +842,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     final filtered = _filterMatHang(row.matHangSearchCtrl.text);
 
     return Container(
+      key: row.containerKey,
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
@@ -843,7 +881,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                               )
                             : null,
                       ),
-                      onTap: () => setState(() => row.showMatHangDropdown = true),
+                      onTap: () {
+                        _ensureVisible(row.containerKey);
+                        setState(() => row.showMatHangDropdown = true);
+                      },
                       onChanged: (_) => setState(() => row.showMatHangDropdown = true),
                     ),
                     if (row.showMatHangDropdown && filtered.isNotEmpty)
@@ -905,6 +946,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
+            onTap: () => _ensureVisible(row.containerKey),
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: 8),
@@ -920,6 +962,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               contentPadding:
                   EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
+            onTap: () => _ensureVisible(row.containerKey),
             onChanged: (_) => setState(() {}),
           ),
         ],
@@ -936,6 +979,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           controller: _tienMatCtrl,
           keyboardType: TextInputType.number,
           inputFormatters: [_ThousandsFormatter()],
+          onTap: () => _ensureVisible(_thanhToanSectionKey),
           decoration: const InputDecoration(
             labelText: 'Tiền mặt',
             border: OutlineInputBorder(),
@@ -960,6 +1004,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             contentPadding:
                 EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
+          onTap: () => _ensureVisible(_thanhToanSectionKey),
           onChanged: (_) => setState(() {}),
         ),
         // Dropdown tài khoản nhận CK (nếu có dữ liệu)
@@ -1022,7 +1067,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 class _SectionCard extends StatelessWidget {
   final String title;
   final Widget child;
-  const _SectionCard({required this.title, required this.child});
+  const _SectionCard({super.key, required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
