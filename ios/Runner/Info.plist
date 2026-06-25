@@ -4,6 +4,8 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Cần vị trí để lưu tọa độ cửa hàng khách hàng</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Cần quyền camera để chụp ảnh cửa hàng</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>

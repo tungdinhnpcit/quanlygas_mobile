@@ -912,12 +912,23 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                               size: 16, color: Colors.white70),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(
-                              khachTen,
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: Colors.white),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  khachTen,
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                      color: Colors.white),
+                                ),
+                                Text(
+                                  _fmtDate.format(rows.first.createdAt.toLocal()),
+                                  style: const TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.white70),
+                                ),
+                              ],
                             ),
                           ),
                           if (canDelete)

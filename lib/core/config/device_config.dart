@@ -7,12 +7,38 @@ import 'package:flutter/foundation.dart';
 class DeviceConfig {
   /// Trả về base API URL phù hợp với thiết bị đang chạy.
   /// Release mode → luôn production.
-  /// Debug mode → luôn localUrl (cả emulator lẫn máy thật).
+  /// Debug mode:
+  ///   - Nếu Android emulator → dùng 10.0.2.2 (localhost của host)
+  ///   - Nếu real device hoặc iOS → dùng localUrl (IP máy dev)
   static Future<String> resolveApiUrl({
     required String localUrl,
     required String prodUrl,
   }) async {
     if (kReleaseMode) return prodUrl;
+
+    // Debug mode
+    if (Platform.isAndroid) {
+      try {
+        final androidInfo = await DeviceInfoPlugin().androidInfo;
+        final fingerprint = androidInfo.fingerprint.toLowerCase();
+
+        // Phát hiện emulator: chứa "generic", "unknown", "sdk", "vbox", "qemu"
+        final isEmulator = fingerprint.contains('generic') ||
+            fingerprint.contains('unknown') ||
+            fingerprint.contains('sdk') ||
+            fingerprint.contains('vbox') ||
+            fingerprint.contains('qemu');
+
+        if (isEmulator) {
+          // Emulator: dùng 10.0.2.2 để gọi localhost của host
+          return 'http://10.0.2.2:5001';
+        }
+      } catch (e) {
+        debugPrint('[DeviceConfig] Error detecting emulator: $e');
+      }
+    }
+
+    // Real device hoặc iOS: dùng IP máy dev
     return localUrl;
   }
 }
