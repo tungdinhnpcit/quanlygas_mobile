@@ -12,6 +12,39 @@ import '../../../../core/network/api_client.dart';
 import '../models/chuyen_xe_model.dart';
 
 class ChuyenXeRepository {
+  /// Lấy danh sách phụ xe
+  Future<List<Map<String, dynamic>>> searchPhuXeAPI(String keyword) async {
+
+    try {
+      // 1. Đổi endpoint từ '/api/chuyen-xe' sang endpoint quản lý nhân viên
+      final res = await ApiClient.instance.dio.get(
+        '/api/nhan-vien', // Thay đổi đường dẫn này cho khớp với Backend
+        queryParameters: {
+          'keyword': keyword,     // Tham số tìm kiếm theo tên hoặc mã
+          'vaiTro': 'phu-xe',     // Filter tùy chọn nếu BE hỗ trợ lọc theo chức vụ
+          'page': 1,
+          'pageSize': 20,         // Chỉ nên lấy top kết quả để UI không bị giật
+        },
+      );
+
+      // 2. Parse dữ liệu trả về
+      final data = res.data;
+
+      // Thường backend .NET sẽ bọc array trong một object (ví dụ: data['items'] hoặc data['data'])
+      // Nếu BE trả thẳng mảng JSON thì nó sẽ rơi vào trường hợp 'data as List'
+      final list = (data is Map ? (data['items'] ?? data['data']) : data) as List? ?? [];
+
+      // 3. Ép kiểu về List<Map<String, dynamic>> để dùng chung với pattern của UI hiện tại
+      return list.map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+
+      rethrow;
+    } catch (e) {
+
+      rethrow;
+    }
+  }
+
   /// Lấy danh sách chuyến xe của lái xe theo nhanVienId, hỗ trợ lọc trạng thái, khoảng ngày, xe và phân trang.
   Future<List<ChuyenXeModel>> getList({
     required int nhanVienId,

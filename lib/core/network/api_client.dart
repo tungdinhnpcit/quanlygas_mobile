@@ -67,6 +67,28 @@ class ApiClient {
         handler.next(response);
       },
       onError: (error, handler) async {
+        // Retry tự động khi mất kết nối (stale keep-alive / backend restart)
+        final isConnectionIssue =
+            error.type == DioExceptionType.connectionError ||
+            error.type == DioExceptionType.receiveTimeout ||
+            error.type == DioExceptionType.connectionTimeout ||
+            error.type == DioExceptionType.sendTimeout;
+
+        if (isConnectionIssue) {
+          final retries = (error.requestOptions.extra['_retries'] as int?) ?? 0;
+          if (retries < 2) {
+            await Future.delayed(Duration(milliseconds: 600 * (retries + 1)));
+            error.requestOptions.extra['_retries'] = retries + 1;
+            try {
+              final resp = await _dio.fetch(error.requestOptions);
+              handler.resolve(resp);
+              return;
+            } catch (_) {
+              // retry thất bại → fall through xử lý bình thường
+            }
+          }
+        }
+
         // Phát hiện F5 WAF trả về HTML kèm status lỗi (403, v.v.)
         final responseData = error.response?.data;
         if (_isF5WafBlock(responseData)) {

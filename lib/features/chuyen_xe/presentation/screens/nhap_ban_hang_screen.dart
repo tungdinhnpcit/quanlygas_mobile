@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
+import 'dart:async';
 import '../../../../core/database/local_database.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
@@ -86,6 +86,138 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   final _db = LocalDatabase.instance;
   final _fmtMoney = NumberFormat('#,##0', 'vi_VN');
 
+  // Phụ xe
+  Map<String, dynamic>? _selectedPhuXe;
+  final _phuXeSearchCtrl = TextEditingController();
+  bool _showPhuXeDropdown = false;
+  bool _isSearchingPhuXe = false;
+  List<Map<String, dynamic>> _searchedPhuXeList = [];
+  Timer? _phuXeDebounce; // Dùng để chặn spam call API
+
+  // GlobalKey cho scroll
+  final _phuXeSectionKey = GlobalKey();
+
+  void _onSearchPhuXeChanged(String query) {
+    setState(() {
+      _showPhuXeDropdown = true;
+    });
+
+    if (_phuXeDebounce?.isActive ?? false) _phuXeDebounce!.cancel();
+
+    // Đợi 500ms sau khi ngừng gõ mới call API
+    _phuXeDebounce = Timer(const Duration(milliseconds: 500), () async {
+      if (query.trim().isEmpty) {
+        setState(() {
+          _searchedPhuXeList = [];
+          _isSearchingPhuXe = false;
+        });
+        return;
+      }
+
+      setState(() => _isSearchingPhuXe = true);
+
+      try {
+        // TODO: Thay bằng hàm call API lấy phụ xe thực tế từ Repository của bạn
+        // Ví dụ: final results = await _repo.searchNhanVien(query: query, role: 'phu-xe');
+        final results = await _repo.searchPhuXeAPI(query);
+
+        if (mounted) {
+          setState(() {
+            _searchedPhuXeList = results;
+          });
+        }
+      } catch (e) {
+        debugPrint('Lỗi tìm phụ xe: $e');
+      } finally {
+        if (mounted) setState(() => _isSearchingPhuXe = false);
+      }
+    });
+  }
+
+  Widget _buildPhuXeSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _phuXeSearchCtrl,
+          decoration: InputDecoration(
+            hintText: 'Nhập tên hoặc mã phụ xe...',
+            prefixIcon: const Icon(Icons.person_search, size: 18),
+            border: const OutlineInputBorder(),
+            contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+            isDense: true,
+            // Hiển thị vòng xoay loading khi đang call API
+            suffixIcon: _isSearchingPhuXe
+                ? const Padding(
+              padding: EdgeInsets.all(10.0),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+                : null,
+          ),
+          onChanged: _onSearchPhuXeChanged,
+          onTap: () {
+            _ensureVisible(_phuXeSectionKey);
+            setState(() => _showPhuXeDropdown = true);
+          },
+        ),
+        // Hiển thị Phụ xe đã chọn dưới dạng Chip
+        if (_selectedPhuXe != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Chip(
+              label: Text(_selectedPhuXe!['ten_nhan_vien'] as String? ?? 'Chưa rõ tên'),
+              onDeleted: () => setState(() {
+                _selectedPhuXe = null;
+                _phuXeSearchCtrl.clear();
+              }),
+            ),
+          ),
+
+        // Dropdown danh sách kết quả trả về từ API
+        if (_showPhuXeDropdown && _phuXeSearchCtrl.text.isNotEmpty && !_isSearchingPhuXe)
+          Container(
+            constraints: const BoxConstraints(maxHeight: 180),
+            margin: const EdgeInsets.only(top: 4),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(4),
+              color: Colors.white,
+            ),
+            child: _searchedPhuXeList.isEmpty
+                ? const Padding(
+              padding: EdgeInsets.all(12.0),
+              child: Text('Không tìm thấy phụ xe nào', style: TextStyle(color: Colors.grey)),
+            )
+                : ListView.builder(
+              shrinkWrap: true,
+              itemCount: _searchedPhuXeList.length,
+              itemBuilder: (ctx, i) {
+                final px = _searchedPhuXeList[i];
+                return ListTile(
+                  dense: true,
+                  title: Text(px['ten_nhan_vien'] as String? ?? '',
+                      style: const TextStyle(fontSize: 14)),
+                  subtitle: px['ma_nhan_vien'] != null
+                      ? Text(px['ma_nhan_vien'] as String,
+                      style: const TextStyle(fontSize: 12))
+                      : null,
+                  onTap: () => setState(() {
+                    _selectedPhuXe = px;
+                    _phuXeSearchCtrl.text = px['ten_nhan_vien'] as String? ?? '';
+                    _showPhuXeDropdown = false;
+                  }),
+                );
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
   // Cache
   List<Map<String, dynamic>> _khachHangList = [];
   List<Map<String, dynamic>> _matHangList = [];
@@ -157,6 +289,8 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
     _ghiChuCtrl.dispose();
+    _phuXeSearchCtrl.dispose();
+    _phuXeDebounce?.cancel();
     for (final r in _saleRows) r.dispose();
     for (final r in _gasDuRows) r.dispose();
     super.dispose();
@@ -254,6 +388,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
+
     if (_selectedKhachHang == null) {
       _showError('Vui lòng chọn khách hàng');
       return;
@@ -298,6 +433,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           'tienMat': _tienMat,
           'tienCK': _tienCK,
           if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
+          if (_selectedPhuXe != null) 'phuXeId': _selectedPhuXe!['server_id'],
           'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
         });
         if (mounted) {
@@ -309,6 +445,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         final confirm = await _showOfflineDialog();
         if (confirm == true && mounted) {
           bool isFirstRow = true;
+          final int? phuXeIdOffline = _selectedPhuXe?['server_id'] as int?;
           for (final r in validRows) {
             await _db.insertBanHangOffline({
               'chuyen_xe_server_id': widget.chuyenXeServerId,
@@ -324,6 +461,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'tien_mat': isFirstRow ? _tienMat : 0.0,
               'tien_ck': isFirstRow ? _tienCK : 0.0,
               'tai_khoan_ck_id': isFirstRow ? _selectedTaiKhoanId : null,
+              'phu_xe_id': isFirstRow ? phuXeIdOffline : null,
               'ghi_chu': isFirstRow && _ghiChuCtrl.text.trim().isNotEmpty
                   ? _ghiChuCtrl.text.trim()
                   : null,
@@ -409,6 +547,14 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             child: _buildKhachHangSection(),
           ),
           const SizedBox(height: 10),
+
+              // ── Phụ xe (THÊM VÀO ĐÂY) ────────────────────────────────────────
+              _SectionCard(
+                key: _phuXeSectionKey,
+                title: 'Phụ xe',
+                child: _buildPhuXeSection(),
+              ),
+              const SizedBox(height: 10),
 
           // ── Chi tiết bán hàng ────────────────────────────────────────────
           _SectionCard(
