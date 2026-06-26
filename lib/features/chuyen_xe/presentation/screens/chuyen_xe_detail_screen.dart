@@ -12,6 +12,8 @@ import '../../../../core/router/app_routes.dart';
 import '../../data/models/chuyen_xe_model.dart';
 import '../../data/repositories/chuyen_xe_repository.dart';
 import '../providers/chuyen_xe_provider.dart';
+import '../../../cong_no/data/cong_no_repository.dart';
+import '../../../cong_no/data/cong_no_model.dart';
 
 // Formatter dùng chung trong file.
 final _fmtCurrency =
@@ -1589,45 +1591,277 @@ class _GasDuCard extends StatelessWidget {
   }
 }
 
-// ── Tab 6: Thu nợ cũ ─────────────────────────────────────────────────────────
+// ── Tab 6: Trả nợ ─────────────────────────────────────────────────────────
 
-class _TabThuNo extends StatelessWidget {
+class _TabThuNo extends StatefulWidget {
   final ChuyenXeModel cx;
   const _TabThuNo({required this.cx});
 
   @override
-  Widget build(BuildContext context) {
-    final traNoCu = cx.ketThuc?.traNoCu ?? [];
+  State<_TabThuNo> createState() => _TabThuNoState();
+}
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+class _TabThuNoState extends State<_TabThuNo> {
+  final _repo = CongNoRepository();
+  Map<int, List<CongNoChuyenXeModel>> _congNoMap = {};
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadAll();
+  }
+
+  Future<void> _loadAll() async {
+    // Lấy danh sách khách hàng từ banHang
+    final khIds = widget.cx.banHang
+        .map((b) => b.khachHangId)
+        .toSet()
+        .toList();
+    if (khIds.isEmpty) return;
+
+    setState(() => _loading = true);
+    try {
+      final results = await Future.wait(
+        khIds.map((id) => _repo.getDuNo(id).then((list) => MapEntry(id, list))),
+      );
+      setState(() {
+        _congNoMap = Map.fromEntries(results);
+      });
+    } catch (e) {
+      debugPrint('[TabThuNo] Lỗi load: $e');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final khachHangs = widget.cx.banHang
+        .map((b) => b.khachHangId)
+        .toSet()
+        .where((id) => (_congNoMap[id] ?? []).isNotEmpty)
+        .toList();
+
+    if (_congNoMap.isEmpty) {
+      return const _EmptyState(
+        icon: Icons.check_circle_outline,
+        label: 'Không có lịch sử công nợ',
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAll,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
         children: [
-          if (cx.ketThuc == null)
-            _EmptyState(
-                icon: Icons.receipt_long_outlined,
-                label: 'Chuyến chưa kết thúc')
-          else if (traNoCu.isEmpty)
-            _EmptyState(
-                icon: Icons.receipt_long_outlined,
-                label: 'Không có thu nợ cũ trong chuyến này')
-          else ...[
-            _SummaryRow(
-                label: 'Tổng thu nợ',
-                value:
-                    _fmtCurrency.format(cx.ketThuc!.tongThuNoCu),
-                valueColor: Colors.purple),
+          for (final khId in khachHangs) ...[
+            _buildKhachHangSection(context, khId),
             const SizedBox(height: 12),
-            _SectionLabel('Chi tiết thu nợ cũ'),
-            const SizedBox(height: 8),
-            ...traNoCu.map((n) => _TraNoCuCard(item: n)),
           ],
         ],
       ),
     );
   }
+
+  Widget _buildKhachHangSection(BuildContext context, int khId) {
+    final tenKH = widget.cx.banHang
+        .firstWhere((b) => b.khachHangId == khId,
+            orElse: () => widget.cx.banHang.first)
+        .tenKhachHang ?? 'KH#$khId';
+    final nos = _congNoMap[khId] ?? [];
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.orange.shade50,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.person_outline, color: Colors.orange, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text(tenKH,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14))),
+              ],
+            ),
+          ),
+          for (final no in nos) (() {
+            final daTra = no.daTra > 0;
+            final conNo = no.conNo;
+            final daTraXong = conNo <= 0;
+            return ListTile(
+              dense: true,
+              title: Text('${no.maChuyenXe} — ${no.ngayXuat}',
+                  style: const TextStyle(fontSize: 13)),
+              subtitle: Text(
+                'Nợ gốc: ${_fmtCurrency.format(no.soTienNo)}'
+                '${daTra ? '  |  Đã trả: ${_fmtCurrency.format(no.daTra)}' : ''}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
+              ),
+              trailing: daTraXong
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('Đã trả',
+                          style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 12)),
+                    )
+                  : Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(_fmtCurrency.format(conNo),
+                            style: const TextStyle(
+                                color: Colors.red, fontWeight: FontWeight.bold, fontSize: 13)),
+                        const Text('còn nợ',
+                            style: TextStyle(fontSize: 10, color: Colors.grey)),
+                      ],
+                    ),
+              onTap: daTraXong ? null : () => _showTraNoBottomSheet(context, khId, no),
+            );
+          })(),
+        ],
+      ),
+    );
+  }
+
+  // Format số có dấu chấm nghìn và parse ngược lại
+  String _fmtInput(String raw) {
+    final digits = raw.replaceAll('.', '');
+    if (digits.isEmpty) return '';
+    final n = int.tryParse(digits) ?? 0;
+    return _fmtCurrency.format(n).replaceAll(' ', '').replaceAll('₫', '').trim();
+  }
+
+  void _showTraNoBottomSheet(
+      BuildContext context, int khachHangId, CongNoChuyenXeModel no) {
+    final soTienCtrl = TextEditingController();
+    final ghiChuCtrl = TextEditingController();
+    String hinhThuc = 'tien-mat';
+    int taiKhoanId = 0;
+    List<Map<String, dynamic>> tkList = [];
+
+    // Load tài khoản ngân hàng
+    _repo.getTaiKhoanNganHang().then((list) {
+      tkList = list;
+    });
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setBS) => Padding(
+          padding: EdgeInsets.fromLTRB(
+              16, 16, 16, MediaQuery.of(ctx).viewInsets.bottom + 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Trả nợ — ${no.maChuyenXe}',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+              const SizedBox(height: 4),
+              Text('Còn nợ: ${_fmtCurrency.format(no.conNo)}',
+                  style: const TextStyle(color: Colors.red, fontSize: 13)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: soTienCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'Số tiền trả (đ)',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  suffixText: 'đ',
+                ),
+                onChanged: (v) {
+                  final formatted = _fmtInput(v);
+                  soTienCtrl.value = soTienCtrl.value.copyWith(
+                    text: formatted,
+                    selection: TextSelection.collapsed(offset: formatted.length),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: hinhThuc,
+                decoration: const InputDecoration(
+                    labelText: 'Hình thức', border: OutlineInputBorder(), isDense: true),
+                items: const [
+                  DropdownMenuItem(value: 'tien-mat', child: Text('Tiền mặt')),
+                  DropdownMenuItem(value: 'chuyen-khoan', child: Text('Chuyển khoản')),
+                ],
+                onChanged: (v) => setBS(() => hinhThuc = v!),
+              ),
+              if (hinhThuc == 'chuyen-khoan') ...[
+                const SizedBox(height: 12),
+                DropdownButtonFormField<int>(
+                  value: taiKhoanId == 0 ? null : taiKhoanId,
+                  decoration: const InputDecoration(
+                      labelText: 'Tài khoản CK', border: OutlineInputBorder(), isDense: true),
+                  items: tkList.map((tk) => DropdownMenuItem<int>(
+                    value: tk['id'] as int,
+                    child: Text(tk['tenTaiKhoan'] as String),
+                  )).toList(),
+                  onChanged: (v) => setBS(() => taiKhoanId = v ?? 0),
+                ),
+              ],
+              const SizedBox(height: 12),
+              TextField(
+                controller: ghiChuCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Ghi chú', border: OutlineInputBorder(), isDense: true),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                  child: const Text('Xác nhận trả nợ',
+                      style: TextStyle(color: Colors.white)),
+                  onPressed: () async {
+                    final soTien = double.tryParse(
+                            soTienCtrl.text.replaceAll('.', '').replaceAll(',', '')) ??
+                        0;
+                    if (soTien <= 0) return;
+                    if (hinhThuc == 'chuyen-khoan' && taiKhoanId == 0) return;
+                    try {
+                      await _repo.traNo(
+                        khachHangId: khachHangId,
+                        chuyenXeId: no.chuyenXeId,
+                        soTienTra: soTien,
+                        hinhThuc: hinhThuc,
+                        taiKhoanId: hinhThuc == 'chuyen-khoan' ? taiKhoanId : null,
+                        ghiChu: ghiChuCtrl.text.trim().isEmpty ? null : ghiChuCtrl.text.trim(),
+                      );
+                      if (ctx.mounted) Navigator.pop(ctx);
+                      await _loadAll(); // reload
+                    } catch (e) {
+                      debugPrint('[TabThuNo] Lỗi trả nợ: $e');
+                    }
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
+
 
 // Card một dòng thu nợ.
 class _TraNoCuCard extends StatelessWidget {
