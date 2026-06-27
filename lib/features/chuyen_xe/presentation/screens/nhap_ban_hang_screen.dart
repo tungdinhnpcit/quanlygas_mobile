@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import '../../../../core/database/local_database.dart';
+import '../../../../core/router/app_routes.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
@@ -71,10 +72,14 @@ class NhapBanHangScreen extends ConsumerStatefulWidget {
   /// Local ID chuyến xe (khi chuyến tạo offline, chưa sync).
   final int? chuyenXeLocalId;
 
+  /// Phụ xe đã chọn từ màn hình bán hàng (truyền vào để gửi API).
+  final int? phuXeId;
+
   const NhapBanHangScreen({
     super.key,
     this.chuyenXeServerId,
     this.chuyenXeLocalId,
+    this.phuXeId,
   });
 
   @override
@@ -86,149 +91,13 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   final _db = LocalDatabase.instance;
   final _fmtMoney = NumberFormat('#,##0', 'vi_VN');
 
-  // Phụ xe
-  Map<String, dynamic>? _selectedPhuXe;
-  final _phuXeSearchCtrl = TextEditingController();
-  bool _showPhuXeDropdown = false;
-  bool _isSearchingPhuXe = false;
-  List<Map<String, dynamic>> _searchedPhuXeList = [];
-  Timer? _phuXeDebounce; // Dùng để chặn spam call API
-
-  // GlobalKey cho scroll
-  final _phuXeSectionKey = GlobalKey();
-
-  void _onSearchPhuXeChanged(String query) {
-    setState(() {
-      _showPhuXeDropdown = true;
-    });
-
-    if (_phuXeDebounce?.isActive ?? false) _phuXeDebounce!.cancel();
-
-    // Đợi 500ms sau khi ngừng gõ mới call API
-    _phuXeDebounce = Timer(const Duration(milliseconds: 500), () async {
-      if (query.trim().isEmpty) {
-        setState(() {
-          _searchedPhuXeList = [];
-          _isSearchingPhuXe = false;
-        });
-        return;
-      }
-
-      setState(() => _isSearchingPhuXe = true);
-
-      try {
-        // TODO: Thay bằng hàm call API lấy phụ xe thực tế từ Repository của bạn
-        // Ví dụ: final results = await _repo.searchNhanVien(query: query, role: 'phu-xe');
-        final results = await _repo.searchPhuXeAPI(query);
-
-        if (mounted) {
-          setState(() {
-            _searchedPhuXeList = results;
-          });
-        }
-      } catch (e) {
-        debugPrint('Lỗi tìm phụ xe: $e');
-      } finally {
-        if (mounted) setState(() => _isSearchingPhuXe = false);
-      }
-    });
-  }
-
-  Widget _buildPhuXeSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        TextField(
-          controller: _phuXeSearchCtrl,
-          decoration: InputDecoration(
-            hintText: 'Nhập tên hoặc mã phụ xe...',
-            prefixIcon: const Icon(Icons.person_search, size: 18),
-            border: const OutlineInputBorder(),
-            contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-            isDense: true,
-            // Hiển thị vòng xoay loading khi đang call API
-            suffixIcon: _isSearchingPhuXe
-                ? const Padding(
-              padding: EdgeInsets.all(10.0),
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              ),
-            )
-                : null,
-          ),
-          onChanged: _onSearchPhuXeChanged,
-          onTap: () {
-            _ensureVisible(_phuXeSectionKey);
-            setState(() => _showPhuXeDropdown = true);
-          },
-        ),
-        // Hiển thị Phụ xe đã chọn dưới dạng Chip
-        if (_selectedPhuXe != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Chip(
-              label: Text(_selectedPhuXe!['ten_nhan_vien'] as String? ?? 'Chưa rõ tên'),
-              onDeleted: () => setState(() {
-                _selectedPhuXe = null;
-                _phuXeSearchCtrl.clear();
-              }),
-            ),
-          ),
-
-        // Dropdown danh sách kết quả trả về từ API
-        if (_showPhuXeDropdown && _phuXeSearchCtrl.text.isNotEmpty && !_isSearchingPhuXe)
-          Container(
-            constraints: const BoxConstraints(maxHeight: 180),
-            margin: const EdgeInsets.only(top: 4),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(4),
-              color: Colors.white,
-            ),
-            child: _searchedPhuXeList.isEmpty
-                ? const Padding(
-              padding: EdgeInsets.all(12.0),
-              child: Text('Không tìm thấy phụ xe nào', style: TextStyle(color: Colors.grey)),
-            )
-                : ListView.builder(
-              shrinkWrap: true,
-              itemCount: _searchedPhuXeList.length,
-              itemBuilder: (ctx, i) {
-                final px = _searchedPhuXeList[i];
-                return ListTile(
-                  dense: true,
-                  title: Text(px['ten_nhan_vien'] as String? ?? '',
-                      style: const TextStyle(fontSize: 14)),
-                  subtitle: px['ma_nhan_vien'] != null
-                      ? Text(px['ma_nhan_vien'] as String,
-                      style: const TextStyle(fontSize: 12))
-                      : null,
-                  onTap: () => setState(() {
-                    _selectedPhuXe = px;
-                    _phuXeSearchCtrl.text = px['ten_nhan_vien'] as String? ?? '';
-                    _showPhuXeDropdown = false;
-                  }),
-                );
-              },
-            ),
-          ),
-      ],
-    );
-  }
-
   // Cache
-  List<Map<String, dynamic>> _khachHangList = [];
   List<Map<String, dynamic>> _matHangList = [];
   List<Map<String, dynamic>> _nhaCCList = [];
   List<Map<String, dynamic>> _taiKhoanList = [];
 
   // Khách hàng
   Map<String, dynamic>? _selectedKhachHang;
-  final _khSearchCtrl = TextEditingController();
-  bool _showKhDropdown = false;
-  List<Map<String, dynamic>> _filteredKH = [];
 
   // Sản phẩm (multi-row)
   final List<_SaleRow> _saleRows = [_SaleRow()];
@@ -285,29 +154,23 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   @override
   void dispose() {
-    _khSearchCtrl.dispose();
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
     _ghiChuCtrl.dispose();
-    _phuXeSearchCtrl.dispose();
-    _phuXeDebounce?.cancel();
     for (final r in _saleRows) r.dispose();
     for (final r in _gasDuRows) r.dispose();
     super.dispose();
   }
 
   Future<void> _loadCaches() async {
-    final kh = await _db.getKhachHangList();
     final mh = await _db.getMatHangList();
     final ncc = await _db.getNhaCungCapList();
     final tk = await _db.getTaiKhoanList();
     if (mounted) {
       setState(() {
-        _khachHangList = kh;
         _matHangList = mh;
         _nhaCCList = ncc;
         _taiKhoanList = tk;
-        _filteredKH = kh;
       });
     }
   }
@@ -350,17 +213,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     }).take(10).toList();
   }
 
-  void _filterKH(String query) {
-    setState(() {
-      _filteredKH = query.isEmpty
-          ? _khachHangList
-          : _khachHangList.where((kh) {
-              final name = (kh['ten_khach_hang'] as String? ?? '').toLowerCase();
-              return name.contains(query.toLowerCase());
-            }).toList();
-      _showKhDropdown = true;
-    });
-  }
 
   void _addSaleRow() {
     setState(() => _saleRows.add(_SaleRow()));
@@ -433,7 +285,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           'tienMat': _tienMat,
           'tienCK': _tienCK,
           if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
-          if (_selectedPhuXe != null) 'phuXeId': _selectedPhuXe!['server_id'],
+          if (widget.phuXeId != null) 'phuXeId': widget.phuXeId,
           'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
         });
         if (mounted) {
@@ -445,7 +297,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         final confirm = await _showOfflineDialog();
         if (confirm == true && mounted) {
           bool isFirstRow = true;
-          final int? phuXeIdOffline = _selectedPhuXe?['server_id'] as int?;
+          final int? phuXeIdOffline = widget.phuXeId;
           for (final r in validRows) {
             await _db.insertBanHangOffline({
               'chuyen_xe_server_id': widget.chuyenXeServerId,
@@ -548,14 +400,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           ),
           const SizedBox(height: 10),
 
-              // ── Phụ xe (THÊM VÀO ĐÂY) ────────────────────────────────────────
-              _SectionCard(
-                key: _phuXeSectionKey,
-                title: 'Phụ xe',
-                child: _buildPhuXeSection(),
-              ),
-              const SizedBox(height: 10),
-
           // ── Chi tiết bán hàng ────────────────────────────────────────────
           _SectionCard(
             title: 'Chi tiết bán hàng',
@@ -643,92 +487,90 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   }
 
   Widget _buildKhachHangSection() {
+    final tenKH = _selectedKhachHang?['ten_khach_hang'] as String? ?? '';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
+            // Button mở màn hình tìm kiếm khách hàng
             Expanded(
-              child: TextField(
-                controller: _khSearchCtrl,
-                decoration: InputDecoration(
-                  hintText: 'Tìm kiếm khách hàng...',
-                  prefixIcon: const Icon(Icons.search, size: 18),
-                  border: const OutlineInputBorder(),
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
-                  isDense: true,
-                ),
-                onChanged: _filterKH,
-                onTap: () {
-                  _ensureVisible(_khachHangSectionKey);
-                  setState(() => _showKhDropdown = true);
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  final selected = await context
+                      .push<Map<String, dynamic>>(AppRoutes.timKiemKhachHang);
+                  if (selected != null && mounted) {
+                    setState(() => _selectedKhachHang = selected);
+                  }
                 },
+                icon: Icon(
+                  _selectedKhachHang == null
+                      ? Icons.search
+                      : Icons.person_outline,
+                  size: 18,
+                  color: _selectedKhachHang == null
+                      ? Colors.grey
+                      : const Color(0xFF00897B),
+                ),
+                label: Text(
+                  _selectedKhachHang == null
+                      ? 'Tìm kiếm khách hàng...'
+                      : tenKH,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: _selectedKhachHang == null
+                        ? Colors.grey
+                        : const Color(0xFF00897B),
+                    fontWeight: _selectedKhachHang != null
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
+                style: OutlinedButton.styleFrom(
+                  alignment: Alignment.centerLeft,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  side: BorderSide(
+                    color: _selectedKhachHang == null
+                        ? Colors.grey.shade400
+                        : const Color(0xFF00897B),
+                  ),
+                ),
               ),
             ),
             const SizedBox(width: 8),
+            // Button tạo khách hàng mới
             OutlinedButton.icon(
               onPressed: () async {
-                await context.push('/khach-hang/tao-moi');
+                await context.push(AppRoutes.taoKhachHang);
                 if (mounted) _loadCaches();
               },
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Tạo'),
               style: OutlinedButton.styleFrom(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8)),
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
             ),
           ],
         ),
+        // Nút xoá khách hàng đã chọn
         if (_selectedKhachHang != null)
           Padding(
             padding: const EdgeInsets.only(top: 6),
-            child: Chip(
-              label: Text(
-                  _selectedKhachHang!['ten_khach_hang'] as String? ?? ''),
-              onDeleted: () => setState(() {
-                _selectedKhachHang = null;
-                _khSearchCtrl.clear();
-              }),
-            ),
-          ),
-        if (_showKhDropdown && _filteredKH.isNotEmpty)
-          Container(
-            constraints: const BoxConstraints(maxHeight: 180),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: _filteredKH.length,
-              itemBuilder: (ctx, i) {
-                final kh = _filteredKH[i];
-                final isOffline = (kh['is_offline_created'] as int? ?? 0) == 1;
-                return ListTile(
-                  dense: true,
-                  title: Text(kh['ten_khach_hang'] as String? ?? '',
-                      style: const TextStyle(fontSize: 14)),
-                  subtitle: kh['dia_chi'] != null
-                      ? Text(kh['dia_chi'] as String,
-                          style: const TextStyle(fontSize: 12))
-                      : null,
-                  trailing: isOffline
-                      ? const Chip(
-                          label: Text('Offline',
-                              style: TextStyle(fontSize: 10)),
-                          backgroundColor: Color(0xFFFF9800),
-                          labelPadding: EdgeInsets.zero,
-                        )
-                      : null,
-                  onTap: () => setState(() {
-                    _selectedKhachHang = kh;
-                    _khSearchCtrl.text =
-                        kh['ten_khach_hang'] as String? ?? '';
-                    _showKhDropdown = false;
-                  }),
-                );
-              },
+            child: InkWell(
+              onTap: () => setState(() => _selectedKhachHang = null),
+              borderRadius: BorderRadius.circular(20),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cancel_outlined,
+                      size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
+                  Text('Bỏ chọn',
+                      style: TextStyle(
+                          fontSize: 12, color: Colors.grey.shade600)),
+                ],
+              ),
             ),
           ),
       ],

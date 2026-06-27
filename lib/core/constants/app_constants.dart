@@ -6,7 +6,7 @@ class AppConstants {
       'Thông báo chuyến xe và cập nhật từ hệ thống';
   // localApiUrl: IP máy dev (cho real device Android / iOS)
   // Emulator Android sẽ tự động dùng 10.0.2.2:5001 (xem device_config.dart)
-  static const String localApiUrl = 'http://192.168.31.123:5001';
+  static const String localApiUrl = 'http://192.168.1.9:5001';
   static const String prodApiUrl  = 'http://apimba.npc.com.vn:8202/apimanager';
   // Được set bởi DeviceConfig.resolveApiUrl() trong main() trước khi runApp
   static String resolvedApiUrl = prodApiUrl;

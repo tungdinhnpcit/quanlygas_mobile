@@ -21,7 +21,7 @@ class ChuyenXeRepository {
         '/api/nhan-vien', // Thay đổi đường dẫn này cho khớp với Backend
         queryParameters: {
           'keyword': keyword,     // Tham số tìm kiếm theo tên hoặc mã
-          'vaiTro': 'phu-xe',     // Filter tùy chọn nếu BE hỗ trợ lọc theo chức vụ
+          'chucVu': 'Phụ xe',     // Backend filter: x.ChucVu.TenChucVu.Contains(chucVu)
           'page': 1,
           'pageSize': 20,         // Chỉ nên lấy top kết quả để UI không bị giật
         },

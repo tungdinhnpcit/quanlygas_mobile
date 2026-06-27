@@ -33,6 +33,8 @@ import '../../features/cai_dat/presentation/screens/thong_tin_tai_khoan_screen.d
 import '../../features/cai_dat/presentation/screens/doi_mat_khau_screen.dart';
 import '../../features/cai_dat/presentation/screens/dong_bo_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/bat_dau_chuyen_screen.dart';
+import '../../features/chuyen_xe/presentation/screens/tim_kiem_khach_hang_screen.dart';
+import '../../features/chuyen_xe/presentation/screens/tim_kiem_phu_xe_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_theo_ngay_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/nhap_ban_hang_screen.dart';
 import '../../features/khach_hang/presentation/screens/tao_khach_hang_screen.dart';
@@ -123,6 +125,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.timKiemKhachHang,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const TimKiemKhachHangScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.timKiemPhuXe,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const TimKiemPhuXeScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/khach-hang/:id',
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
@@ -149,22 +167,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/ban-hang/:id/nhap',
-        pageBuilder: (_, state) => CupertinoPage(
-          key: state.pageKey,
-          child: NhapBanHangScreen(
-            chuyenXeServerId: int.tryParse(state.pathParameters['id']!),
-          ),
-        ),
+        pageBuilder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CupertinoPage(
+            key: state.pageKey,
+            child: NhapBanHangScreen(
+              chuyenXeServerId: int.tryParse(state.pathParameters['id']!),
+              phuXeId: extra?['phuXeId'] as int?,
+            ),
+          );
+        },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/ban-hang/offline/:localId/nhap',
-        pageBuilder: (_, state) => CupertinoPage(
-          key: state.pageKey,
-          child: NhapBanHangScreen(
-            chuyenXeLocalId: int.tryParse(state.pathParameters['localId']!),
-          ),
-        ),
+        pageBuilder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CupertinoPage(
+            key: state.pageKey,
+            child: NhapBanHangScreen(
+              chuyenXeLocalId: int.tryParse(state.pathParameters['localId']!),
+              phuXeId: extra?['phuXeId'] as int?,
+            ),
+          );
+        },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
