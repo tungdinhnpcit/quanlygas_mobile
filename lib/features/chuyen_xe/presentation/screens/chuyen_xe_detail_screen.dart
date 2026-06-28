@@ -313,19 +313,7 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
           ],
         ),
       ),
-      floatingActionButton:
-          _tabController.index == _banHangTabIndex
-              ? FloatingActionButton.extended(
-                  onPressed: () => context
-                      .push(AppRoutes.nhapBanHang(int.parse(widget.chuyenXeId)))
-                      .then((_) => ref.invalidate(
-                          chuyenXeDetailProvider(
-                              int.parse(widget.chuyenXeId)))),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Nhập bán hàng'),
-                  backgroundColor: const Color(0xFF00897B),
-                )
-              : null,
+      floatingActionButton: null,
       bottomNavigationBar: detailAsync.valueOrNull?.trangThai == 'dang-giao'
           ? SafeArea(
               child: Padding(
@@ -767,6 +755,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
   final _repo = ChuyenXeRepository();
   final Set<int> _deleting = {};
 
+  // ── Phụ xe selection ────────────────────────────────────────────────────
+  Map<String, dynamic>? _selectedPhuXe;
+
   Future<void> _delete(BanHangKhachHangModel b) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -849,24 +840,8 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     final cx = widget.cx;
     final items = cx.banHang;
     final total = items.fold<double>(0, (s, b) => s + b.thanhTien);
-    final canDelete =
+    final canEdit =
         cx.trangThai != 'hoan-thanh' && cx.trangThai != 'huy';
-
-    if (items.isEmpty) {
-      return const Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.grey),
-            SizedBox(height: 8),
-            Text('Chưa có dữ liệu bán hàng',
-                style: TextStyle(color: Colors.grey)),
-            SizedBox(height: 4),
-            Text('Nhấn + để nhập', style: TextStyle(color: Colors.grey, fontSize: 12)),
-          ],
-        ),
-      );
-    }
 
     // Nhóm theo khachHangId, giữ thứ tự xuất hiện đầu tiên
     final groups = <int, List<BanHangKhachHangModel>>{};
@@ -878,9 +853,141 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
 
     return Column(
       children: [
+        // Khoảng trống cho _HeaderBar (Positioned overlay ~56px)
+        const SizedBox(height: 56),
+
+        // ── Thông tin chuyến + Phụ xe ──────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Hàng info: ngày xuất | xe | lái xe
+              Wrap(
+                spacing: 10,
+                runSpacing: 4,
+                children: [
+                  _InfoChip(
+                    icon: Icons.calendar_today,
+                    label: 'Ngày xuất',
+                    value: DateFormat('dd/MM/yyyy').format(cx.ngayXuat.toLocal()),
+                    color: Colors.grey.shade700,
+                  ),
+                  if (cx.bienSoXe != null)
+                    _InfoChip(
+                      icon: Icons.directions_car,
+                      label: 'Xe',
+                      value: cx.bienSoXe!,
+                      color: Colors.grey.shade700,
+                    ),
+                  if (cx.tenNhanVien != null)
+                    _InfoChip(
+                      icon: Icons.person,
+                      label: 'Lái xe',
+                      value: cx.tenNhanVien!,
+                      color: Colors.grey.shade700,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+
+              // Phụ xe — button mở màn hình tìm kiếm
+              Row(
+                children: [
+                  const Icon(Icons.person_search,
+                      size: 16, color: Colors.grey),
+                  const SizedBox(width: 6),
+                  const Text('Phụ xe:',
+                      style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  const SizedBox(width: 8),
+                  if (_selectedPhuXe != null)
+                    Chip(
+                      visualDensity: VisualDensity.compact,
+                      label: Text(
+                        _selectedPhuXe!['hoTen'] as String? ?? '',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      onDeleted: () =>
+                          setState(() => _selectedPhuXe = null),
+                    )
+                  else
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          final selected = await context.push<
+                              Map<String, dynamic>>(
+                            AppRoutes.timKiemPhuXe,
+                          );
+                          if (selected != null && mounted) {
+                            setState(() => _selectedPhuXe = selected);
+                          }
+                        },
+                        icon: const Icon(Icons.search, size: 16),
+                        label: const Text('Chọn phụ xe',
+                            style: TextStyle(fontSize: 13)),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              vertical: 6, horizontal: 12),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+
+        // Button Nhập bán hàng ở đầu tab — chỉ hiện khi chuyến đang giao
+        if (canEdit)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => context
+                    .push(
+                      AppRoutes.nhapBanHang(cx.id),
+                      extra: {
+                        'phuXeId': _selectedPhuXe?['id'] as int?,
+                      },
+                    )
+                    .then((_) => ref.invalidate(chuyenXeDetailProvider(cx.id))),
+                icon: const Icon(Icons.add),
+                label: const Text('Nhập bán hàng'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00897B),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(44),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ),
+          ),
+
+        // Danh sách hoặc empty state
+        if (items.isEmpty)
+          const Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.grey),
+                  SizedBox(height: 8),
+                  Text('Chưa có dữ liệu bán hàng',
+                      style: TextStyle(color: Colors.grey)),
+                  SizedBox(height: 4),
+                  Text('Nhấn + để nhập',
+                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+                ],
+              ),
+            ),
+          )
+        else ...[
         Expanded(
           child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 60, 12, 80),
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             itemCount: groupEntries.length,
             itemBuilder: (_, i) {
               final entry = groupEntries[i];
@@ -934,7 +1041,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                               ],
                             ),
                           ),
-                          if (canDelete)
+                          if (canEdit)
                             IconButton(
                               icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.white70),
                               onPressed: () => _deleteAllForKhachHang(rows),
@@ -1005,7 +1112,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                                     ],
                                   ),
                                 ),
-                                if (canDelete)
+                                if (canEdit)
                                   _deleting.contains(b.id)
                                       ? const SizedBox(
                                           width: 20,
@@ -1090,6 +1197,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
             ],
           ),
         ),
+        ], // đóng else ...[
       ],
     );
   }

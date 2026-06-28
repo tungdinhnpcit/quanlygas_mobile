@@ -28,6 +28,10 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
   List<NhanVienModel> _laiXeList = [];
   int _selectedNhanVienId = 0;
 
+  // Theo dõi navigation để reload khi quay lại màn hình
+  bool _hasNavigatedAway = false;
+  late GoRouter _goRouter;
+
   static const _statuses = [
     (null,         'Tất cả',     Color(0xFF9E9E9E)),
     ('cho-xuat',   'Chờ xuất',   Color(0xFFF59E0B)),
@@ -40,6 +44,33 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
   void initState() {
     super.initState();
     Future.microtask(() => _init());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _goRouter = GoRouter.of(context);
+    _goRouter.routerDelegate.addListener(_onRouteChanged);
+  }
+
+  @override
+  void dispose() {
+    _goRouter.routerDelegate.removeListener(_onRouteChanged);
+    super.dispose();
+  }
+
+  /// Lắng nghe thay đổi route — khi trở về /chuyen-xe sau khi đã đi sang màn khác, reload list.
+  void _onRouteChanged() {
+    if (!mounted) return;
+    final location = _goRouter.routerDelegate.currentConfiguration.uri.path;
+    if (location == AppRoutes.chuyenXeList) {
+      if (_hasNavigatedAway) {
+        _hasNavigatedAway = false;
+        _init();
+      }
+    } else {
+      _hasNavigatedAway = true;
+    }
   }
 
   /// Khởi tạo: phân nhánh theo role — lái xe load ngay, admin/kế toán/quản lý tải danh sách lái xe.

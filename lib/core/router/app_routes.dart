@@ -45,5 +45,7 @@ class AppRoutes {
   static const String banHangTheoNgay    = '/ban-hang/theo-ngay';
   static String nhapBanHang(int chuyenXeId) => '/ban-hang/$chuyenXeId/nhap';
   static const String taoKhachHang       = '/khach-hang/tao-moi';
+  static const String timKiemKhachHang   = '/tim-kiem-khach-hang';
+  static const String timKiemPhuXe       = '/tim-kiem-phu-xe';
   static const String dongBo             = '/cai-dat/dong-bo';
 }

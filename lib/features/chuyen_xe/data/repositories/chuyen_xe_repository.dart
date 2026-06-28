@@ -20,8 +20,25 @@ class ChuyenXeRepository {
   /// Lấy danh sách phụ xe đang hoạt động (chuc_vu_id = 4) từ backend.
   Future<List<Map<String, dynamic>>> getPhuXeAll() async {
     try {
-      final res = await ApiClient.instance.dio.get('/api/nhan-vien/phu-xe');
-      final list = res.data as List? ?? [];
+      // 1. Đổi endpoint từ '/api/chuyen-xe' sang endpoint quản lý nhân viên
+      final res = await ApiClient.instance.dio.get(
+        '/api/nhan-vien', // Thay đổi đường dẫn này cho khớp với Backend
+        queryParameters: {
+          'keyword': keyword,     // Tham số tìm kiếm theo tên hoặc mã
+          'chucVu': 'Phụ xe',     // Backend filter: x.ChucVu.TenChucVu.Contains(chucVu)
+          'page': 1,
+          'pageSize': 20,         // Chỉ nên lấy top kết quả để UI không bị giật
+        },
+      );
+
+      // 2. Parse dữ liệu trả về
+      final data = res.data;
+
+      // Thường backend .NET sẽ bọc array trong một object (ví dụ: data['items'] hoặc data['data'])
+      // Nếu BE trả thẳng mảng JSON thì nó sẽ rơi vào trường hợp 'data as List'
+      final list = (data is Map ? (data['items'] ?? data['data']) : data) as List? ?? [];
+
+      // 3. Ép kiểu về List<Map<String, dynamic>> để dùng chung với pattern của UI hiện tại
       return list.map((e) => e as Map<String, dynamic>).toList();
     } catch (e) {
       debugPrint('[ChuyenXe] Error getPhuXeAll: $e');
