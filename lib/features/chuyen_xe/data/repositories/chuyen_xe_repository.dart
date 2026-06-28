@@ -5,42 +5,26 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/chuyen_xe_model.dart';
 
+final chuyenXeRepositoryProvider = Provider<ChuyenXeRepository>((ref) {
+  return ChuyenXeRepository();
+});
+
 class ChuyenXeRepository {
-  /// Lấy danh sách phụ xe
-  Future<List<Map<String, dynamic>>> searchPhuXeAPI(String keyword) async {
-
+  /// Lấy danh sách phụ xe đang hoạt động (chuc_vu_id = 4) từ backend.
+  Future<List<Map<String, dynamic>>> getPhuXeAll() async {
     try {
-      // 1. Đổi endpoint từ '/api/chuyen-xe' sang endpoint quản lý nhân viên
-      final res = await ApiClient.instance.dio.get(
-        '/api/nhan-vien', // Thay đổi đường dẫn này cho khớp với Backend
-        queryParameters: {
-          'keyword': keyword,     // Tham số tìm kiếm theo tên hoặc mã
-          'vaiTro': 'phu-xe',     // Filter tùy chọn nếu BE hỗ trợ lọc theo chức vụ
-          'page': 1,
-          'pageSize': 20,         // Chỉ nên lấy top kết quả để UI không bị giật
-        },
-      );
-
-      // 2. Parse dữ liệu trả về
-      final data = res.data;
-
-      // Thường backend .NET sẽ bọc array trong một object (ví dụ: data['items'] hoặc data['data'])
-      // Nếu BE trả thẳng mảng JSON thì nó sẽ rơi vào trường hợp 'data as List'
-      final list = (data is Map ? (data['items'] ?? data['data']) : data) as List? ?? [];
-
-      // 3. Ép kiểu về List<Map<String, dynamic>> để dùng chung với pattern của UI hiện tại
+      final res = await ApiClient.instance.dio.get('/api/nhan-vien/phu-xe');
+      final list = res.data as List? ?? [];
       return list.map((e) => e as Map<String, dynamic>).toList();
-    } on DioException catch (e) {
-
-      rethrow;
     } catch (e) {
-
+      debugPrint('[ChuyenXe] Error getPhuXeAll: $e');
       rethrow;
     }
   }
@@ -126,11 +110,13 @@ class ChuyenXeRepository {
     required DateTime ngayXuat,
     required int xeId,
     required int nhanVienId,
+    int? phuXeId,
   }) async {
     final res = await ApiClient.instance.dio.post('/api/chuyen-xe', data: {
       'ngayXuat': ngayXuat.toIso8601String(),
       'xeId': xeId,
       'nhanVienId': nhanVienId,
+      if (phuXeId != null) 'phuXeId': phuXeId,
       'loai': 'mobile',
       'trangThai': 'dang-giao',
       'isActive': true,

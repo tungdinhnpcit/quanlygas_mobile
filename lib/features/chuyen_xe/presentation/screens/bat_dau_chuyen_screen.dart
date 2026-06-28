@@ -9,6 +9,7 @@ import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
+import '../../data/repositories/chuyen_xe_repository.dart';
 import 'chuyen_xe_theo_ngay_screen.dart';
 
 class BatDauChuyenScreen extends ConsumerStatefulWidget {
@@ -23,12 +24,15 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
 
   List<Map<String, dynamic>> _xeList = [];
   List<Map<String, dynamic>> _nhanVienList = [];
+  List<Map<String, dynamic>> _phuXeList = [];
 
   DateTime _selectedDate = DateTime.now();
   int? _selectedXeId;
   String? _selectedBienSo;
   int? _selectedNhanVienId;
   String _nhanVienText = '';
+  int? _selectedPhuXeId;
+  String _phuXeText = '';
   bool _isNhanVien = false; // true nếu role == LaiXe → read-only
   bool _loading = false;
 
@@ -37,6 +41,7 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
     super.initState();
     _loadXeList();
     _loadNhanVienList();
+    _loadPhuXeList();
   }
 
   Future<void> _loadXeList() async {
@@ -76,6 +81,17 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
         _selectedNhanVienId = preId;
         _nhanVienText = preText;
       });
+    }
+  }
+
+  /// Tải danh sách phụ xe từ backend.
+  Future<void> _loadPhuXeList() async {
+    try {
+      ChuyenXeRepository chuyenXeRepository = new ChuyenXeRepository();
+      final list = await chuyenXeRepository.getPhuXeAll();
+      if (mounted) setState(() => _phuXeList = list);
+    } catch (e) {
+      debugPrint('[BatDauChuyen] Error loading phụ xe: $e');
     }
   }
 
@@ -156,6 +172,8 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
             bienSoXe: _selectedBienSo,
             nhanVienId: _selectedNhanVienId!,
             tenNhanVien: _nhanVienText.isNotEmpty ? _nhanVienText : null,
+            phuXeId: _selectedPhuXeId,
+            tenPhuXe: _phuXeText.isEmpty ? null : _phuXeText,
           ),
         );
       }
@@ -333,6 +351,59 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
                                   ),
                                 ),
                               ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Chọn phụ xe (optional)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Phụ xe (không bắt buộc)',
+                        style: Theme.of(context).textTheme.labelMedium),
+                    const SizedBox(height: 8),
+                    _phuXeList.isEmpty
+                        ? const Text('Đang tải danh sách phụ xe...',
+                            style: TextStyle(color: Colors.grey))
+                        : Autocomplete<Map<String, dynamic>>(
+                            initialValue:
+                                TextEditingValue(text: _phuXeText),
+                            optionsBuilder: (textValue) {
+                              if (textValue.text.isEmpty)
+                                return _phuXeList;
+                              final q = textValue.text.toLowerCase();
+                              return _phuXeList.where((px) =>
+                                  (px['hoTen'] as String)
+                                      .toLowerCase()
+                                      .contains(q) ||
+                                  (px['maNhanVien'] as String)
+                                      .toLowerCase()
+                                      .contains(q));
+                            },
+                            displayStringForOption: (px) =>
+                                '${px['hoTen']} (${px['maNhanVien']})',
+                            onSelected: (px) => setState(() {
+                              _selectedPhuXeId = px['id'] as int;
+                              _phuXeText =
+                                  '${px['hoTen']} (${px['maNhanVien']})';
+                            }),
+                            fieldViewBuilder: (ctx, ctrl, fn, onSubmit) =>
+                                TextFormField(
+                              controller: ctrl,
+                              focusNode: fn,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 8),
+                                hintText: 'Tìm theo tên hoặc mã NV',
+                              ),
+                            ),
+                          ),
                   ],
                 ),
               ),

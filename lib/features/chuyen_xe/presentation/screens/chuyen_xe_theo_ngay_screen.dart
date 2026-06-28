@@ -17,6 +17,8 @@ class ChuyenXeTheoNgayArgs {
   final String? bienSoXe;
   final int nhanVienId;
   final String? tenNhanVien;
+  final int? phuXeId;
+  final String? tenPhuXe;
 
   const ChuyenXeTheoNgayArgs({
     required this.ngayXuat,
@@ -24,6 +26,8 @@ class ChuyenXeTheoNgayArgs {
     this.bienSoXe,
     required this.nhanVienId,
     this.tenNhanVien,
+    this.phuXeId,
+    this.tenPhuXe,
   });
 }
 
@@ -106,6 +110,7 @@ class _ChuyenXeTheoNgayScreenState
         ngayXuat: args.ngayXuat,
         xeId: args.xeId,
         nhanVienId: args.nhanVienId,
+        phuXeId: args.phuXeId,
       );
 
       // Lưu cache local để dùng offline sau
