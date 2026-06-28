@@ -9,7 +9,6 @@ import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
-import '../../data/repositories/chuyen_xe_repository.dart';
 import 'chuyen_xe_theo_ngay_screen.dart';
 
 class BatDauChuyenScreen extends ConsumerStatefulWidget {
@@ -24,15 +23,12 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
 
   List<Map<String, dynamic>> _xeList = [];
   List<Map<String, dynamic>> _nhanVienList = [];
-  List<Map<String, dynamic>> _phuXeList = [];
 
   DateTime _selectedDate = DateTime.now();
   int? _selectedXeId;
   String? _selectedBienSo;
   int? _selectedNhanVienId;
   String _nhanVienText = '';
-  int? _selectedPhuXeId;
-  String _phuXeText = '';
   bool _isNhanVien = false; // true nếu role == LaiXe → read-only
   bool _loading = false;
 
@@ -41,7 +37,6 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
     super.initState();
     _loadXeList();
     _loadNhanVienList();
-    _loadPhuXeList();
   }
 
   Future<void> _loadXeList() async {
@@ -81,17 +76,6 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
         _selectedNhanVienId = preId;
         _nhanVienText = preText;
       });
-    }
-  }
-
-  /// Tải danh sách phụ xe từ backend.
-  Future<void> _loadPhuXeList() async {
-    try {
-      ChuyenXeRepository chuyenXeRepository = new ChuyenXeRepository();
-      final list = await chuyenXeRepository.getPhuXeAll();
-      if (mounted) setState(() => _phuXeList = list);
-    } catch (e) {
-      debugPrint('[BatDauChuyen] Error loading phụ xe: $e');
     }
   }
 
@@ -172,8 +156,6 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
             bienSoXe: _selectedBienSo,
             nhanVienId: _selectedNhanVienId!,
             tenNhanVien: _nhanVienText.isNotEmpty ? _nhanVienText : null,
-            phuXeId: _selectedPhuXeId,
-            tenPhuXe: _phuXeText.isEmpty ? null : _phuXeText,
           ),
         );
       }
@@ -253,31 +235,31 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
                     const SizedBox(height: 8),
                     _xeList.isEmpty
                         ? const Text('Đang tải danh sách xe...',
-                            style: TextStyle(color: Colors.grey))
+                        style: TextStyle(color: Colors.grey))
                         : DropdownButtonFormField<int>(
-                            isExpanded: true,
-                            value: _selectedXeId,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12, vertical: 8),
-                            ),
-                            hint: const Text('Chọn xe'),
-                            items: _xeList
-                                .map((xe) => DropdownMenuItem<int>(
-                                      value: xe['server_id'] as int,
-                                      child: Text(xe['bien_so_xe'] as String),
-                                    ))
-                                .toList(),
-                            onChanged: (val) {
-                              final xe = _xeList
-                                  .firstWhere((e) => e['server_id'] == val);
-                              setState(() {
-                                _selectedXeId = val;
-                                _selectedBienSo = xe['bien_so_xe'] as String?;
-                              });
-                            },
-                          ),
+                      isExpanded: true,
+                      value: _selectedXeId,
+                      decoration: const InputDecoration(
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12, vertical: 8),
+                      ),
+                      hint: const Text('Chọn xe'),
+                      items: _xeList
+                          .map((xe) => DropdownMenuItem<int>(
+                        value: xe['server_id'] as int,
+                        child: Text(xe['bien_so_xe'] as String),
+                      ))
+                          .toList(),
+                      onChanged: (val) {
+                        final xe = _xeList
+                            .firstWhere((e) => e['server_id'] == val);
+                        setState(() {
+                          _selectedXeId = val;
+                          _selectedBienSo = xe['bien_so_xe'] as String?;
+                        });
+                      },
+                    ),
                   ],
                 ),
               ),
@@ -295,115 +277,62 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
                         style: Theme.of(context).textTheme.labelMedium),
                     const SizedBox(height: 8),
                     _isNhanVien
-                        // Lái xe đăng nhập: chỉ hiển thị tên, không chọn được
+                    // Lái xe đăng nhập: chỉ hiển thị tên, không chọn được
                         ? Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey.shade400),
-                              borderRadius: BorderRadius.circular(4),
-                              color: Colors.grey.shade100,
-                            ),
-                            child: Text(
-                              _nhanVienText.isEmpty
-                                  ? 'Không xác định'
-                                  : _nhanVienText,
-                              style: Theme.of(context).textTheme.bodyMedium,
-                            ),
-                          )
-                        // Admin/QuanLy/KeToan: autocomplete chọn lái xe
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade400),
+                        borderRadius: BorderRadius.circular(4),
+                        color: Colors.grey.shade100,
+                      ),
+                      child: Text(
+                        _nhanVienText.isEmpty
+                            ? 'Không xác định'
+                            : _nhanVienText,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    )
+                    // Admin/QuanLy/KeToan: autocomplete chọn lái xe
                         : _nhanVienList.isEmpty
-                            ? const Text(
-                                'Chưa có dữ liệu lái xe — vui lòng đồng bộ dữ liệu trước',
-                                style: TextStyle(color: Colors.orange))
-                            : Autocomplete<Map<String, dynamic>>(
-                                initialValue:
-                                    TextEditingValue(text: _nhanVienText),
-                                optionsBuilder: (textValue) {
-                                  if (textValue.text.isEmpty)
-                                    return _nhanVienList;
-                                  final q = textValue.text.toLowerCase();
-                                  return _nhanVienList.where((nv) =>
-                                      (nv['ho_ten'] as String)
-                                          .toLowerCase()
-                                          .contains(q) ||
-                                      (nv['ma_nhan_vien'] as String)
-                                          .toLowerCase()
-                                          .contains(q));
-                                },
-                                displayStringForOption: (nv) =>
-                                    '${nv['ho_ten']} (${nv['ma_nhan_vien']})',
-                                onSelected: (nv) => setState(() {
-                                  _selectedNhanVienId = nv['server_id'] as int;
-                                  _nhanVienText =
-                                      '${nv['ho_ten']} (${nv['ma_nhan_vien']})';
-                                }),
-                                fieldViewBuilder: (ctx, ctrl, fn, onSubmit) =>
-                                    TextFormField(
-                                  controller: ctrl,
-                                  focusNode: fn,
-                                  decoration: const InputDecoration(
-                                    border: OutlineInputBorder(),
-                                    contentPadding: EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 8),
-                                    hintText: 'Tìm theo tên hoặc mã NV',
-                                  ),
-                                ),
-                              ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-
-            // Chọn phụ xe (optional)
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Phụ xe (không bắt buộc)',
-                        style: Theme.of(context).textTheme.labelMedium),
-                    const SizedBox(height: 8),
-                    _phuXeList.isEmpty
-                        ? const Text('Đang tải danh sách phụ xe...',
-                            style: TextStyle(color: Colors.grey))
+                        ? const Text(
+                        'Chưa có dữ liệu lái xe — vui lòng đồng bộ dữ liệu trước',
+                        style: TextStyle(color: Colors.orange))
                         : Autocomplete<Map<String, dynamic>>(
-                            initialValue:
-                                TextEditingValue(text: _phuXeText),
-                            optionsBuilder: (textValue) {
-                              if (textValue.text.isEmpty)
-                                return _phuXeList;
-                              final q = textValue.text.toLowerCase();
-                              return _phuXeList.where((px) =>
-                                  (px['hoTen'] as String)
-                                      .toLowerCase()
-                                      .contains(q) ||
-                                  (px['maNhanVien'] as String)
-                                      .toLowerCase()
-                                      .contains(q));
-                            },
-                            displayStringForOption: (px) =>
-                                '${px['hoTen']} (${px['maNhanVien']})',
-                            onSelected: (px) => setState(() {
-                              _selectedPhuXeId = px['id'] as int;
-                              _phuXeText =
-                                  '${px['hoTen']} (${px['maNhanVien']})';
-                            }),
-                            fieldViewBuilder: (ctx, ctrl, fn, onSubmit) =>
-                                TextFormField(
-                              controller: ctrl,
-                              focusNode: fn,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                contentPadding: EdgeInsets.symmetric(
-                                    horizontal: 12, vertical: 8),
-                                hintText: 'Tìm theo tên hoặc mã NV',
-                              ),
+                      initialValue:
+                      TextEditingValue(text: _nhanVienText),
+                      optionsBuilder: (textValue) {
+                        if (textValue.text.isEmpty)
+                          return _nhanVienList;
+                        final q = textValue.text.toLowerCase();
+                        return _nhanVienList.where((nv) =>
+                        (nv['ho_ten'] as String)
+                            .toLowerCase()
+                            .contains(q) ||
+                            (nv['ma_nhan_vien'] as String)
+                                .toLowerCase()
+                                .contains(q));
+                      },
+                      displayStringForOption: (nv) =>
+                      '${nv['ho_ten']} (${nv['ma_nhan_vien']})',
+                      onSelected: (nv) => setState(() {
+                        _selectedNhanVienId = nv['server_id'] as int;
+                        _nhanVienText =
+                        '${nv['ho_ten']} (${nv['ma_nhan_vien']})';
+                      }),
+                      fieldViewBuilder: (ctx, ctrl, fn, onSubmit) =>
+                          TextFormField(
+                            controller: ctrl,
+                            focusNode: fn,
+                            decoration: const InputDecoration(
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 8),
+                              hintText: 'Tìm theo tên hoặc mã NV',
                             ),
                           ),
+                    ),
                   ],
                 ),
               ),
@@ -414,9 +343,9 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
               onPressed: _loading ? null : _xemChuyenXe,
               icon: _loading
                   ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2))
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2))
                   : const Icon(Icons.list_alt_rounded),
               label: Text(_loading
                   ? 'Đang kiểm tra...'

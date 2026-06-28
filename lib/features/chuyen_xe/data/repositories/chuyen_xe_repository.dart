@@ -5,20 +5,16 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/chuyen_xe_model.dart';
 
-final chuyenXeRepositoryProvider = Provider<ChuyenXeRepository>((ref) {
-  return ChuyenXeRepository();
-});
-
 class ChuyenXeRepository {
-  /// Lấy danh sách phụ xe đang hoạt động (chuc_vu_id = 4) từ backend.
-  Future<List<Map<String, dynamic>>> getPhuXeAll() async {
+  /// Lấy danh sách phụ xe
+  Future<List<Map<String, dynamic>>> searchPhuXeAPI(String keyword) async {
+
     try {
       // 1. Đổi endpoint từ '/api/chuyen-xe' sang endpoint quản lý nhân viên
       final res = await ApiClient.instance.dio.get(
@@ -40,8 +36,11 @@ class ChuyenXeRepository {
 
       // 3. Ép kiểu về List<Map<String, dynamic>> để dùng chung với pattern của UI hiện tại
       return list.map((e) => e as Map<String, dynamic>).toList();
+    } on DioException catch (e) {
+
+      rethrow;
     } catch (e) {
-      debugPrint('[ChuyenXe] Error getPhuXeAll: $e');
+
       rethrow;
     }
   }
@@ -127,13 +126,11 @@ class ChuyenXeRepository {
     required DateTime ngayXuat,
     required int xeId,
     required int nhanVienId,
-    int? phuXeId,
   }) async {
     final res = await ApiClient.instance.dio.post('/api/chuyen-xe', data: {
       'ngayXuat': ngayXuat.toIso8601String(),
       'xeId': xeId,
       'nhanVienId': nhanVienId,
-      if (phuXeId != null) 'phuXeId': phuXeId,
       'loai': 'mobile',
       'trangThai': 'dang-giao',
       'isActive': true,
