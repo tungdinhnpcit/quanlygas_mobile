@@ -37,10 +37,13 @@ import '../../features/chuyen_xe/presentation/screens/tim_kiem_khach_hang_screen
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_phu_xe_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_theo_ngay_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/nhap_ban_hang_screen.dart';
+import '../../features/chuyen_xe/presentation/screens/sua_ban_hang_khach_hang_screen.dart';
+import '../../features/chuyen_xe/data/models/chuyen_xe_model.dart';
 import '../../features/khach_hang/presentation/screens/tao_khach_hang_screen.dart';
 import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart';
 import '../database/local_database.dart';
 import '../providers/sync_provider.dart';
+import '../services/background_polling_service.dart';
 import '../services/connectivity_service.dart';
 import '../services/notification_service.dart';
 import '../services/sync_service.dart';
@@ -194,6 +197,26 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: '/ban-hang/:chuyenXeId/khach-hang/:khachHangId/sua',
+        pageBuilder: (_, state) {
+          final cxId  = int.tryParse(state.pathParameters['chuyenXeId']  ?? '') ?? 0;
+          final khId  = int.tryParse(state.pathParameters['khachHangId'] ?? '') ?? 0;
+          final extra = state.extra as Map<String, dynamic>? ?? {};
+          final rows  = (extra['rows'] as List?)
+              ?.map((e) => e as BanHangKhachHangModel).toList() ?? [];
+          return CupertinoPage(
+            key: state.pageKey,
+            child: SuaBanHangKhachHangScreen(
+              chuyenXeId: cxId,
+              khachHangId: khId,
+              rows: rows,
+              canEdit: cxId > 0,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/dai-ly-chi-tiet/:id',
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
@@ -308,6 +331,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
     super.initState();
     _runDailySyncIfNeeded();
     _listenConnectivity();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _runPostLoginTasks());
   }
 
   Future<void> _runDailySyncIfNeeded() async {
@@ -348,6 +372,72 @@ class _MainShellState extends ConsumerState<_MainShell> {
         ));
       }
     });
+  }
+
+  /// Chạy background sau khi shell mount lần đầu:
+  /// đăng ký FCM, đăng ký background polling, kiểm tra thông báo chưa đọc.
+  Future<void> _runPostLoginTasks() async {
+    const storage = FlutterSecureStorage();
+    final token = await storage.read(key: 'jwt_token');
+    if (token == null || !mounted) return;  // Chưa login → bỏ qua
+
+    // 1. Đăng ký FCM token với backend
+    try {
+      final fcmToken = await NotificationService.getFcmToken();
+      if (fcmToken != null) {
+        await ApiClient.instance.dio.put(
+          '/api/auth/device-token',
+          data: {'fcmToken': fcmToken},
+        );
+        debugPrint('[POST-LOGIN] FCM token registered');
+      }
+      // Tự động re-register khi FCM token thay đổi
+      NotificationService.onTokenRefresh.listen((newToken) async {
+        try {
+          await ApiClient.instance.dio.put('/api/auth/device-token',
+              data: {'fcmToken': newToken});
+          debugPrint('[POST-LOGIN] FCM token refreshed');
+        } catch (e) {
+          debugPrint('[POST-LOGIN] FCM token refresh failed: $e');
+        }
+      });
+    } catch (e) {
+      debugPrint('[POST-LOGIN] FCM registration failed: $e');
+    }
+
+    // 2. Đăng ký background polling (workmanager)
+    try {
+      await BackgroundPollingService.registerPeriodicTask();
+      debugPrint('[POST-LOGIN] Background polling registered');
+    } catch (e) {
+      debugPrint('[POST-LOGIN] Background polling failed: $e');
+    }
+
+    // 3. Kiểm tra thông báo chưa đọc → hiển thị local notification nếu có mới
+    try {
+      final userIdStr = await storage.read(key: 'user_id');
+      final userId = int.tryParse(userIdStr ?? '');
+      if (userId == null || !mounted) return;
+
+      final res = await ApiClient.instance.dio.get(
+        '/api/thong-bao/so-chua-doc',
+        queryParameters: {'userId': userId},
+      );
+      final count = (res.data as int?) ?? 0;
+      if (count > 0) {
+        final lastKnown = await BackgroundPollingService.getLastKnownCount();
+        if (count > lastKnown) {
+          await NotificationService.showSimpleNotification(
+            title: 'Thông báo chưa đọc',
+            body: 'Bạn có $count thông báo chưa đọc',
+          );
+          debugPrint('[POST-LOGIN] Notification shown: $count new messages');
+        }
+        await BackgroundPollingService.updateLastKnownCount(count);
+      }
+    } catch (e) {
+      debugPrint('[POST-LOGIN] Notification check failed: $e');
+    }
   }
 
   static const _tabs = [

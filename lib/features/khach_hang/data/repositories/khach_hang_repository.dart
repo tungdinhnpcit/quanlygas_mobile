@@ -27,6 +27,15 @@ class KhachHangRepository {
     return (items: items, totalCount: items.length);
   }
 
+  /// Lấy toàn bộ khách hàng không phân trang — dùng cho danh sách + local filter.
+  Future<List<KhachHangModel>> getAll() async {
+    final res = await ApiClient.instance.dio.get('/api/khach-hang/all');
+    final list = res.data as List? ?? [];
+    return list
+        .map((e) => KhachHangModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   /// Lấy chi tiết một khách hàng theo ID
   Future<KhachHangModel> getById(int id) async {
     final res = await ApiClient.instance.dio.get('/api/khach-hang/$id');

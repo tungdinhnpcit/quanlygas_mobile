@@ -188,4 +188,27 @@ class NotificationService {
 
   static Stream<String> get onTokenRefresh =>
       FirebaseMessaging.instance.onTokenRefresh;
+
+  /// Hiển thị local notification với title/body tùy chỉnh (không từ RemoteMessage).
+  /// Dùng cho background task kiểm tra thông báo chưa đọc.
+  static Future<void> showSimpleNotification({
+    required String title,
+    required String body,
+    int id = 9002,
+  }) async {
+    const androidDetails = AndroidNotificationDetails(
+      'quan_ly_gas_channel',
+      'Quản lý Gas',
+      channelDescription: 'Kênh thông báo chính',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+    const iosDetails = DarwinNotificationDetails();
+    await _localNotifications.show(
+      id,
+      title,
+      body,
+      const NotificationDetails(android: androidDetails, iOS: iosDetails),
+    );
+  }
 }

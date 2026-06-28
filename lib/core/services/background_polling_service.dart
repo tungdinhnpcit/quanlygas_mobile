@@ -201,4 +201,10 @@ class BackgroundPollingService {
     // Polling lần tiếp theo sẽ so sánh với giá trị này
     await prefs.setInt(_prefKeyLastCount, count);
   }
+
+  /// Đọc baseline count từ SharedPreferences — dùng khi kiểm tra thông báo chưa đọc
+  static Future<int> getLastKnownCount() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_prefKeyLastCount) ?? 0;
+  }
 }

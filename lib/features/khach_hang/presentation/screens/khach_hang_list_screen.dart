@@ -1,4 +1,5 @@
 // lib/features/khach_hang/presentation/screens/khach_hang_list_screen.dart
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +7,26 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../data/models/khach_hang_model.dart';
 import '../providers/khach_hang_provider.dart';
+
+/// Loại bỏ dấu tiếng Việt, trả về chuỗi ASCII lowercase để so sánh.
+String removeDiacritics(String s) {
+  const Map<String, String> diacriticsMap = {
+    'à': 'a', 'á': 'a', 'â': 'a', 'ã': 'a', 'ă': 'a',
+    'ắ': 'a', 'ặ': 'a', 'ẵ': 'a', 'ẳ': 'a', 'ằ': 'a',
+    'ầ': 'a', 'ấ': 'a', 'ậ': 'a', 'ẫ': 'a', 'ẩ': 'a',
+    'è': 'e', 'é': 'e', 'ê': 'e', 'ë': 'e',
+    'ề': 'e', 'ế': 'e', 'ệ': 'e', 'ễ': 'e', 'ể': 'e',
+    'ì': 'i', 'í': 'i', 'î': 'i', 'ï': 'i',
+    'ò': 'o', 'ó': 'o', 'ô': 'o', 'õ': 'o', 'ö': 'o', 'ơ': 'o',
+    'ồ': 'o', 'ố': 'o', 'ộ': 'o', 'ỗ': 'o', 'ổ': 'o',
+    'ờ': 'o', 'ớ': 'o', 'ợ': 'o', 'ỡ': 'o', 'ở': 'o',
+    'ù': 'u', 'ú': 'u', 'û': 'u', 'ü': 'u', 'ư': 'u',
+    'ừ': 'u', 'ứ': 'u', 'ự': 'u', 'ữ': 'u', 'ử': 'u',
+    'ỳ': 'y', 'ý': 'y', 'ỵ': 'y', 'ỹ': 'y', 'ỷ': 'y',
+    'đ': 'd', 'ñ': 'n', 'ç': 'c',
+  };
+  return s.toLowerCase().split('').map((c) => diacriticsMap[c] ?? c).join();
+}
 
 class KhachHangListScreen extends ConsumerStatefulWidget {
   const KhachHangListScreen({super.key});
@@ -16,6 +37,8 @@ class KhachHangListScreen extends ConsumerStatefulWidget {
 
 class _KhachHangListScreenState extends ConsumerState<KhachHangListScreen> {
   final _searchCtrl = TextEditingController();
+  Timer? _debounce;
+  String _filterQuery = '';
 
   @override
   void initState() {
@@ -25,12 +48,9 @@ class _KhachHangListScreenState extends ConsumerState<KhachHangListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchCtrl.dispose();
     super.dispose();
-  }
-
-  void _search() {
-    ref.read(khachHangListProvider.notifier).load(search: _searchCtrl.text.trim());
   }
 
   @override
@@ -51,22 +71,27 @@ class _KhachHangListScreenState extends ConsumerState<KhachHangListScreen> {
                       icon: const Icon(Icons.clear),
                       onPressed: () {
                         _searchCtrl.clear();
-                        ref.read(khachHangListProvider.notifier).load();
+                        setState(() => _filterQuery = '');
                       },
                     )
                   : null,
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               isDense: true,
             ),
-            onSubmitted: (_) => _search(),
-            onChanged: (_) => setState(() {}),
+            onChanged: (text) {
+              setState(() {});
+              _debounce?.cancel();
+              _debounce = Timer(const Duration(milliseconds: 1000), () {
+                setState(() => _filterQuery = removeDiacritics(text.trim()));
+              });
+            },
           ),
         ),
         Expanded(
           child: RefreshIndicator(
             onRefresh: () => ref
                 .read(khachHangListProvider.notifier)
-                .load(search: _searchCtrl.text.trim()),
+                .load(),
             child: listAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
@@ -88,7 +113,19 @@ class _KhachHangListScreenState extends ConsumerState<KhachHangListScreen> {
                 ),
               ),
               data: (list) {
-                if (list.isEmpty) {
+                final allItems = list;
+                final items = _filterQuery.isEmpty
+                    ? allItems
+                    : allItems.where((kh) {
+                        final name = removeDiacritics(kh.tenKhachHang);
+                        final ma = removeDiacritics(kh.maKhachHang);
+                        final addr = removeDiacritics(kh.diaChi ?? '');
+                        return name.contains(_filterQuery) ||
+                            ma.contains(_filterQuery) ||
+                            addr.contains(_filterQuery);
+                      }).toList();
+
+                if (items.isEmpty) {
                   return ListView(children: const [
                     SizedBox(height: 120),
                     Center(
@@ -103,11 +140,11 @@ class _KhachHangListScreenState extends ConsumerState<KhachHangListScreen> {
                 }
                 return ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: list.length,
+                  itemCount: items.length,
                   separatorBuilder: (_, __) => const SizedBox(height: 8),
                   itemBuilder: (ctx, i) => _KhachHangCard(
-                    item: list[i],
-                    onTap: () => ctx.push(AppRoutes.khachHangDetail(list[i].id)),
+                    item: items[i],
+                    onTap: () => ctx.push(AppRoutes.khachHangDetail(items[i].id)),
                   ),
                 );
               },

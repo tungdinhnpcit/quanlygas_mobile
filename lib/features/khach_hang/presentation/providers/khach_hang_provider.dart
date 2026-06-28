@@ -11,12 +11,9 @@ class KhachHangListNotifier extends StateNotifier<AsyncValue<List<KhachHangModel
   final KhachHangRepository _repo;
   KhachHangListNotifier(this._repo) : super(const AsyncValue.data([]));
 
-  Future<void> load({String? search}) async {
+  Future<void> load() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final result = await _repo.getPaged(search: search);
-      return result.items;
-    });
+    state = await AsyncValue.guard(() => _repo.getAll());
   }
 }
 

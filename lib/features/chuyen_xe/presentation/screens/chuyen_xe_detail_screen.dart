@@ -235,7 +235,7 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                cx.tenNhanVien ?? 'Chuyến #${widget.chuyenXeId}',
+                cx.bienSoXe ?? cx.maChuyenXe,
                 style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
               ),
               Text(
@@ -432,6 +432,10 @@ class _TabChiTiet extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+
+          // Tổng hợp bán hàng
+          _BanHangSummaryCard(cx),
           const SizedBox(height: 16),
 
           // Danh sách hàng hóa: nếu đã settle dùng ketThuc.chiTiet (có tên KH + giá), ngược lại dùng kế hoạch chuyến
@@ -758,6 +762,14 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
   // ── Phụ xe selection ────────────────────────────────────────────────────
   Map<String, dynamic>? _selectedPhuXe;
 
+  Future<void> _openKhachHangDetail(ChuyenXeModel cx, List<BanHangKhachHangModel> rows) async {
+    await context.push(
+      AppRoutes.suaBanHangKhachHang(cx.id, rows.first.khachHangId),
+      extra: {'rows': rows},
+    );
+    if (mounted) ref.invalidate(chuyenXeDetailProvider(cx.id));
+  }
+
   Future<void> _delete(BanHangKhachHangModel b) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -856,41 +868,12 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
         // Khoảng trống cho _HeaderBar (Positioned overlay ~56px)
         const SizedBox(height: 56),
 
-        // ── Thông tin chuyến + Phụ xe ──────────────────────────────────────
+        // ── Phụ xe ──────────────────────────────────────
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Hàng info: ngày xuất | xe | lái xe
-              Wrap(
-                spacing: 10,
-                runSpacing: 4,
-                children: [
-                  _InfoChip(
-                    icon: Icons.calendar_today,
-                    label: 'Ngày xuất',
-                    value: DateFormat('dd/MM/yyyy').format(cx.ngayXuat.toLocal()),
-                    color: Colors.grey.shade700,
-                  ),
-                  if (cx.bienSoXe != null)
-                    _InfoChip(
-                      icon: Icons.directions_car,
-                      label: 'Xe',
-                      value: cx.bienSoXe!,
-                      color: Colors.grey.shade700,
-                    ),
-                  if (cx.tenNhanVien != null)
-                    _InfoChip(
-                      icon: Icons.person,
-                      label: 'Lái xe',
-                      value: cx.tenNhanVien!,
-                      color: Colors.grey.shade700,
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
-
               // Phụ xe — button mở màn hình tìm kiếm
               Row(
                 children: [
@@ -999,14 +982,17 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
               final tienDaTra   = rows.fold(0.0, (s, b) => s + b.tienMat + b.tienCK);
               final tienNo      = (khachTotal - tienDaTra).clamp(0.0, double.infinity);
 
-              return Card(
-                margin: const EdgeInsets.only(bottom: 10),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10)),
-                elevation: 2,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+              return InkWell(
+                onTap: () => _openKhachHangDetail(cx, rows),
+                borderRadius: BorderRadius.circular(10),
+                child: Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
+                  elevation: 2,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                     // Header: tên khách + tổng tiền khách đó
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -1177,6 +1163,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                     ),
                   ],
                 ),
+              ),
               );
             },
           ),
@@ -2006,6 +1993,122 @@ class _TraNoCuCard extends StatelessWidget {
               fontSize: 15,
               color: Colors.purple),
         ),
+      ),
+    );
+  }
+}
+
+// ── Tổng hợp bán hàng ──────────────────────────────────────────────────────
+
+/// Hiển thị tổng hợp thống kê bán hàng: số bình, vỏ, tiền mặt, CK, nợ, gas dư...
+class _BanHangSummaryCard extends StatelessWidget {
+  final ChuyenXeModel cx;
+  const _BanHangSummaryCard(this.cx);
+
+  @override
+  Widget build(BuildContext context) {
+    // --- Tính từ cx.banHang ---
+    final groups = <int, List<BanHangKhachHangModel>>{};
+    for (final b in cx.banHang) {
+      groups.putIfAbsent(b.khachHangId, () => []).add(b);
+    }
+
+    var tongBinhGas = 0;
+    var tongVoThu = 0;
+    var tongTienPhai = 0.0;
+    var tongTienMat = 0.0;
+    var tongTienCK = 0.0;
+
+    for (final rows in groups.values) {
+      tongTienMat += rows.first.tienMat;
+      tongTienCK += rows.first.tienCK;
+      for (final b in rows) {
+        tongVoThu += b.soVoThu;
+        if (b.soVoThu == 0 && b.soVoBan == 0) {
+          tongBinhGas += b.soLuong;
+          tongTienPhai += b.thanhTien;
+        }
+      }
+    }
+    final tongConNo =
+        (tongTienPhai - tongTienMat - tongTienCK).clamp(0.0, double.infinity);
+
+    // --- Tính từ cx.ketThuc (chỉ khi đã settle) ---
+    final kt = cx.ketThuc;
+    final tongGasDu =
+        kt?.gasDu.fold<double>(0, (s, e) => s + e.soKg) ?? 0;
+    final tongTienGasDu = kt?.tongTienTraGasDu ?? 0.0;
+    final tongNoDaTra = kt?.tongThuNoCu ?? 0.0;
+
+    if (cx.banHang.isEmpty && kt == null) return const SizedBox.shrink();
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Tổng hợp bán hàng',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+
+            // --- Từ banHang (mọi trạng thái) ---
+            _BanHangSummaryRow('Số bình gas', '$tongBinhGas bình'),
+            _BanHangSummaryRow('Số vỏ thu', '$tongVoThu vỏ'),
+            _BanHangSummaryRow('Tiền phải thu', _fmtCurrency.format(tongTienPhai),
+                bold: true),
+            _BanHangSummaryRow('Tiền mặt đã thu', _fmtCurrency.format(tongTienMat)),
+            _BanHangSummaryRow(
+                'Tiền chuyển khoản', _fmtCurrency.format(tongTienCK)),
+            _BanHangSummaryRow('Còn nợ', _fmtCurrency.format(tongConNo),
+                color: tongConNo > 0 ? Colors.red.shade700 : null),
+
+            // --- Từ ketThuc (chỉ khi đã settle) ---
+            if (kt != null) ...[
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              _BanHangSummaryRow('Gas dư', '$tongGasDu bình'),
+              _BanHangSummaryRow('Tiền mua gas dư', _fmtCurrency.format(tongTienGasDu)),
+              _BanHangSummaryRow('Nợ cũ đã thu', _fmtCurrency.format(tongNoDaTra)),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Một dòng trong bảng tổng hợp bán hàng (nhãn + giá trị).
+class _BanHangSummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool bold;
+  final Color? color;
+
+  const _BanHangSummaryRow(this.label, this.value,
+      {this.bold = false, this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(fontSize: 13, color: Colors.grey)),
+          Text(value,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+                color: color,
+              )),
+        ],
       ),
     );
   }

@@ -27,7 +27,7 @@ class KhachHangDetailScreen extends ConsumerStatefulWidget {
 class _KhachHangDetailScreenState
     extends ConsumerState<KhachHangDetailScreen> {
   bool _loadingLocation = false;
-  bool _loadingPhoto    = false;
+  bool _uploading = false;
 
   // Xây dựng URL ảnh từ đường dẫn tương đối trả về từ server
   String _buildImageUrl(String relativePath) {
@@ -108,37 +108,68 @@ class _KhachHangDetailScreenState
     }
   }
 
-  // Chụp ảnh và upload lên server
-  Future<void> _chupAnh(KhachHangModel kh) async {
-    final ok = await _requestCameraPermission();
-    if (!ok) return;
+  /// Hiện bottom sheet chọn nguồn ảnh — camera hoặc thư viện
+  Future<ImageSource?> _pickSource() {
+    return showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Chụp ảnh'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Chọn từ thư viện'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Upload ảnh cửa hàng từ camera hoặc thư viện
+  Future<void> _uploadAnh(KhachHangModel kh) async {
+    final source = await _pickSource();
+    if (source == null || !mounted) return;
+
+    if (source == ImageSource.camera) {
+      final ok = await _requestCameraPermission();
+      if (!ok) return;
+    }
 
     final picker = ImagePicker();
-    final picked = await picker.pickImage(
-      source: ImageSource.camera,
-      imageQuality: 80,
-      maxWidth: 1280,
-    );
-    if (picked == null) return;
+    final photo = await picker.pickImage(source: source, imageQuality: 85);
+    if (photo == null || !mounted) return;
 
-    setState(() => _loadingPhoto = true);
+    setState(() => _uploading = true);
     try {
       final repo = ref.read(khachHangRepositoryProvider);
-      await repo.uploadAnh(kh.id, File(picked.path));
+      await repo.uploadAnh(kh.id, File(photo.path));
       ref.invalidate(khachHangDetailProvider(widget.id));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Đã cập nhật ảnh cửa hàng')),
+          const SnackBar(
+            content: Text('Đã cập nhật ảnh'),
+            backgroundColor: Colors.green,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi upload ảnh: $e')),
+          SnackBar(
+            content: Text('Lỗi upload: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
-      if (mounted) setState(() => _loadingPhoto = false);
+      if (mounted) setState(() => _uploading = false);
     }
   }
 
@@ -318,17 +349,26 @@ class _KhachHangDetailScreenState
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _loadingPhoto ? null : () => _chupAnh(kh),
-                icon: _loadingPhoto
+              child: ElevatedButton.icon(
+                onPressed: _uploading ? null : () => _uploadAnh(kh),
+                icon: _uploading
                     ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
-                    : const Icon(Icons.camera_alt_outlined),
-                label: Text(_loadingPhoto ? 'Đang upload...' : 'Chụp ảnh cửa hàng'),
+                    : const Icon(Icons.add_a_photo_outlined),
+                label: Text(_uploading
+                    ? 'Đang upload...'
+                    : 'Cập nhật ảnh cửa hàng'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00897B),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(44),
+                ),
               ),
             ),
           ],

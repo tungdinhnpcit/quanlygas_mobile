@@ -24,21 +24,7 @@ class AuthRepository {
     final result = LoginResponse.fromJson(response.data);
     debugPrint('[AUTH DEBUG] nhanVienId=${result.nhanVienId} userId=${result.userId}');
     await _saveSession(result);
-    // FCM và background polling không block login — wrap trong try-catch riêng
-    try {
-      final fcmToken = await FirebaseMessaging.instance.getToken();
-      debugPrint('[FCM DEBUG] getToken() = ${fcmToken != null ? '${fcmToken.substring(0, 20)}...' : 'NULL'}');
-      if (fcmToken != null) await _registerFcmToken(fcmToken);
-      FirebaseMessaging.instance.onTokenRefresh.listen(_registerFcmToken);
-    } catch (e) {
-      debugPrint('[FCM DEBUG] getToken() thất bại (có thể do emulator không có GMS): $e');
-    }
-    try {
-      await BackgroundPollingService.registerPeriodicTask();
-    } catch (e) {
-      debugPrint('[FCM DEBUG] registerPeriodicTask() thất bại: $e');
-    }
-    return result;
+    return result;  // FCM registration moved to post-login background task in app_router
   }
 
   Future<LoginResponse> refresh(String refreshToken) async {
