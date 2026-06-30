@@ -28,6 +28,7 @@ import '../../features/khach_hang/presentation/screens/khach_hang_detail_screen.
 import '../../features/tong_quan/presentation/screens/tong_quan_screen.dart';
 import '../../features/tong_quan/presentation/screens/dai_ly_chi_tiet_screen.dart';
 import '../../features/tong_quan/presentation/screens/dai_ly_chua_mua_screen.dart';
+import '../../features/tong_quan/presentation/screens/thong_ke_chuyen_xe_screen.dart';
 import '../../features/cai_dat/presentation/screens/cai_dat_screen.dart';
 import '../../features/cai_dat/presentation/screens/thong_tin_tai_khoan_screen.dart';
 import '../../features/cai_dat/presentation/screens/doi_mat_khau_screen.dart';
@@ -266,6 +267,21 @@ final routerProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: DaiLyChiTietScreen(
             khachHangId: int.parse(state.pathParameters['id']!),
+            tuNgay: state.uri.queryParameters['tuNgay'] != null
+                ? DateTime.tryParse(state.uri.queryParameters['tuNgay']!)
+                : null,
+            denNgay: state.uri.queryParameters['denNgay'] != null
+                ? DateTime.tryParse(state.uri.queryParameters['denNgay']!)
+                : null,
+          ),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/tong-quan/chuyen-xe',
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: ThongKeChuyenXeScreen(
             tuNgay: state.uri.queryParameters['tuNgay'] != null
                 ? DateTime.tryParse(state.uri.queryParameters['tuNgay']!)
                 : null,

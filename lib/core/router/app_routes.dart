@@ -22,6 +22,13 @@ class AppRoutes {
   static String khachHangDetail(int id)    => '/khach-hang/$id';
 
   static const String tongQuan             = '/tong-quan';
+  static String thongKeChuyenXe({DateTime? tuNgay, DateTime? denNgay}) {
+    final q = <String, String>{};
+    if (tuNgay  != null) q['tuNgay']  = tuNgay.toIso8601String().substring(0, 10);
+    if (denNgay != null) q['denNgay'] = denNgay.toIso8601String().substring(0, 10);
+    final qs = q.isEmpty ? '' : '?${q.entries.map((e) => '${e.key}=${e.value}').join('&')}';
+    return '/tong-quan/chuyen-xe$qs';
+  }
 
   static const String daiLyChuaMua        = '/dai-ly-chua-mua';
   static String daiLyChiTiet(

@@ -366,6 +366,12 @@ class ChuyenXeModel {
   final bool isActive;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final int tongSoBinhBan;
+  final int tongSoVo;
+  final double tongTienNop;
+  final double tongGasDuKg;
+  final double tienMuaGasDu;
+  final bool hasKetThuc;
   final List<ChuyenXeChiTietModel> chiTiet;
   final List<AnhChuyenXeModel> anh;
   final List<BanHangKhachHangModel> banHang;
@@ -390,6 +396,12 @@ class ChuyenXeModel {
     required this.isActive,
     required this.createdAt,
     this.updatedAt,
+    this.tongSoBinhBan = 0,
+    this.tongSoVo = 0,
+    this.tongTienNop = 0,
+    this.tongGasDuKg = 0,
+    this.tienMuaGasDu = 0,
+    this.hasKetThuc = false,
     required this.chiTiet,
     required this.anh,
     this.banHang = const [],
@@ -398,25 +410,31 @@ class ChuyenXeModel {
   });
 
   factory ChuyenXeModel.fromJson(Map<String, dynamic> json) => ChuyenXeModel(
-        id:          json['id'] as int,
-        maChuyenXe:  json['maChuyenXe'] as String,
-        ngayXuat:    DateTime.tryParse(json['ngayXuat'] as String? ?? '') ?? DateTime.now(),
-        xeId:        json['xeId'] as int,
-        bienSoXe:    json['bienSoXe'] as String?,
-        nhanVienId:  json['nhanVienId'] as int,
-        tenNhanVien: json['tenNhanVien'] as String?,
-        phuXeId:     json['phuXeId'] as int?,
-        tenPhuXe:    json['tenPhuXe'] as String?,
-        trangThai:   json['trangThai'] as String,
-        loai:        json['loai'] as String? ?? 'web',
-        tongTienThu: (json['tongTienThu'] as num).toDouble(),
-        soTienNo:    (json['soTienNo'] as num?)?.toDouble(),
-        ghiChu:      json['ghiChu'] as String?,
-        isActive:    json['isActive'] as bool? ?? true,
-        createdAt:   DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
-        updatedAt:   json['updatedAt'] != null
+        id:            json['id'] as int,
+        maChuyenXe:    json['maChuyenXe'] as String,
+        ngayXuat:      DateTime.tryParse(json['ngayXuat'] as String? ?? '') ?? DateTime.now(),
+        xeId:          json['xeId'] as int,
+        bienSoXe:      json['bienSoXe'] as String?,
+        nhanVienId:    json['nhanVienId'] as int,
+        tenNhanVien:   json['tenNhanVien'] as String?,
+        phuXeId:       json['phuXeId'] as int?,
+        tenPhuXe:      json['tenPhuXe'] as String?,
+        trangThai:     json['trangThai'] as String,
+        loai:          json['loai'] as String? ?? 'web',
+        tongTienThu:   (json['tongTienThu'] as num).toDouble(),
+        soTienNo:      (json['soTienNo'] as num?)?.toDouble(),
+        ghiChu:        json['ghiChu'] as String?,
+        isActive:      json['isActive'] as bool? ?? true,
+        createdAt:     DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+        updatedAt:     json['updatedAt'] != null
             ? DateTime.tryParse(json['updatedAt'] as String)
             : null,
+        tongSoBinhBan: (json['tongSoBinhBan'] as num?)?.toInt() ?? 0,
+        tongSoVo:      (json['tongSoVo'] as num?)?.toInt() ?? 0,
+        tongTienNop:   (json['tongTienNop'] as num?)?.toDouble() ?? 0,
+        tongGasDuKg:   (json['tongGasDuKg'] as num?)?.toDouble() ?? 0,
+        tienMuaGasDu:  (json['tienMuaGasDu'] as num?)?.toDouble() ?? 0,
+        hasKetThuc:    json['hasKetThuc'] as bool? ?? false,
         chiTiet: (json['chiTiet'] as List? ?? [])
             .map((e) => ChuyenXeChiTietModel.fromJson(e as Map<String, dynamic>))
             .toList(),

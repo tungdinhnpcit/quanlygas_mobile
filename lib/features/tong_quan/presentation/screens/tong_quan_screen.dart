@@ -27,7 +27,7 @@ class _TongQuanScreenState extends ConsumerState<TongQuanScreen> {
   void initState() {
     super.initState();
     _denNgay = DateTime.now();
-    _tuNgay  = DateTime(_denNgay.year, _denNgay.month, 1);
+    _tuNgay  = _denNgay;
   }
 
   Future<void> _pickDate({required bool isFrom}) async {
@@ -176,7 +176,7 @@ class _TongQuanScreenState extends ConsumerState<TongQuanScreen> {
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _KpiGrid(data: data),
+                  _KpiGrid(data: data, tuNgay: _tuNgay, denNgay: _denNgay),
                   const SizedBox(height: 16),
                   _DaiLySection(
                     items: data.binhBanTheoDaiLy,
@@ -250,7 +250,9 @@ class _QuickChip extends StatelessWidget {
 
 class _KpiGrid extends StatelessWidget {
   final TongQuanDashboard data;
-  const _KpiGrid({required this.data});
+  final DateTime tuNgay;
+  final DateTime denNgay;
+  const _KpiGrid({required this.data, required this.tuNgay, required this.denNgay});
 
   @override
   Widget build(BuildContext context) {
@@ -281,11 +283,16 @@ class _KpiGrid extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              child: _KpiCard(
-                icon: Icons.local_shipping_outlined,
-                color: const Color(0xFF1976D2),
-                label: 'Số chuyến',
-                value: '${_num.format(data.soChuyenXe)} chuyến',
+              child: GestureDetector(
+                onTap: () => context.push(
+                  AppRoutes.thongKeChuyenXe(tuNgay: tuNgay, denNgay: denNgay),
+                ),
+                child: _KpiCard(
+                  icon: Icons.local_shipping_outlined,
+                  color: const Color(0xFF1976D2),
+                  label: 'Số chuyến',
+                  value: '${_num.format(data.soChuyenXe)} chuyến',
+                ),
               ),
             ),
             const SizedBox(width: 10),

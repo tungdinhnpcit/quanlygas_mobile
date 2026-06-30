@@ -117,6 +117,35 @@ class ChuyenXeRepository {
     }
   }
 
+  /// Lấy danh sách chuyến xe không giới hạn lái xe, lọc theo khoảng ngày — dùng cho màn Tổng quan.
+  Future<List<ChuyenXeModel>> getListAll({
+    DateTime? tuNgay,
+    DateTime? denNgay,
+    int page = 1,
+    int pageSize = 100,
+  }) async {
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/api/chuyen-xe',
+        queryParameters: {
+          if (tuNgay  != null) 'tuNgay':  tuNgay.toIso8601String(),
+          if (denNgay != null) 'denNgay': denNgay.toIso8601String(),
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+      final data = res.data;
+      final list = (data is Map ? data['items'] : data) as List? ?? [];
+      return list.map((e) => ChuyenXeModel.fromJson(e as Map<String, dynamic>)).toList();
+    } on DioException catch (e) {
+      debugPrint('[ChuyenXe] DioException getListAll: ${e.type} | status=${e.response?.statusCode} | message=${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('[ChuyenXe] ERROR getListAll: $e');
+      rethrow;
+    }
+  }
+
   /// Lấy chi tiết chuyến xe theo ID kèm danh sách hàng hóa và ảnh đã upload.
   Future<ChuyenXeModel> getById(int id) async {
     debugPrint('[ChuyenXe] GET '+AppConstants.resolvedApiUrl+'/api/chuyen-xe/$id');

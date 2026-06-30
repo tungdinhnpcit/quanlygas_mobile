@@ -2,6 +2,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/tong_quan_model.dart';
 import '../../data/repositories/tong_quan_repository.dart';
+import '../../../chuyen_xe/data/models/chuyen_xe_model.dart';
+import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 
 final tongQuanRepositoryProvider = Provider<TongQuanRepository>(
   (_) => TongQuanRepository(),
@@ -22,8 +24,9 @@ class TongQuanNotifier extends StateNotifier<AsyncValue<TongQuanDashboard>> {
 
   TongQuanNotifier(this._repo) : super(const AsyncValue.loading()) {
     final now = DateTime.now();
-    _tuNgay  = DateTime(now.year, now.month, 1);
-    _denNgay = now;
+    final today = DateTime(now.year, now.month, now.day);
+    _tuNgay  = today;
+    _denNgay = today;
     _load();
   }
 
@@ -66,4 +69,11 @@ final daiLyBanHangProvider = FutureProvider.autoDispose
 final khachHangChuaMuaProvider =
     FutureProvider.autoDispose<List<KhachHangChuaMuaModel>>((ref) {
   return ref.read(tongQuanRepositoryProvider).getKhachHangChuaMua();
+});
+
+/// Danh sách chuyến xe không giới hạn lái xe, lọc theo khoảng ngày — dùng cho màn Tổng quan
+final thongKeChuyenXeProvider = FutureProvider.autoDispose
+    .family<List<ChuyenXeModel>, (DateTime, DateTime)>((ref, args) {
+  final (tuNgay, denNgay) = args;
+  return ChuyenXeRepository().getListAll(tuNgay: tuNgay, denNgay: denNgay, pageSize: 100);
 });
