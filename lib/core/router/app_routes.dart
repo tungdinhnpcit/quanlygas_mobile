@@ -48,5 +48,12 @@ class AppRoutes {
   static const String taoKhachHang       = '/khach-hang/tao-moi';
   static const String timKiemKhachHang   = '/tim-kiem-khach-hang';
   static const String timKiemPhuXe       = '/tim-kiem-phu-xe';
+  static const String timKiemMatHang     = '/tim-kiem-mat-hang';
+  static const String timKiemNhaCungCap  = '/tim-kiem-nha-cung-cap';
   static const String dongBo             = '/cai-dat/dong-bo';
+
+  // Kế toán — kiểm kê xuất hàng
+  static const String kiemKeList         = '/kiem-ke';
+  static const String kiemKeTaoChuyen    = '/kiem-ke/tao-moi';
+  static String kiemKeNhap(int chuyenXeId) => '/kiem-ke/$chuyenXeId/nhap';
 }

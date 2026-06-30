@@ -131,45 +131,50 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
     final initial = (isTuNgay ? _tuNgay : _denNgay) ?? DateTime.now();
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) {
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-                child: Row(
-                  children: [
-                    Text(isTuNgay ? 'Từ ngày' : 'Đến ngày',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                    const Spacer(),
-                    IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(ctx)),
-                  ],
+          child: SizedBox(
+            height: MediaQuery.of(ctx).size.height * 0.6,
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+                  child: Row(
+                    children: [
+                      Text(isTuNgay ? 'Từ ngày' : 'Đến ngày',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      const Spacer(),
+                      IconButton(
+                          icon: const Icon(Icons.close),
+                          onPressed: () => Navigator.pop(ctx)),
+                    ],
+                  ),
                 ),
-              ),
-              CalendarDatePicker(
-                initialDate: initial,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-                onDateChanged: (picked) {
-                  setState(() {
-                    if (isTuNgay) {
-                      _tuNgay = picked;
-                      if (_denNgay != null && _denNgay!.isBefore(picked)) _denNgay = null;
-                    } else {
-                      _denNgay = picked;
-                      if (_tuNgay != null && _tuNgay!.isAfter(picked)) _tuNgay = null;
-                    }
-                  });
-                  Navigator.pop(ctx);
-                  _applyFilter();
-                },
-              ),
-            ],
+                Expanded(
+                  child: CalendarDatePicker(
+                    initialDate: initial,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                    onDateChanged: (picked) {
+                      setState(() {
+                        if (isTuNgay) {
+                          _tuNgay = picked;
+                          if (_denNgay != null && _denNgay!.isBefore(picked)) _denNgay = null;
+                        } else {
+                          _denNgay = picked;
+                          if (_tuNgay != null && _tuNgay!.isAfter(picked)) _tuNgay = null;
+                        }
+                      });
+                      Navigator.pop(ctx);
+                      _applyFilter();
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

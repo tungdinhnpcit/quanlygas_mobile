@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../data/models/chuyen_xe_model.dart';
+import '../../data/models/kiem_ke_model.dart';
 import '../../data/repositories/chuyen_xe_repository.dart';
 
 final chuyenXeRepositoryProvider = Provider<ChuyenXeRepository>(
@@ -65,4 +66,11 @@ final chuyenXeDetailProvider =
 final uploadPhotoProvider = Provider<Future<String> Function(int, XFile)>((ref) {
   final repo = ref.watch(chuyenXeRepositoryProvider);
   return (chuyenXeId, photo) => repo.uploadPhoto(chuyenXeId, photo);
+});
+
+/// Provider kiểm kê xuất hàng của một chuyến xe theo ID — null nếu chưa lập.
+final kiemKeProvider =
+    FutureProvider.family<KiemKeChuyenXeModel?, int>((ref, chuyenXeId) {
+  final repo = ref.watch(chuyenXeRepositoryProvider);
+  return repo.getKiemKe(chuyenXeId);
 });

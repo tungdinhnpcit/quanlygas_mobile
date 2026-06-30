@@ -17,7 +17,6 @@ class _SaleRow {
   final GlobalKey containerKey = GlobalKey();
   int? matHangId;
   String matHangLabel = '';
-  bool showMatHangDropdown = false;
   final matHangSearchCtrl = TextEditingController();
 
   bool isVo = false;
@@ -43,7 +42,6 @@ class _GasDuRow {
   final GlobalKey containerKey = GlobalKey();
   int? matHangId;
   String matHangLabel = '';
-  bool showMatHangDropdown = false;
   final matHangSearchCtrl = TextEditingController();
 
   final soKgCtrl = TextEditingController(text: '0');
@@ -92,7 +90,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   final _fmtMoney = NumberFormat('#,##0', 'vi_VN');
 
   // Cache
-  List<Map<String, dynamic>> _matHangList = [];
   List<Map<String, dynamic>> _nhaCCList = [];
   List<Map<String, dynamic>> _taiKhoanList = [];
 
@@ -163,12 +160,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   }
 
   Future<void> _loadCaches() async {
-    final mh = await _db.getMatHangList();
     final ncc = await _db.getNhaCungCapList();
     final tk = await _db.getTaiKhoanList();
     if (mounted) {
       setState(() {
-        _matHangList = mh;
         _nhaCCList = ncc;
         _taiKhoanList = tk;
       });
@@ -203,16 +198,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     final ten = mh['ten_mat_hang'] as String? ?? '';
     return '$ma - $ten${maNcc.isNotEmpty ? ' ($maNcc)' : ''}';
   }
-
-  List<Map<String, dynamic>> _filterMatHang(String query) {
-    if (query.isEmpty) return _matHangList.take(10).toList();
-    final q = query.toLowerCase();
-    return _matHangList.where((mh) {
-      final label = _matHangLabel(mh).toLowerCase();
-      return label.contains(q);
-    }).take(10).toList();
-  }
-
 
   void _addSaleRow() {
     setState(() => _saleRows.add(_SaleRow()));
@@ -597,7 +582,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   Widget _buildSaleRow(int index) {
     final row = _saleRows[index];
-    final filtered = _filterMatHang(row.matHangSearchCtrl.text);
 
     return Container(
       key: row.containerKey,
@@ -611,86 +595,55 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Autocomplete mặt hàng ──────────────────────────────────────
+          // ── Picker mặt hàng (chạm để chọn) ──────────────────────────────
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: row.matHangSearchCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Mặt hàng *',
-                        hintText: 'Gõ mã hoặc tên để tìm...',
-                        prefixIcon: const Icon(Icons.search, size: 18),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        suffixIcon: row.matHangId != null
-                            ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16),
-                          onPressed: () => setState(() {
-                            row.matHangId = null;
-                            row.matHangLabel = '';
-                            row.matHangSearchCtrl.clear();
-                            row.isVo = false;
-                            row.donGiaCtrl.clear();
-                          }),
-                        )
-                            : null,
-                      ),
-                      onTap: () {
-                        _ensureVisible(row.containerKey);
-                        setState(() => row.showMatHangDropdown = true);
-                      },
-                      onChanged: (_) => setState(() => row.showMatHangDropdown = true),
-                    ),
-                    if (row.showMatHangDropdown && filtered.isNotEmpty)
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 150),
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 4)
-                          ],
-                        ),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (ctx, i) {
-                            final mh = filtered[i];
-                            final label = _matHangLabel(mh);
-                            return ListTile(
-                              dense: true,
-                              title: Text(label,
-                                  style: const TextStyle(fontSize: 13)),
-                              onTap: () {
-                                final dg = (mh['don_gia'] as num? ?? 0).toDouble();
-                                final isVo = (mh['don_vi_tinh'] as String? ?? '')
-                                    .toLowerCase() ==
-                                    'vỏ';
-                                setState(() {
-                                  row.matHangId = mh['server_id'] as int;
-                                  row.matHangLabel = label;
-                                  row.matHangSearchCtrl.text = label;
-                                  row.showMatHangDropdown = false;
-                                  row.isVo = isVo;
-                                  if (!isVo && dg > 0) {
-                                    row.donGiaCtrl.text =
-                                        _fmtMoney.format(dg.toInt());
-                                  }
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                  ],
+                child: TextField(
+                  controller: row.matHangSearchCtrl,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: 'Mặt hàng *',
+                    hintText: 'Chạm để chọn mặt hàng...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    suffixIcon: row.matHangId != null
+                        ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16),
+                      onPressed: () => setState(() {
+                        row.matHangId = null;
+                        row.matHangLabel = '';
+                        row.matHangSearchCtrl.clear();
+                        row.isVo = false;
+                        row.donGiaCtrl.clear();
+                      }),
+                    )
+                        : null,
+                  ),
+                  onTap: () async {
+                    _ensureVisible(row.containerKey);
+                    final selected = await context
+                        .push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
+                    if (selected != null && mounted) {
+                      final label = _matHangLabel(selected);
+                      final dg = (selected['don_gia'] as num? ?? 0).toDouble();
+                      final isVo = (selected['don_vi_tinh'] as String? ?? '')
+                          .toLowerCase() ==
+                          'vỏ';
+                      setState(() {
+                        row.matHangId = selected['server_id'] as int;
+                        row.matHangLabel = label;
+                        row.matHangSearchCtrl.text = label;
+                        row.isVo = isVo;
+                        if (!isVo && dg > 0) {
+                          row.donGiaCtrl.text = _fmtMoney.format(dg.toInt());
+                        }
+                      });
+                    }
+                  },
                 ),
               ),
               if (_saleRows.length > 1)
@@ -826,7 +779,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   Widget _buildGasDuRow(int index) {
     final row = _gasDuRows[index];
-    final filtered = _filterMatHang(row.matHangSearchCtrl.text);
 
     return Container(
       key: row.containerKey,
@@ -840,75 +792,45 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Autocomplete mặt hàng ──────────────────────────────────────
+          // ── Picker mặt hàng (chạm để chọn) ──────────────────────────────
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: row.matHangSearchCtrl,
-                      decoration: InputDecoration(
-                        labelText: 'Mặt hàng',
-                        hintText: 'Gõ mã hoặc tên để tìm...',
-                        prefixIcon: const Icon(Icons.search, size: 18),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        suffixIcon: row.matHangId != null
-                            ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16),
-                          onPressed: () => setState(() {
-                            row.matHangId = null;
-                            row.matHangLabel = '';
-                            row.matHangSearchCtrl.clear();
-                          }),
-                        )
-                            : null,
-                      ),
-                      onTap: () {
-                        _ensureVisible(row.containerKey);
-                        setState(() => row.showMatHangDropdown = true);
-                      },
-                      onChanged: (_) => setState(() => row.showMatHangDropdown = true),
-                    ),
-                    if (row.showMatHangDropdown && filtered.isNotEmpty)
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 150),
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 4)
-                          ],
-                        ),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (ctx, i) {
-                            final mh = filtered[i];
-                            final label = _matHangLabel(mh);
-                            return ListTile(
-                              dense: true,
-                              title: Text(label,
-                                  style: const TextStyle(fontSize: 13)),
-                              onTap: () {
-                                setState(() {
-                                  row.matHangId = mh['server_id'] as int;
-                                  row.matHangLabel = label;
-                                  row.matHangSearchCtrl.text = label;
-                                  row.showMatHangDropdown = false;
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                  ],
+                child: TextField(
+                  controller: row.matHangSearchCtrl,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: 'Mặt hàng',
+                    hintText: 'Chạm để chọn mặt hàng...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    suffixIcon: row.matHangId != null
+                        ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16),
+                      onPressed: () => setState(() {
+                        row.matHangId = null;
+                        row.matHangLabel = '';
+                        row.matHangSearchCtrl.clear();
+                      }),
+                    )
+                        : null,
+                  ),
+                  onTap: () async {
+                    _ensureVisible(row.containerKey);
+                    final selected = await context
+                        .push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
+                    if (selected != null && mounted) {
+                      final label = _matHangLabel(selected);
+                      setState(() {
+                        row.matHangId = selected['server_id'] as int;
+                        row.matHangLabel = label;
+                        row.matHangSearchCtrl.text = label;
+                      });
+                    }
+                  },
                 ),
               ),
               IconButton(

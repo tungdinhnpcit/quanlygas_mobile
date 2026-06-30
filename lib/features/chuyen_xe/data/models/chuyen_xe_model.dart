@@ -136,16 +136,20 @@ class ChuyenXeChiTietModel {
 class VoThuChiTietModel {
   final int id;
   final int? nhaCungCapId;
+  final String? maNhaCungCap;
   final String? tenNhaCungCap;
   final int matHangId;
+  final String? maMatHang;
   final String? tenMatHang;
   final int soVo;
 
   const VoThuChiTietModel({
     required this.id,
     this.nhaCungCapId,
+    this.maNhaCungCap,
     this.tenNhaCungCap,
     required this.matHangId,
+    this.maMatHang,
     this.tenMatHang,
     required this.soVo,
   });
@@ -153,11 +157,19 @@ class VoThuChiTietModel {
   factory VoThuChiTietModel.fromJson(Map<String, dynamic> json) => VoThuChiTietModel(
         id:             json['id'] as int? ?? 0,
         nhaCungCapId:   json['nhaCungCapId'] as int?,
+        maNhaCungCap:   json['maNhaCungCap'] as String?,
         tenNhaCungCap:  json['tenNhaCungCap'] as String?,
         matHangId:      json['matHangId'] as int,
+        maMatHang:      json['maMatHang'] as String?,
         tenMatHang:     json['tenMatHang'] as String?,
         soVo:           json['soVo'] as int,
       );
+
+  /// Nhãn "MA - Tên".
+  String get matHangLabel =>
+      [maMatHang, tenMatHang].where((s) => s != null && s.isNotEmpty).join(' - ');
+  String get nhaCungCapLabel =>
+      [maNhaCungCap, tenNhaCungCap].where((s) => s != null && s.isNotEmpty).join(' - ');
 }
 
 // ---------- Kết thúc chuyến: Mua gas dư từ khách hàng ----------
@@ -344,6 +356,8 @@ class ChuyenXeModel {
   final String? bienSoXe;
   final int nhanVienId;
   final String? tenNhanVien;
+  final int? phuXeId;
+  final String? tenPhuXe;
   final String trangThai;
   final String loai; // 'web' | 'mobile'
   final double tongTienThu;
@@ -355,6 +369,7 @@ class ChuyenXeModel {
   final List<ChuyenXeChiTietModel> chiTiet;
   final List<AnhChuyenXeModel> anh;
   final List<BanHangKhachHangModel> banHang;
+  final List<GasDuChiTietModel> banHangGasDu;
   final KetThucChuyenXeModel? ketThuc;
 
   const ChuyenXeModel({
@@ -365,6 +380,8 @@ class ChuyenXeModel {
     this.bienSoXe,
     required this.nhanVienId,
     this.tenNhanVien,
+    this.phuXeId,
+    this.tenPhuXe,
     required this.trangThai,
     this.loai = 'web',
     required this.tongTienThu,
@@ -376,6 +393,7 @@ class ChuyenXeModel {
     required this.chiTiet,
     required this.anh,
     this.banHang = const [],
+    this.banHangGasDu = const [],
     this.ketThuc,
   });
 
@@ -387,6 +405,8 @@ class ChuyenXeModel {
         bienSoXe:    json['bienSoXe'] as String?,
         nhanVienId:  json['nhanVienId'] as int,
         tenNhanVien: json['tenNhanVien'] as String?,
+        phuXeId:     json['phuXeId'] as int?,
+        tenPhuXe:    json['tenPhuXe'] as String?,
         trangThai:   json['trangThai'] as String,
         loai:        json['loai'] as String? ?? 'web',
         tongTienThu: (json['tongTienThu'] as num).toDouble(),
@@ -405,6 +425,9 @@ class ChuyenXeModel {
             .toList(),
         banHang: (json['banHang'] as List? ?? [])
             .map((e) => BanHangKhachHangModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        banHangGasDu: (json['banHangGasDu'] as List? ?? [])
+            .map((e) => GasDuChiTietModel.fromJson(e as Map<String, dynamic>))
             .toList(),
         ketThuc: json['ketThuc'] != null
             ? KetThucChuyenXeModel.fromJson(json['ketThuc'] as Map<String, dynamic>)

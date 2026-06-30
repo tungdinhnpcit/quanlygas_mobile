@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/database/local_database.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
@@ -17,7 +18,6 @@ class _SaleRow {
   final GlobalKey containerKey = GlobalKey();
   int? matHangId;
   String matHangLabel = '';
-  bool showMatHangDropdown = false;
   final matHangSearchCtrl = TextEditingController();
 
   bool isVo = false;
@@ -62,10 +62,10 @@ class SuaBanHangKhachHangScreen extends ConsumerStatefulWidget {
 
 class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangScreen> {
   final _repo = ChuyenXeRepository();
+  final _db = LocalDatabase.instance;
   final _fmtMoney = NumberFormat('#,##0', 'vi_VN');
 
-  // Cache
-  List<Map<String, dynamic>> _matHangList = [];
+  // Cache — chỉ dùng để format label "MA - Tên (MaNCC)"
   List<Map<String, dynamic>> _nhaCCList = [];
 
   // Sản phẩm (multi-row)
@@ -105,6 +105,11 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
     super.initState();
     _initializeFromRows();
     _loadCaches();
+  }
+
+  Future<void> _loadCaches() async {
+    final ncc = await _db.getNhaCungCapList();
+    if (mounted) setState(() => _nhaCCList = ncc);
   }
 
   void _initializeFromRows() {
@@ -151,15 +156,6 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
     super.dispose();
   }
 
-  Future<void> _loadCaches() async {
-    // Load từ database hoặc API
-    setState(() {
-      // Placeholder — thực tế load từ database/API
-      _matHangList = [];
-      _nhaCCList = [];
-    });
-  }
-
   // ── Helpers ──────────────────────────────────────────────────────────────
 
   void _ensureVisible(GlobalKey key) {
@@ -174,19 +170,18 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
     );
   }
 
+  /// Label mặt hàng: "MA - Tên (MaNCC)"
   String _matHangLabel(Map<String, dynamic> mh) {
+    final nccId = mh['nha_cung_cap_id'] as int?;
+    final maNcc = nccId != null
+        ? (_nhaCCList.firstWhere(
+          (n) => n['server_id'] == nccId,
+      orElse: () => {},
+    )['ma_ncc'] as String? ?? '')
+        : '';
     final ma = mh['ma_mat_hang'] as String? ?? '';
     final ten = mh['ten_mat_hang'] as String? ?? '';
-    return '$ma - $ten';
-  }
-
-  List<Map<String, dynamic>> _filterMatHang(String query) {
-    if (query.isEmpty) return _matHangList.take(10).toList();
-    final q = query.toLowerCase();
-    return _matHangList.where((mh) {
-      final label = _matHangLabel(mh).toLowerCase();
-      return label.contains(q);
-    }).take(10).toList();
+    return '$ma - $ten${maNcc.isNotEmpty ? ' ($maNcc)' : ''}';
   }
 
   void _addSaleRow() {
@@ -380,7 +375,6 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
 
   Widget _buildSaleRow(int index) {
     final row = _saleRows[index];
-    final filtered = _filterMatHang(row.matHangSearchCtrl.text);
 
     return Container(
       key: row.containerKey,
@@ -394,95 +388,57 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Autocomplete mặt hàng ──────────────────────────────────────
+          // ── Picker mặt hàng (chạm để chọn) ──────────────────────────────
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: row.matHangSearchCtrl,
-                      enabled: widget.canEdit,
-                      decoration: InputDecoration(
-                        labelText: 'Mặt hàng *',
-                        hintText: 'Gõ mã hoặc tên để tìm...',
-                        prefixIcon: const Icon(Icons.search, size: 18),
-                        border: const OutlineInputBorder(),
-                        isDense: true,
-                        contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 8),
-                        suffixIcon: widget.canEdit && row.matHangId != null
-                            ? IconButton(
-                          icon: const Icon(Icons.clear, size: 16),
-                          onPressed: () => setState(() {
-                            row.matHangId = null;
-                            row.matHangLabel = '';
-                            row.matHangSearchCtrl.clear();
-                            row.isVo = false;
-                            row.donGiaCtrl.clear();
-                          }),
-                        )
-                            : null,
-                      ),
-                      onTap: () {
-                        if (widget.canEdit) {
-                          _ensureVisible(row.containerKey);
-                          setState(() => row.showMatHangDropdown = true);
+                child: TextField(
+                  controller: row.matHangSearchCtrl,
+                  readOnly: true,
+                  enabled: widget.canEdit,
+                  decoration: InputDecoration(
+                    labelText: 'Mặt hàng *',
+                    hintText: 'Chạm để chọn mặt hàng...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    suffixIcon: widget.canEdit && row.matHangId != null
+                        ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16),
+                      onPressed: () => setState(() {
+                        row.matHangId = null;
+                        row.matHangLabel = '';
+                        row.matHangSearchCtrl.clear();
+                        row.isVo = false;
+                        row.donGiaCtrl.clear();
+                      }),
+                    )
+                        : null,
+                  ),
+                  onTap: () async {
+                    if (!widget.canEdit) return;
+                    _ensureVisible(row.containerKey);
+                    final selected = await context
+                        .push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
+                    if (selected != null && mounted) {
+                      final label = _matHangLabel(selected);
+                      final dg = (selected['don_gia'] as num? ?? 0).toDouble();
+                      final isVo = (selected['don_vi_tinh'] as String? ?? '')
+                          .toLowerCase() ==
+                          'vỏ';
+                      setState(() {
+                        row.matHangId = selected['server_id'] as int;
+                        row.matHangLabel = label;
+                        row.matHangSearchCtrl.text = label;
+                        row.isVo = isVo;
+                        if (!isVo && dg > 0) {
+                          row.donGiaCtrl.text = _fmtMoney.format(dg.toInt());
                         }
-                      },
-                      onChanged: (_) {
-                        if (widget.canEdit) {
-                          setState(() => row.showMatHangDropdown = true);
-                        }
-                      },
-                    ),
-                    if (widget.canEdit &&
-                        row.showMatHangDropdown &&
-                        filtered.isNotEmpty)
-                      Container(
-                        constraints: const BoxConstraints(maxHeight: 150),
-                        margin: const EdgeInsets.only(top: 2),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(4),
-                          boxShadow: const [
-                            BoxShadow(color: Colors.black12, blurRadius: 4)
-                          ],
-                        ),
-                        child: ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: filtered.length,
-                          itemBuilder: (ctx, i) {
-                            final mh = filtered[i];
-                            final label = _matHangLabel(mh);
-                            return ListTile(
-                              dense: true,
-                              title: Text(label,
-                                  style: const TextStyle(fontSize: 13)),
-                              onTap: () {
-                                final dg = (mh['don_gia'] as num? ?? 0).toDouble();
-                                final isVo = (mh['don_vi_tinh'] as String? ?? '')
-                                    .toLowerCase() ==
-                                    'vỏ';
-                                setState(() {
-                                  row.matHangId = mh['server_id'] as int;
-                                  row.matHangLabel = label;
-                                  row.matHangSearchCtrl.text = label;
-                                  row.showMatHangDropdown = false;
-                                  row.isVo = isVo;
-                                  if (!isVo && dg > 0) {
-                                    row.donGiaCtrl.text =
-                                        _fmtMoney.format(dg.toInt());
-                                  }
-                                });
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                  ],
+                      });
+                    }
+                  },
                 ),
               ),
               if (widget.canEdit && _saleRows.length > 1)

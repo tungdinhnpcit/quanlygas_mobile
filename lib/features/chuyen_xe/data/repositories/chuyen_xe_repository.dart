@@ -10,6 +10,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/chuyen_xe_model.dart';
+import '../models/kiem_ke_model.dart';
 
 class ChuyenXeRepository {
   /// Lấy danh sách phụ xe
@@ -86,6 +87,36 @@ class ChuyenXeRepository {
     }
   }
 
+  /// Lấy danh sách chuyến xe theo trạng thái, không giới hạn lái xe — dùng cho
+  /// màn hình kế toán lập kiểm kê (không truyền nhanVienId, backend trả tất cả).
+  Future<List<ChuyenXeModel>> getListByTrangThai({
+    required String trangThai,
+    int page = 1,
+    int pageSize = 100,
+  }) async {
+    try {
+      final res = await ApiClient.instance.dio.get(
+        '/api/chuyen-xe',
+        queryParameters: {
+          'trangThai': trangThai,
+          'page': page,
+          'pageSize': pageSize,
+        },
+      );
+      final data = res.data;
+      final list = (data is Map ? data['items'] : data) as List? ?? [];
+      return list
+          .map((e) => ChuyenXeModel.fromJson(e as Map<String, dynamic>))
+          .toList();
+    } on DioException catch (e) {
+      debugPrint('[ChuyenXe] DioException getListByTrangThai: ${e.type} | status=${e.response?.statusCode} | message=${e.message}');
+      rethrow;
+    } catch (e) {
+      debugPrint('[ChuyenXe] ERROR getListByTrangThai: $e');
+      rethrow;
+    }
+  }
+
   /// Lấy chi tiết chuyến xe theo ID kèm danh sách hàng hóa và ảnh đã upload.
   Future<ChuyenXeModel> getById(int id) async {
     debugPrint('[ChuyenXe] GET '+AppConstants.resolvedApiUrl+'/api/chuyen-xe/$id');
@@ -126,11 +157,13 @@ class ChuyenXeRepository {
     required DateTime ngayXuat,
     required int xeId,
     required int nhanVienId,
+    int? phuXeId,
   }) async {
     final res = await ApiClient.instance.dio.post('/api/chuyen-xe', data: {
       'ngayXuat': ngayXuat.toIso8601String(),
       'xeId': xeId,
       'nhanVienId': nhanVienId,
+      if (phuXeId != null) 'phuXeId': phuXeId,
       'loai': 'mobile',
       'trangThai': 'dang-giao',
       'isActive': true,
@@ -231,5 +264,33 @@ class ChuyenXeRepository {
       data: formData,
     );
     return res.data['url'] as String;
+  }
+
+  /// Lấy kiểm kê xuất hàng của chuyến xe. Trả null nếu chưa lập (HTTP 204).
+  Future<KiemKeChuyenXeModel?> getKiemKe(int chuyenXeId) async {
+    try {
+      final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$chuyenXeId/kiem-ke');
+      if (res.statusCode == 204 || res.data == null) return null;
+      return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 204) return null;
+      rethrow;
+    }
+  }
+
+  /// Lập mới hoặc thay thế toàn bộ chi tiết kiểm kê xuất hàng của chuyến xe.
+  Future<KiemKeChuyenXeModel> upsertKiemKe(
+    int chuyenXeId, {
+    String? ghiChu,
+    required List<Map<String, dynamic>> chiTiet,
+  }) async {
+    final res = await ApiClient.instance.dio.put(
+      '/api/chuyen-xe/$chuyenXeId/kiem-ke',
+      data: {
+        'ghiChu': ghiChu,
+        'chiTiet': chiTiet,
+      },
+    );
+    return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
   }
 }

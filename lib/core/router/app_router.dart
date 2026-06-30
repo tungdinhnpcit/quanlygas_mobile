@@ -7,7 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 
 import '../network/api_client.dart';
-import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/login_screen_v3.dart';
 import '../../features/home/presentation/screens/home_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_detail_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_list_screen.dart';
@@ -35,11 +35,16 @@ import '../../features/cai_dat/presentation/screens/dong_bo_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/bat_dau_chuyen_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_khach_hang_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_phu_xe_screen.dart';
+import '../../features/chuyen_xe/presentation/screens/tim_kiem_mat_hang_screen.dart';
+import '../../features/chuyen_xe/presentation/screens/tim_kiem_nha_cung_cap_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_theo_ngay_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/nhap_ban_hang_screen.dart';
 import '../../features/chuyen_xe/presentation/screens/sua_ban_hang_khach_hang_screen.dart';
 import '../../features/chuyen_xe/data/models/chuyen_xe_model.dart';
 import '../../features/khach_hang/presentation/screens/tao_khach_hang_screen.dart';
+import '../../features/kiem_ke/presentation/screens/kiem_ke_list_screen.dart';
+import '../../features/kiem_ke/presentation/screens/kiem_ke_nhap_screen.dart';
+import '../../features/kiem_ke/presentation/screens/kiem_ke_tao_chuyen_screen.dart';
 import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart';
 import '../database/local_database.dart';
 import '../providers/sync_provider.dart';
@@ -67,7 +72,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: AppRoutes.login,
-        builder: (_, __) => const LoginScreen(),
+        builder: (_, __) => const LoginScreenV3(),
       ),
       // Detail routes tại root navigator — full-screen, hỗ trợ swipe-back và nút back vật lý
       GoRoute(
@@ -144,6 +149,27 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.timKiemMatHang,
+        pageBuilder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CupertinoPage(
+            key: state.pageKey,
+            child: TimKiemMatHangScreen(
+              nhaCungCapId: extra?['nhaCungCapId'] as int?,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.timKiemNhaCungCap,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const TimKiemNhaCungCapScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/khach-hang/:id',
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
@@ -214,6 +240,24 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           );
         },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.kiemKeTaoChuyen,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const KiemKeTaoChuyenScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/kiem-ke/:chuyenXeId/nhap',
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: KiemKeNhapScreen(
+            chuyenXeId: int.parse(state.pathParameters['chuyenXeId']!),
+          ),
+        ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
@@ -298,6 +342,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.dongBo,
             builder: (_, __) => const DongBoScreen(),
+          ),
+          GoRoute(
+            path: AppRoutes.kiemKeList,
+            builder: (_, __) => const KiemKeListScreen(),
           ),
         ],
       ),
@@ -478,6 +526,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
     AppRoutes.thongTinTaiKhoan: 'Thông tin tài khoản',
     AppRoutes.doiMatKhau:       'Đổi mật khẩu',
     AppRoutes.dongBo:           'Đồng bộ dữ liệu',
+    AppRoutes.kiemKeList:       'Kiểm kê chuyến xe',
   };
 
   String _resolveTitle(String location) {

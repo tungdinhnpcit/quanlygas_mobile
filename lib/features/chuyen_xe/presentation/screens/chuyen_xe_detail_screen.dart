@@ -10,6 +10,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../data/models/chuyen_xe_model.dart';
+import '../../data/models/kiem_ke_model.dart';
 import '../../data/repositories/chuyen_xe_repository.dart';
 import '../providers/chuyen_xe_provider.dart';
 import '../../../cong_no/data/cong_no_repository.dart';
@@ -43,6 +44,7 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     Tab(icon: Icon(Icons.list_alt_rounded, size: 20), text: 'Chi tiết'),
     Tab(icon: Icon(Icons.shopping_cart_outlined, size: 20), text: 'Bán hàng'),
     Tab(icon: Icon(Icons.recycling_rounded, size: 20), text: 'Thu vỏ'),
+    Tab(icon: Icon(Icons.fact_check_outlined, size: 20), text: 'Kiểm kê'),
     Tab(icon: Icon(Icons.payments_outlined, size: 20), text: 'Thu tiền'),
     Tab(icon: Icon(Icons.camera_alt_outlined, size: 20), text: 'Ảnh'),
     Tab(icon: Icon(Icons.local_gas_station_outlined, size: 20), text: 'Gas dư'),
@@ -293,6 +295,7 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
                 _TabChiTiet(cx: cx),
                 _TabBanHang(cx: cx),
                 _TabThuVo(cx: cx),
+                _TabKiemKe(cx: cx),
                 _TabThuTien(cx: cx),
                 _TabAnh(
                   cx: cx,
@@ -762,6 +765,15 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
   // ── Phụ xe selection ────────────────────────────────────────────────────
   Map<String, dynamic>? _selectedPhuXe;
 
+  @override
+  void initState() {
+    super.initState();
+    final phuXeId = widget.cx.phuXeId;
+    if (phuXeId != null) {
+      _selectedPhuXe = {'id': phuXeId, 'hoTen': widget.cx.tenPhuXe ?? ''};
+    }
+  }
+
   Future<void> _openKhachHangDetail(ChuyenXeModel cx, List<BanHangKhachHangModel> rows) async {
     await context.push(
       AppRoutes.suaBanHangKhachHang(cx.id, rows.first.khachHangId),
@@ -1196,33 +1208,88 @@ class _TabThuVo extends StatelessWidget {
   final ChuyenXeModel cx;
   const _TabThuVo({required this.cx});
 
+  /// Tổng hợp tạm tính vỏ thu từ cx.banHang khi kế toán chưa duyệt (cx.ketThuc == null).
+  List<VoThuChiTietModel> _voThuTamTinh() {
+    final groups = <String, List<BanHangKhachHangModel>>{};
+    for (final b in cx.banHang.where((b) => b.soVoThu > 0)) {
+      final key = '${b.matHangId}|${b.maNhaCungCap ?? ''}';
+      groups.putIfAbsent(key, () => []).add(b);
+    }
+    return groups.values.map((rows) {
+      final first = rows.first;
+      return VoThuChiTietModel(
+        id: first.matHangId,
+        matHangId: first.matHangId,
+        maMatHang: first.maMatHang,
+        tenMatHang: first.tenMatHang,
+        maNhaCungCap: first.maNhaCungCap,
+        tenNhaCungCap: first.tenNhaCungCap,
+        soVo: rows.fold(0, (s, b) => s + b.soVoThu),
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final voThu = cx.ketThuc?.voThu ?? [];
+    final daDuyet = cx.ketThuc != null;
+    final voThu = daDuyet ? cx.ketThuc!.voThu : _voThuTamTinh();
+    final tongVo = daDuyet
+        ? cx.ketThuc!.soVoThuThucTe
+        : voThu.fold<int>(0, (s, v) => s + v.soVo);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (cx.ketThuc == null)
-            _EmptyState(
-                icon: Icons.recycling_rounded,
-                label: 'Chuyến chưa kết thúc')
-          else if (voThu.isEmpty)
+          if (voThu.isEmpty)
             _EmptyState(
                 icon: Icons.recycling_rounded,
                 label: 'Không có dữ liệu thu vỏ')
           else ...[
+            if (!daDuyet) ...[
+              const _GhiChuTamTinh(),
+              const SizedBox(height: 8),
+            ],
             _SummaryRow(
                 label: 'Tổng vỏ thu',
-                value: '${cx.ketThuc!.soVoThuThucTe} bình',
+                value: '$tongVo bình',
                 valueColor: Colors.teal),
             const SizedBox(height: 12),
             _SectionLabel('Chi tiết theo hãng'),
             const SizedBox(height: 8),
             ...voThu.map((v) => _VoThuCard(item: v)),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// Banner ghi chú số liệu tạm tính khi chuyến kết thúc qua mobile nhưng kế toán
+/// chưa duyệt trên web (chưa có bản ghi KetThucChuyenXe chính thức).
+class _GhiChuTamTinh extends StatelessWidget {
+  const _GhiChuTamTinh();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.amber.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 16, color: Colors.amber.shade800),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Số liệu tạm tính từ dữ liệu đã nhập — chờ kế toán duyệt chính thức',
+              style: TextStyle(fontSize: 12, color: Colors.amber.shade900),
+            ),
+          ),
         ],
       ),
     );
@@ -1250,11 +1317,15 @@ class _VoThuCard extends StatelessWidget {
               color: Colors.teal, size: 22),
         ),
         title: Text(
-          item.tenMatHang ?? 'Mặt hàng #${item.matHangId}',
+          item.matHangLabel.isNotEmpty
+              ? item.matHangLabel
+              : 'Mặt hàng #${item.matHangId}',
           style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
         ),
         subtitle: Text(
-          item.tenNhaCungCap ?? 'Không xác định hãng',
+          item.nhaCungCapLabel.isNotEmpty
+              ? item.nhaCungCapLabel
+              : 'Không xác định hãng',
           style: const TextStyle(fontSize: 12, color: Colors.grey),
         ),
         trailing: Column(
@@ -1275,15 +1346,252 @@ class _VoThuCard extends StatelessWidget {
   }
 }
 
+// ── Tab 2b: Kiểm kê xuất hàng (read-only) ───────────────────────────────────
+
+class _TabKiemKe extends ConsumerWidget {
+  final ChuyenXeModel cx;
+  const _TabKiemKe({required this.cx});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final kiemKeAsync = ref.watch(kiemKeProvider(cx.id));
+
+    return kiemKeAsync.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, _) => Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 56, color: Colors.redAccent),
+            const SizedBox(height: 12),
+            const Text('Không tải được kiểm kê'),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () => ref.invalidate(kiemKeProvider(cx.id)),
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+            ),
+          ],
+        ),
+      ),
+      data: (kk) {
+        if (kk == null || kk.chiTiet.isEmpty) {
+          return SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
+            child: _EmptyState(
+                icon: Icons.fact_check_outlined,
+                label: 'Chưa có dữ liệu kiểm kê'),
+          );
+        }
+
+        // Nhóm theo Nhà cung cấp, giữ tên "Khác" cho dòng không có hãng.
+        final groups = <String, List<KiemKeChiTietModel>>{};
+        for (final ct in kk.chiTiet) {
+          final key = ct.tenNhaCungCap?.isNotEmpty == true
+              ? ct.tenNhaCungCap!
+              : 'Khác';
+          groups.putIfAbsent(key, () => []).add(ct);
+        }
+
+        final tongBinhXuat = kk.chiTiet.fold<int>(0, (s, c) => s + c.soBinhXuat);
+        final tongVoXuat   = kk.chiTiet.fold<int>(0, (s, c) => s + c.soVoXuat);
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (kk.ngayLap != null || kk.nguoiLap != null)
+                _SectionCard(
+                  title: 'Thông tin kiểm kê',
+                  child: Column(
+                    children: [
+                      if (kk.ngayLap != null)
+                        _InfoRow(
+                            icon: Icons.calendar_today,
+                            label: 'Ngày lập',
+                            value: _fmtDate.format(kk.ngayLap!.toLocal())),
+                      if (kk.ngayLap != null && kk.nguoiLap != null)
+                        const SizedBox(height: 8),
+                      if (kk.nguoiLap != null)
+                        _InfoRow(
+                            icon: Icons.person_outline,
+                            label: 'Người lập',
+                            value: kk.nguoiLap!),
+                      if (kk.ghiChu != null && kk.ghiChu!.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        _InfoRow(
+                            icon: Icons.note_outlined,
+                            label: 'Ghi chú',
+                            value: kk.ghiChu!),
+                      ],
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SummaryRow(
+                        label: 'Tổng bình xuất',
+                        value: '$tongBinhXuat bình',
+                        valueColor: const Color(0xFF00897B)),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: _SummaryRow(
+                        label: 'Tổng vỏ xuất',
+                        value: '$tongVoXuat vỏ',
+                        valueColor: Colors.teal),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              ...groups.entries.map((entry) => _KiemKeNhaCungCapSection(
+                    tenNhaCungCap: entry.key,
+                    rows: entry.value,
+                  )),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Section nhóm theo hãng — header + danh sách dòng mặt hàng.
+class _KiemKeNhaCungCapSection extends StatelessWidget {
+  final String tenNhaCungCap;
+  final List<KiemKeChiTietModel> rows;
+  const _KiemKeNhaCungCapSection({required this.tenNhaCungCap, required this.rows});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.factory_outlined, size: 16, color: Color(0xFF00897B)),
+              const SizedBox(width: 6),
+              Text(
+                tenNhaCungCap,
+                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ...rows.map((ct) => _KiemKeChiTietCard(item: ct)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Card một dòng kiểm kê: mặt hàng + số bình/vỏ xuất + số còn lại/mang về (nếu có).
+class _KiemKeChiTietCard extends StatelessWidget {
+  final KiemKeChiTietModel item;
+  const _KiemKeChiTietCard({required this.item});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              item.matHangLabel.isNotEmpty
+                  ? item.matHangLabel
+                  : 'Mặt hàng #${item.matHangId}',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _DataChip(
+                      label: 'Bình xuất', value: '${item.soBinhXuat}'),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _DataChip(label: 'Vỏ xuất', value: '${item.soVoXuat}'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                Expanded(
+                  child: _DataChip(
+                    label: 'Bình còn lại',
+                    value: item.soBinhConLai != null ? '${item.soBinhConLai}' : '-',
+                    color: Colors.blueGrey,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _DataChip(
+                    label: 'Vỏ mang về',
+                    value: item.soVoMangVe != null ? '${item.soVoMangVe}' : '-',
+                    color: Colors.blueGrey,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ── Tab 3: Thu tiền ─────────────────────────────────────────────────────────
 
 class _TabThuTien extends StatelessWidget {
   final ChuyenXeModel cx;
   const _TabThuTien({required this.cx});
 
+  /// Dựng số liệu tạm tính từ cx.banHang/cx.banHangGasDu khi kế toán chưa duyệt.
+  KetThucChuyenXeModel _ketThucTamTinh() {
+    final tienMat = cx.banHang.fold<double>(0, (s, b) => s + b.tienMat);
+    final tienCK = cx.banHang.fold<double>(0, (s, b) => s + b.tienCK);
+    final tongTienNop = tienMat + tienCK;
+    final soVoThu = cx.banHang.fold<int>(0, (s, b) => s + b.soVoThu);
+    final tongTienTraGasDu =
+        cx.banHangGasDu.fold<double>(0, (s, g) => s + g.thanhTien);
+    return KetThucChuyenXeModel(
+      id: 0,
+      ngayKetThuc: cx.updatedAt,
+      tienMat: tienMat,
+      tienCK: tienCK,
+      tongTienNop: tongTienNop,
+      soTienNo: (cx.tongTienThu - tongTienNop) < 0 ? 0 : cx.tongTienThu - tongTienNop,
+      soVoThuThucTe: soVoThu,
+      tienUngMuaVo: 0,
+      soVoMua: 0,
+      tongTienTraGasDu: tongTienTraGasDu,
+      tongThuNoCu: 0,
+      chiTiet: const [],
+      voThu: const [],
+      gasDu: const [],
+      traNoCu: const [],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final kt = cx.ketThuc;
+    final daDuyet = cx.ketThuc != null;
+    final kt = cx.ketThuc ?? (cx.banHang.isNotEmpty ? _ketThucTamTinh() : null);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
@@ -1294,6 +1602,10 @@ class _TabThuTien extends StatelessWidget {
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (!daDuyet) ...[
+                  const _GhiChuTamTinh(),
+                  const SizedBox(height: 12),
+                ],
                 if (kt.ngayKetThuc != null) ...[
                   _InfoChip(
                       icon: Icons.check_circle_outline,
@@ -1592,26 +1904,29 @@ class _TabGasDu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gasDu = cx.ketThuc?.gasDu ?? [];
+    final daDuyet = cx.ketThuc != null;
+    final gasDu = daDuyet ? cx.ketThuc!.gasDu : cx.banHangGasDu;
+    final tongTien = daDuyet
+        ? cx.ketThuc!.tongTienTraGasDu
+        : gasDu.fold<double>(0, (s, g) => s + g.thanhTien);
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(16, 80, 16, 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (cx.ketThuc == null)
-            _EmptyState(
-                icon: Icons.local_gas_station_outlined,
-                label: 'Chuyến chưa kết thúc')
-          else if (gasDu.isEmpty)
+          if (gasDu.isEmpty)
             _EmptyState(
                 icon: Icons.local_gas_station_outlined,
                 label: 'Không có mua gas dư trong chuyến này')
           else ...[
+            if (!daDuyet) ...[
+              const _GhiChuTamTinh(),
+              const SizedBox(height: 8),
+            ],
             _SummaryRow(
                 label: 'Tổng tiền trả KH',
-                value: _fmtCurrency
-                    .format(cx.ketThuc!.tongTienTraGasDu),
+                value: _fmtCurrency.format(tongTien),
                 valueColor: Colors.orange),
             const SizedBox(height: 12),
             _SectionLabel('Chi tiết gas dư'),

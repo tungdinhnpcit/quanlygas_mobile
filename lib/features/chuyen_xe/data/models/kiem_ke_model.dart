@@ -1,0 +1,91 @@
+// lib/features/chuyen_xe/data/models/kiem_ke_model.dart
+
+// ---------- Kiểm kê chuyến xe: chi tiết theo Nhà cung cấp + Mặt hàng ----------
+
+class KiemKeChiTietModel {
+  final int id;
+  final int? nhaCungCapId;
+  final String? maNhaCungCap;
+  final String? tenNhaCungCap;
+  final int matHangId;
+  final String? maMatHang;
+  final String? tenMatHang;
+  final int soBinhXuat;
+  final int soVoXuat;
+  final int? soBinhConLai;
+  final int? soVoMangVe;
+
+  const KiemKeChiTietModel({
+    required this.id,
+    this.nhaCungCapId,
+    this.maNhaCungCap,
+    this.tenNhaCungCap,
+    required this.matHangId,
+    this.maMatHang,
+    this.tenMatHang,
+    required this.soBinhXuat,
+    required this.soVoXuat,
+    this.soBinhConLai,
+    this.soVoMangVe,
+  });
+
+  factory KiemKeChiTietModel.fromJson(Map<String, dynamic> json) => KiemKeChiTietModel(
+        id:            json['id'] as int? ?? 0,
+        nhaCungCapId:  json['nhaCungCapId'] as int?,
+        maNhaCungCap:  json['maNhaCungCap'] as String?,
+        tenNhaCungCap: json['tenNhaCungCap'] as String?,
+        matHangId:     json['matHangId'] as int,
+        maMatHang:     json['maMatHang'] as String?,
+        tenMatHang:    json['tenMatHang'] as String?,
+        soBinhXuat:    json['soBinhXuat'] as int? ?? 0,
+        soVoXuat:      json['soVoXuat'] as int? ?? 0,
+        soBinhConLai:  json['soBinhConLai'] as int?,
+        soVoMangVe:    json['soVoMangVe'] as int?,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'nhaCungCapId': nhaCungCapId,
+        'matHangId':    matHangId,
+        'soBinhXuat':   soBinhXuat,
+        'soVoXuat':     soVoXuat,
+      };
+
+  /// Nhãn "MA - Tên".
+  String get matHangLabel =>
+      [maMatHang, tenMatHang].where((s) => s != null && s.isNotEmpty).join(' - ');
+  String get nhaCungCapLabel =>
+      [maNhaCungCap, tenNhaCungCap].where((s) => s != null && s.isNotEmpty).join(' - ');
+}
+
+// ---------- Kiểm kê chuyến xe: tổng hợp ----------
+
+class KiemKeChuyenXeModel {
+  final int id;
+  final int chuyenXeId;
+  final DateTime? ngayLap;
+  final String? nguoiLap;
+  final String? ghiChu;
+  final List<KiemKeChiTietModel> chiTiet;
+
+  const KiemKeChuyenXeModel({
+    required this.id,
+    required this.chuyenXeId,
+    this.ngayLap,
+    this.nguoiLap,
+    this.ghiChu,
+    required this.chiTiet,
+  });
+
+  factory KiemKeChuyenXeModel.fromJson(Map<String, dynamic> json) => KiemKeChuyenXeModel(
+        id:         json['id'] as int? ?? 0,
+        chuyenXeId: json['chuyenXeId'] as int? ?? 0,
+        ngayLap:    json['ngayLap'] != null
+            ? DateTime.tryParse(json['ngayLap'] as String)
+            : null,
+        nguoiLap: json['nguoiLap'] as String?,
+        ghiChu:   json['ghiChu'] as String?,
+        chiTiet: (json['chiTiet'] as List? ?? [])
+            .map((e) => KiemKeChiTietModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+}
