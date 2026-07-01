@@ -178,17 +178,18 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  /// Scroll đến widget để hiện tại top, dismiss keyboard
+  /// Scroll den widget de hien thi, khong unfocus tranh conflict focus voi TextField
   void _ensureVisible(GlobalKey key) {
-    final ctx = key.currentContext;
-    if (ctx == null) return;
-    FocusScope.of(context).unfocus();
-    Scrollable.ensureVisible(
-      ctx,
-      alignment: 0.0,
-      duration: const Duration(milliseconds: 250),
-      curve: Curves.easeOut,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final ctx = key.currentContext;
+      if (ctx == null) return;
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 0.0,
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   /// Label mặt hàng: "MA - Tên (MaNCC)"

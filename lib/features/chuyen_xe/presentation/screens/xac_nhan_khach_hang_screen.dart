@@ -111,9 +111,13 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
     }
   }
 
-  // xu ly khi nguoi dung bam bo qua, khong luu xac nhan, quay ve man hinh truoc
+  // xu ly khi nguoi dung bam bo qua, khong xac nhan nhung van refresh tab ban hang
+  // de hien thi du lieu ban hang vua nhap (da luu truoc khi sang man hinh nay)
   void _boQua() {
-    context.pop(); // quay ve ma khong goi API va khong refresh
+    if (widget.chuyenXeId > 0) {
+      ref.invalidate(chuyenXeDetailProvider(widget.chuyenXeId)); // buoc provider fetch lai du lieu moi
+    }
+    context.pop(); // quay ve tab ban hang
   }
 
   // widget hien mot hang thong tin trong bien lai (nhan trai, gia tri phai)

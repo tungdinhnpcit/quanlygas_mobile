@@ -332,6 +332,11 @@ class ChuyenXeRepository {
     return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
   }
 
+  /// Xóa toàn bộ biên bản kiểm kê xuất hàng của chuyến xe (kế toán lập sai, muốn làm lại).
+  Future<void> deleteKiemKe(int chuyenXeId) async {
+    await ApiClient.instance.dio.post('/api/chuyen-xe/$chuyenXeId/kiem-ke/delete');
+  }
+
   /// Upload xác nhận khách hàng (ảnh biên lai ký tay hoặc chữ ký trên app)
   Future<String> uploadXacNhan(
     int xacNhanId, {

@@ -1,6 +1,7 @@
 // lib/features/tong_quan/presentation/screens/thong_ke_chuyen_xe_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../chuyen_xe/data/models/chuyen_xe_model.dart';
@@ -96,98 +97,121 @@ class _ChuyenXeStatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Tổng tiền CK từ tất cả tài khoản
+    final tongCK = item.tienCKTheoTaiKhoan.fold<double>(0, (s, e) => s + e.tienCK);
+    final soTK = item.tienCKTheoTaiKhoan.length;
+    final ckLabel = soTK == 0
+        ? '0 đ'
+        : soTK == 1
+            ? '${_vnd.format(tongCK)} đ'
+            : '${_vnd.format(tongCK)} đ ($soTK TK)';
+
+    // Badge xác nhận
+    final daxn  = item.soKhachDaXacNhan;
+    final chuaxn = item.soKhachChuaXacNhan;
+    final hasXacNhan = daxn + chuaxn > 0;
+
     return Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header: mã chuyến + ngày + badge trạng thái
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    item.maChuyenXe,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                ),
-                Text(
-                  _date.format(item.ngayXuat.toLocal()),
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                ),
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(item.trangThai).withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    item.trangThaiLabel,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: _getStatusColor(item.trangThai),
-                      fontWeight: FontWeight.w600,
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: () => context.push('/chuyen-xe/${item.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: mã chuyến + ngày + badge trạng thái
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.maChuyenXe,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
                     ),
                   ),
-                ),
-              ],
-            ),
-            const Divider(height: 12),
-            // 8 trường thông tin
-            _Row2Col(
-              label1: 'Xe',
-              value1: item.bienSoXe ?? '—',
-              label2: 'Lái xe',
-              value2: item.tenNhanVien ?? '—',
-            ),
-            _Row2Col(
-              label1: 'Phụ xe',
-              value1: item.tenPhuXe ?? '—',
-              label2: 'Tổng bình bán',
-              value2: item.hasKetThuc ? _num.format(item.tongSoBinhBan) : '—',
-            ),
-            _Row2Col(
-              label1: 'Tổng vỏ',
-              value1: item.hasKetThuc ? _num.format(item.tongSoVo) : '—',
-              label2: 'Nợ',
-              value2: item.soTienNo != null && item.soTienNo! > 0
-                  ? '${_vnd.format(item.soTienNo)} đ'
-                  : '0 đ',
-            ),
-            _Row2Col(
-              label1: 'Tổng tiền thu',
-              value1: item.tongTienThu > 0
-                  ? '${_vnd.format(item.tongTienThu)} đ'
-                  : '0 đ',
-              label2: 'Gas dư (kg)',
-              value2: item.hasKetThuc ? _vnd.format(item.tongGasDuKg) : '—',
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tiền mua gas dư',
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                      Text(
-                        item.hasKetThuc
-                            ? '${_vnd.format(item.tienMuaGasDu)} đ'
-                            : '—',
-                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ],
+                  Text(
+                    _date.format(item.ngayXuat.toLocal()),
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: _getStatusColor(item.trangThai).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      item.trangThaiLabel,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: _getStatusColor(item.trangThai),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 12),
+              _Row2Col(
+                label1: 'Xe',
+                value1: item.bienSoXe ?? '—',
+                label2: 'Lái xe',
+                value2: item.tenNhanVien ?? '—',
+              ),
+              _Row2Col(
+                label1: 'Phụ xe',
+                value1: item.tenPhuXe ?? '—',
+                label2: 'Tổng bình bán',
+                value2: item.hasKetThuc ? _num.format(item.tongSoBinhBan) : '—',
+              ),
+              _Row2Col(
+                label1: 'Tổng vỏ',
+                value1: item.hasKetThuc ? _num.format(item.tongSoVo) : '—',
+                label2: 'Nợ',
+                value2: item.soTienNo != null && item.soTienNo! > 0
+                    ? '${_vnd.format(item.soTienNo)} đ'
+                    : '0 đ',
+              ),
+              _Row2Col(
+                label1: 'Tổng tiền thu',
+                value1: item.tongTienThu > 0
+                    ? '${_vnd.format(item.tongTienThu)} đ'
+                    : '0 đ',
+                label2: 'Gas dư (kg)',
+                value2: item.hasKetThuc ? _vnd.format(item.tongGasDuKg) : '—',
+              ),
+              _Row2Col(
+                label1: 'Tiền mặt',
+                value1: '${_vnd.format(item.tongTienMat)} đ',
+                label2: 'Chuyển khoản',
+                value2: ckLabel,
+              ),
+              if (hasXacNhan) ...[
+                const SizedBox(height: 2),
+                Row(
+                  children: [
+                    Icon(
+                      chuaxn > 0 ? Icons.warning_amber_rounded : Icons.verified_outlined,
+                      size: 14,
+                      color: chuaxn > 0 ? Colors.orange.shade700 : Colors.green.shade700,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      // chi hien 2 trang thai don gian: tat ca da ky hay con khach chua ky
+                      chuaxn > 0 ? 'Chưa xác nhận/ký ($chuaxn KH)' : 'Đã xác nhận/ký',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: chuaxn > 0 ? Colors.orange.shade700 : Colors.green.shade700,
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -207,7 +231,6 @@ class _Row2Col extends StatelessWidget {
   final String value1;
   final String label2;
   final String value2;
-
   const _Row2Col({
     required this.label1,
     required this.value1,

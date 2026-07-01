@@ -912,7 +912,8 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: Text(
-          daXacNhan ? '✓ Đã xác nhận (ký lại)' : '⚠ Chưa xác nhận',
+          // trang thai don gian: da ky xac nhan hay chua
+          daXacNhan ? '✓ Đã ký' : '⚠ Chưa ký',
           style: const TextStyle(
             fontSize: 10,
             fontWeight: FontWeight.w600,
@@ -953,6 +954,86 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
         SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     }
+  }
+
+  // Goi lai provider de lay du lieu moi tu server - dung lam callback cho RefreshIndicator
+  Future<void> _refresh() async =>
+      ref.refresh(chuyenXeDetailProvider(widget.cx.id).future);
+
+  /// Mo dialog xem anh bien lai hoac chu ky xac nhan cua khach hang
+  void _xemAnhXacNhan(XacNhanKhachHangModel xn) {
+    final baseUrl = AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
+    final imageUrl = '$baseUrl${xn.url}';
+    final title = xn.loaiXacNhan == 'ky' ? 'Chữ ký xác nhận' : 'Ảnh biên lai';
+    final iconData = xn.loaiXacNhan == 'ky' ? Icons.draw_outlined : Icons.image_outlined;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                color: const Color(0xFF00897B),
+                child: Row(
+                  children: [
+                    Icon(iconData, color: Colors.white, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(title,
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white, size: 20),
+                      onPressed: () => Navigator.pop(ctx),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                color: Colors.white,
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: Image.network(
+                  imageUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const SizedBox(
+                          height: 200,
+                          child: Center(child: CircularProgressIndicator())),
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 200,
+                    color: Colors.grey.shade100,
+                    child: const Center(
+                        child: Text('Không tải được ảnh',
+                            style: TextStyle(color: Colors.grey))),
+                  ),
+                ),
+              ),
+              if (xn.ngayXacNhan != null)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  color: Colors.grey.shade50,
+                  child: Text(
+                    'Xác nhận lúc: ${_fmtDate.format(xn.ngayXacNhan!.toLocal())}',
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -1070,28 +1151,45 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
 
         // Danh sách hoặc empty state
         if (items.isEmpty)
-          const Expanded(
-            child: Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text('Chưa có dữ liệu bán hàng',
-                      style: TextStyle(color: Colors.grey)),
-                  SizedBox(height: 4),
-                  Text('Nhấn + để nhập',
-                      style: TextStyle(color: Colors.grey, fontSize: 12)),
+          // Boc RefreshIndicator + CustomScrollView de ho tro pull-to-refresh khi chua co data
+          // CustomScrollView + SliverFillRemaining fill toan bo viewport nen gesture keo xuat hien ngay ca khi content ngan
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _refresh, // goi _refresh() khi nguoi dung keo xuong
+              child: CustomScrollView(
+                slivers: [
+                  SliverFillRemaining(
+                    hasScrollBody: false, // content khong scroll doc lap, fill viewport
+                    child: const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.grey),
+                          SizedBox(height: 8),
+                          Text('Chưa có dữ liệu bán hàng',
+                              style: TextStyle(color: Colors.grey)),
+                          SizedBox(height: 4),
+                          Text('Nhấn + để nhập',
+                              style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
           )
         else ...[
+        // Boc RefreshIndicator de ho tro pull-to-refresh khi co data
         Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-            itemCount: groupEntries.length,
-            itemBuilder: (_, i) {
+          child: RefreshIndicator(
+            onRefresh: _refresh, // goi _refresh() khi nguoi dung keo xuong
+            child: ListView.builder(
+              // AlwaysScrollableScrollPhysics bat buoc de pull gesture hoat dong khi list ngan hon viewport
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              itemCount: groupEntries.length,
+              itemBuilder: (_, i) {
               final entry = groupEntries[i];
               final rows = entry.value;
               final khachTen = rows.first.tenKhachHang ?? '—';
@@ -1154,6 +1252,21 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                               ],
                             ),
                           ),
+                          // Nut xem anh bien lai / chu ky (chi hien khi da xac nhan)
+                          if (xacNhanMap[entry.key]?.daXacNhan == true)
+                            IconButton(
+                              icon: Icon(
+                                xacNhanMap[entry.key]?.loaiXacNhan == 'ky'
+                                    ? Icons.draw_outlined
+                                    : Icons.image_outlined,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                              onPressed: () => _xemAnhXacNhan(xacNhanMap[entry.key]!),
+                              tooltip: 'Xem ảnh xác nhận',
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                            ),
                           if (canEdit)
                             IconButton(
                               icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.white70),
@@ -1294,6 +1407,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
               );
             },
           ),
+          ), // dong RefreshIndicator
         ),
         Container(
           color: const Color(0xFFE0F2F1),

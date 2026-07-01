@@ -136,6 +136,11 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
     final tienCK  = _parseNum(_tienCKCtrl.text);
     final conLai  = tongTienBanHang - tienMat - tienCK;
 
+    // Tim tai khoan CK tu row dau tien co tienCK > 0 va co ten tai khoan
+    final rowCoTaiKhoan = cx.banHang
+        .where((b) => b.tienCK > 0 && b.tenTaiKhoanCK != null)
+        .fold<BanHangKhachHangModel?>(null, (acc, b) => acc ?? b);
+
     // Lay danh sach khach hang tu banHang de chon khi nhap no cu
     final khachHangs = cx.banHang.map((b) => {'id': b.khachHangId, 'ten': b.tenKhachHang ?? 'KH#${b.khachHangId}'})
         .fold<Map<int, String>>({}, (map, kh) {
@@ -182,6 +187,14 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
             ctrl: _tienCKCtrl,
             onChanged: (v) => _handleNumInput(_tienCKCtrl, v),
           ),
+          if (rowCoTaiKhoan != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4, bottom: 4),
+              child: Text(
+                'Tài khoản nhận: ${rowCoTaiKhoan.tenTaiKhoanCK}',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
+              ),
+            ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,

@@ -155,6 +155,41 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
     }
   }
 
+  /// Xóa toàn bộ biên bản kiểm kê của chuyến xe sau khi người dùng xác nhận.
+  Future<void> _deleteKiemKe() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa kiểm kê?'),
+        content: const Text('Xóa toàn bộ biên bản kiểm kê này? Không thể hoàn tác.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    setState(() => _saving = true);
+    try {
+      await _repo.deleteKiemKe(widget.chuyenXeId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã xóa kiểm kê'), backgroundColor: Colors.orange),
+      );
+      context.pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -168,7 +203,12 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
           }
         }),
         actions: [
-          if (!_loading && _error == null)
+          if (!_loading && _error == null) ...[
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: 'Xóa kiểm kê',
+              onPressed: _saving ? null : _deleteKiemKe,
+            ),
             TextButton(
               onPressed: _saving ? null : _save,
               child: _saving
@@ -179,6 +219,7 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
                     )
                   : const Text('Lưu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
             ),
+          ],
         ],
       ),
       body: _buildBody(),
