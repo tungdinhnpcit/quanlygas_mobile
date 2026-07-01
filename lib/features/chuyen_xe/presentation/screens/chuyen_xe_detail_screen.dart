@@ -317,31 +317,71 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
         ),
       ),
       floatingActionButton: null,
-      bottomNavigationBar: detailAsync.valueOrNull?.trangThai == 'dang-giao'
-          ? SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                child: ElevatedButton.icon(
-                  onPressed: _ketThucLoading ? null : _confirmKetThuc,
-                  icon: _ketThucLoading
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Icon(Icons.check_circle_outline),
-                  label: const Text('Kết thúc chuyến'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.orange.shade700,
-                    foregroundColor: Colors.white,
-                    minimumSize: const Size.fromHeight(48),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                  ),
-                ),
-              ),
-            )
-          : null,
+      bottomNavigationBar: _buildBottomBar(detailAsync),
     );
+  }
+
+  /// Xay dung bottom bar phu hop voi role va trang thai chuyen xe:
+  /// - Lai xe + dang-giao: button "Ket thuc chuyen" mau cam
+  /// - Ke toan/QL/GD + hoan-thanh + chua co ketThuc: button "Phe duyet" mau xanh duong
+  Widget? _buildBottomBar(AsyncValue<ChuyenXeModel> detailAsync) {
+    final cx = detailAsync.valueOrNull;
+    if (cx == null) return null;
+
+    final roleCode = ref.watch(userInfoProvider).value?.roleCode ?? '';
+    final isLaiXe = roleCode == 'lai-xe' || roleCode.isEmpty;
+
+    // Lai xe thay button "Ket thuc chuyen" khi dang-giao
+    if (cx.trangThai == 'dang-giao' && isLaiXe) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: ElevatedButton.icon(
+            onPressed: _ketThucLoading ? null : _confirmKetThuc,
+            icon: _ketThucLoading
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  )
+                : const Icon(Icons.check_circle_outline),
+            label: const Text('Kết thúc chuyến'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange.shade700,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Ke toan/QL/GD thay button "Phe duyet" khi hoan-thanh + chua co ketThuc
+    if (cx.trangThai == 'hoan-thanh' && cx.ketThuc == null && !isLaiXe) {
+      return SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+          child: ElevatedButton.icon(
+            onPressed: () {
+              final id = int.tryParse(widget.chuyenXeId);
+              if (id == null) return;
+              context.push('/phe-duyet/$id');
+            },
+            icon: const Icon(Icons.verified_outlined),
+            label: const Text('Phê duyệt chuyến xe'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return null;
   }
 }
 
@@ -858,6 +898,63 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     }
   }
 
+  /// Xây dựng badge xác nhận khách hàng — bấm vào được khi chưa xác nhận
+  Widget _buildXacNhanBadge(int khachHangId, Map<int, XacNhanKhachHangModel?> xacNhanMap) {
+    final xn = xacNhanMap[khachHangId];
+    final daXacNhan = xn?.daXacNhan ?? false;
+
+    return GestureDetector(
+      onTap: () => _openXacNhanAgain(khachHangId),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: daXacNhan ? Colors.green : Colors.orange,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          daXacNhan ? '✓ Đã xác nhận (ký lại)' : '⚠ Chưa xác nhận',
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Mở lại màn xác nhận khách hàng (dùng get-or-create endpoint)
+  Future<void> _openXacNhanAgain(int khachHangId) async {
+    try {
+      final xacNhanId = await _repo.getOrCreateXacNhan(widget.cx.id, khachHangId);
+      if (!mounted) return;
+      // Tinh toan du lieu bien lai tu cx.banHang filter theo khach hang nay
+      final banHangCuaKhach = widget.cx.banHang
+          .where((b) => b.khachHangId == khachHangId).toList();
+      final tienMat = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienMat);
+      final tienCK  = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienCK);
+      final tongTien = banHangCuaKhach.fold<double>(0, (s, b) => s + b.thanhTien);
+      final tenKhachHang = banHangCuaKhach.isNotEmpty
+          ? banHangCuaKhach.first.tenKhachHang
+          : null;
+      context.push('/xac-nhan/$xacNhanId', extra: {
+        'chuyenXeId': widget.cx.id,
+        'tenKhachHang': tenKhachHang,
+        'banHangList': banHangCuaKhach,
+        'tienMat': tienMat,
+        'tienCK': tienCK,
+        'conLai': tongTien - tienMat - tienCK,
+      }).then((_) {
+        ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
+      });
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##0', 'vi_VN');
@@ -874,6 +971,16 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     }
     final groupEntries = groups.entries.toList()
       ..sort((a, b) => a.value.first.createdAt.compareTo(b.value.first.createdAt));
+
+    // Lấy xacNhan list từ cx
+    final xacNhanMap = <int, XacNhanKhachHangModel?>{};
+    for (final xn in cx.xacNhan) {
+      final existing = xacNhanMap[xn.khachHangId];
+      // Lấy xacNhan mới nhất
+      if (existing == null || xn.id > existing.id) {
+        xacNhanMap[xn.khachHangId] = xn;
+      }
+    }
 
     return Column(
       children: [
@@ -1023,12 +1130,20 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  khachTen,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                      color: Colors.white),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        khachTen,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: Colors.white),
+                                      ),
+                                    ),
+                                    // Badge xác nhận
+                                    _buildXacNhanBadge(entry.key, xacNhanMap),
+                                  ],
                                 ),
                                 Text(
                                   _fmtDate.format(rows.first.createdAt.toLocal()),

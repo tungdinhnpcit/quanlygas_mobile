@@ -57,6 +57,9 @@ dependencies:
   # Image compression (resize to under 1MB before upload)
   flutter_image_compress: ^2.3.0
 
+  # Signature pad for digital signature
+  signature: ^5.5.0
+
   # Background polling (cho điện thoại không có GMS)
   workmanager: ^0.9.0+3
 

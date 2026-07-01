@@ -10,6 +10,7 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
+import '../../data/models/chuyen_xe_model.dart';
 
 // ─── Helper state classes ────────────────────────────────────────────────────
 
@@ -18,6 +19,11 @@ class _SaleRow {
   int? matHangId;
   String matHangLabel = '';
   final matHangSearchCtrl = TextEditingController();
+  String? maMatHang;
+  String? tenMatHang;
+  String? maNhaCungCap;
+  String? tenNhaCungCap;
+  String? donViTinh;
 
   bool isVo = false;
   String loaiVo = 'thu'; // 'thu' hoặc 'ban'
@@ -248,7 +254,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
       final hasServerId = widget.chuyenXeServerId != null;
 
       if (online && hasServerId && khServerId != null) {
-        await _repo.nhapKhachHang(widget.chuyenXeServerId!, {
+        final xacNhanId = await _repo.nhapKhachHang(widget.chuyenXeServerId!, {
           'khachHangId': khServerId,
           'chiTiet': validRows
               .map((r) => {
@@ -274,9 +280,47 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
         });
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Đã lưu'), backgroundColor: Colors.green));
-          context.pop();
+          // Redirect sang xác nhận khách hàng
+          // Tim thong tin tai khoan nhan chuyen khoan (neu co chon)
+          final selectedTk = _selectedTaiKhoanId != null
+              ? _taiKhoanList.firstWhere(
+                  (tk) => tk['server_id'] == _selectedTaiKhoanId,
+                  orElse: () => <String, dynamic>{},
+                )
+              : <String, dynamic>{};
+          context.pushReplacement(
+            '/xac-nhan/$xacNhanId',
+            extra: {
+              'chuyenXeId': widget.chuyenXeServerId,
+              'tenKhachHang': _selectedKhachHang!['ten_khach_hang'] as String?,
+              'tienMat': _tienMat,
+              'tienCK': _tienCK,
+              'conLai': _conLai,
+              'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
+              'tenTaiKhoan': selectedTk['ten_tai_khoan'] as String?,
+              'soTaiKhoan': selectedTk['so_tai_khoan'] as String?,
+              'tenNganHang': selectedTk['ngan_hang'] as String?,
+              'banHangList': validRows.map((r) =>
+                BanHangKhachHangModel(
+                  id: 0,  // Không có ID trước khi lưu
+                  khachHangId: khServerId,
+                  tenKhachHang: _selectedKhachHang!['ten_khach_hang'] as String?,
+                  matHangId: r.matHangId!,
+                  maMatHang: r.maMatHang,
+                  tenMatHang: r.tenMatHang,
+                  maNhaCungCap: r.maNhaCungCap,
+                  tenNhaCungCap: r.tenNhaCungCap,
+                  donViTinh: r.donViTinh,
+                  soLuong: r.soLuong,
+                  donGia: r.donGia,
+                  thanhTien: r.thanhTien,
+                  soVoBan: r.soVoBan,
+                  soVoThu: r.soVoThu,
+                  createdAt: DateTime.now(),
+                )
+              ).toList(),
+            },
+          );
         }
       } else {
         final confirm = await _showOfflineDialog();
@@ -637,6 +681,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                         row.matHangId = selected['server_id'] as int;
                         row.matHangLabel = label;
                         row.matHangSearchCtrl.text = label;
+                        row.maMatHang = selected['ma_mat_hang'] as String?;
+                        row.tenMatHang = selected['ten_mat_hang'] as String?;
+                        row.maNhaCungCap = selected['ma_ncc'] as String?;
+                        row.tenNhaCungCap = selected['ten_ncc'] as String?;
+                        row.donViTinh = selected['don_vi_tinh'] as String?;
                         row.isVo = isVo;
                         if (!isVo && dg > 0) {
                           row.donGiaCtrl.text = _fmtMoney.format(dg.toInt());

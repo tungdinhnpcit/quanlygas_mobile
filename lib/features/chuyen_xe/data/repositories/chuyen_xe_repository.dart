@@ -244,14 +244,23 @@ class ChuyenXeRepository {
         .post('/api/chuyen-xe/$chuyenXeId/ket-thuc-mobile');
   }
 
+  /// Ke toan phe duyet chuyen xe — tao KetThucChuyenXe record voi so lieu quyet toan.
+  /// Goi cung endpoint voi web (POST /api/chuyen-xe/{id}/ket-thuc).
+  Future<void> pheduyet(int chuyenXeId, Map<String, dynamic> body) async {
+    await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/ket-thuc', data: body);
+  }
+
   /// Nhập đầy đủ thông tin bán hàng 1 khách hàng: sản phẩm + gas dư + thanh toán.
-  Future<void> nhapKhachHang(int chuyenXeId, Map<String, dynamic> body) async {
+  /// Nhập bán hàng khách hàng — trả xacNhanId (xác nhận khách hàng được tạo tự động)
+  Future<int> nhapKhachHang(int chuyenXeId, Map<String, dynamic> body) async {
     final token = await const FlutterSecureStorage().read(key: 'jwt_token');
     debugPrint('[NHAP_KH] POST ${ApiClient.instance.dio.options.baseUrl}/api/chuyen-xe/$chuyenXeId/nhap-khach-hang');
     debugPrint('[NHAP_KH] token: ${token != null ? '${token.substring(0, 20)}...(len=${token.length})' : 'NULL'}');
     debugPrint('[NHAP_KH] body: ${const JsonEncoder.withIndent('  ').convert(body)}');
-    await ApiClient.instance.dio
+    final res = await ApiClient.instance.dio
         .post('/api/chuyen-xe/$chuyenXeId/nhap-khach-hang', data: body);
+    return res.data['xacNhanId'] as int? ?? 0;
   }
 
   /// Nén ảnh xuống ≤ 1MB bằng cách giảm dần quality (85 → 20, bước 10).
@@ -321,5 +330,33 @@ class ChuyenXeRepository {
       },
     );
     return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Upload xác nhận khách hàng (ảnh biên lai ký tay hoặc chữ ký trên app)
+  Future<String> uploadXacNhan(
+    int xacNhanId, {
+    required File file,
+    required String loaiXacNhan,  // 'anh' | 'ky'
+  }) async {
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(
+        file.path,
+        filename: file.uri.pathSegments.last,
+      ),
+      'loaiXacNhan': loaiXacNhan,
+    });
+    final res = await ApiClient.instance.dio.post(
+      '/api/xac-nhan-khach-hang/$xacNhanId/upload',
+      data: formData,
+    );
+    return res.data['url'] as String;
+  }
+
+  /// Get-or-create xác nhận khách hàng — dùng khi lái xe muốn xác nhận sau hoặc lại lỡ bỏ qua
+  Future<int> getOrCreateXacNhan(int chuyenXeId, int khachHangId) async {
+    final res = await ApiClient.instance.dio.post(
+      '/api/xac-nhan-khach-hang/chuyen-xe/$chuyenXeId/khach-hang/$khachHangId',
+    );
+    return res.data['xacNhanId'] as int;
   }
 }

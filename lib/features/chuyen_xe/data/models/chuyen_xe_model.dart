@@ -21,6 +21,37 @@ class AnhChuyenXeModel {
       );
 }
 
+// ---------- Xác nhận khách hàng ----------
+
+class XacNhanKhachHangModel {
+  final int id;
+  final int khachHangId;
+  final String? tenKhachHang;
+  final String? loaiXacNhan;  // 'anh' | 'ky' | null
+  final String? url;
+  final DateTime? ngayXacNhan;
+
+  const XacNhanKhachHangModel({
+    required this.id,
+    required this.khachHangId,
+    this.tenKhachHang,
+    this.loaiXacNhan,
+    this.url,
+    this.ngayXacNhan,
+  });
+
+  factory XacNhanKhachHangModel.fromJson(Map<String, dynamic> json) => XacNhanKhachHangModel(
+        id:             json['id'] as int,
+        khachHangId:    json['khachHangId'] as int,
+        tenKhachHang:   json['tenKhachHang'] as String?,
+        loaiXacNhan:    json['loaiXacNhan'] as String?,
+        url:            json['url'] as String?,
+        ngayXacNhan:    DateTime.tryParse(json['ngayXacNhan'] as String? ?? ''),
+      );
+
+  bool get daXacNhan => url != null && url!.isNotEmpty;
+}
+
 // ---------- Bán hàng lái xe nhập (mobile) ----------
 
 class BanHangKhachHangModel {
@@ -40,6 +71,7 @@ class BanHangKhachHangModel {
   final int soVoThu;
   final double tienMat;
   final double tienCK;
+  final int? xacNhanId;
   final String? ghiChu;
   final DateTime createdAt;
 
@@ -60,6 +92,7 @@ class BanHangKhachHangModel {
     required this.soVoThu,
     this.tienMat = 0,
     this.tienCK = 0,
+    this.xacNhanId,
     this.ghiChu,
     required this.createdAt,
   });
@@ -82,6 +115,7 @@ class BanHangKhachHangModel {
         soVoThu:       json['soVoThu'] as int? ?? 0,
         tienMat:       (json['tienMat'] as num? ?? 0).toDouble(),
         tienCK:        (json['tienCK']  as num? ?? 0).toDouble(),
+        xacNhanId:     json['xacNhanId'] as int?,
         ghiChu:        json['ghiChu'] as String?,
         createdAt:     DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       );
@@ -376,6 +410,7 @@ class ChuyenXeModel {
   final List<AnhChuyenXeModel> anh;
   final List<BanHangKhachHangModel> banHang;
   final List<GasDuChiTietModel> banHangGasDu;
+  final List<XacNhanKhachHangModel> xacNhan;
   final KetThucChuyenXeModel? ketThuc;
 
   const ChuyenXeModel({
@@ -406,6 +441,7 @@ class ChuyenXeModel {
     required this.anh,
     this.banHang = const [],
     this.banHangGasDu = const [],
+    this.xacNhan = const [],
     this.ketThuc,
   });
 
@@ -446,6 +482,9 @@ class ChuyenXeModel {
             .toList(),
         banHangGasDu: (json['banHangGasDu'] as List? ?? [])
             .map((e) => GasDuChiTietModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        xacNhan: (json['xacNhan'] as List? ?? [])
+            .map((e) => XacNhanKhachHangModel.fromJson(e as Map<String, dynamic>))
             .toList(),
         ketThuc: json['ketThuc'] != null
             ? KetThucChuyenXeModel.fromJson(json['ketThuc'] as Map<String, dynamic>)
