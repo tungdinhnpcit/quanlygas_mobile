@@ -233,6 +233,12 @@ class ChuyenXeRepository {
         .post('/api/chuyen-xe/$chuyenXeId/ban-hang/$banHangId/delete');
   }
 
+  /// Xóa 1 dòng mua gas dư.
+  Future<void> deleteBanHangGasDu(int chuyenXeId, int gasDuId) async {
+    await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/ban-hang-gas-du/$gasDuId/delete');
+  }
+
   /// Xóa chuyến xe (chỉ dùng khi chuyến chưa kết thúc / kỳ chưa chốt).
   Future<void> deleteTrip(int chuyenXeId) async {
     await ApiClient.instance.dio.post('/api/chuyen-xe/$chuyenXeId/delete');

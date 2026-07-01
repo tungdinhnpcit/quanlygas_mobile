@@ -481,6 +481,40 @@ class _TabChiTiet extends StatelessWidget {
           _BanHangSummaryCard(cx),
           const SizedBox(height: 16),
 
+          // Thống kê thu tiền: tổng số khách, xác nhận, tiền mặt, tiền theo tài khoản
+          _SectionCard(
+            title: 'Thống kê thu tiền',
+            child: Column(
+              children: [
+                _InfoRow(
+                    icon: Icons.groups_outlined,
+                    label: 'Tổng số khách hàng',
+                    value: '${cx.tongSoKhachHang}'),
+                const SizedBox(height: 8),
+                _InfoRow(
+                    icon: Icons.verified_outlined,
+                    label: 'Đã xác nhận / chưa xác nhận',
+                    value: '${cx.soKhachDaXacNhan} / ${cx.soKhachChuaXacNhan}'),
+                const SizedBox(height: 8),
+                _InfoRow(
+                    icon: Icons.payments_outlined,
+                    label: 'Tổng tiền mặt',
+                    value: _fmtCurrency.format(cx.tongTienMat)),
+                if (cx.tienCKTheoTaiKhoan.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  ...cx.tienCKTheoTaiKhoan.map((tk) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _InfoRow(
+                            icon: Icons.account_balance_outlined,
+                            label: tk.tenTaiKhoan ?? 'Không rõ tài khoản',
+                            value: _fmtCurrency.format(tk.tienCK)),
+                      )),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Danh sách hàng hóa: nếu đã settle dùng ketThuc.chiTiet (có tên KH + giá), ngược lại dùng kế hoạch chuyến
           if (cx.ketThuc != null && cx.ketThuc!.chiTiet.isNotEmpty) ...[
             _SectionLabel(
@@ -814,10 +848,11 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     }
   }
 
-  Future<void> _openKhachHangDetail(ChuyenXeModel cx, List<BanHangKhachHangModel> rows) async {
+  Future<void> _openKhachHangDetail(ChuyenXeModel cx, List<BanHangKhachHangModel> rows,
+      List<GasDuChiTietModel> gasDuRows) async {
     await context.push(
       AppRoutes.suaBanHangKhachHang(cx.id, rows.first.khachHangId),
-      extra: {'rows': rows},
+      extra: {'rows': rows, 'gasDuRows': gasDuRows},
     );
     if (mounted) ref.invalidate(chuyenXeDetailProvider(cx.id));
   }
@@ -932,9 +967,14 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
       // Tinh toan du lieu bien lai tu cx.banHang filter theo khach hang nay
       final banHangCuaKhach = widget.cx.banHang
           .where((b) => b.khachHangId == khachHangId).toList();
+      // loc rieng cac dong mua gas du cua khach nay - nam trong list rieng cx.banHangGasDu
+      final gasDuCuaKhach = widget.cx.banHangGasDu
+          .where((g) => g.khachHangId == khachHangId).toList();
       final tienMat = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienMat);
       final tienCK  = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienCK);
       final tongTien = banHangCuaKhach.fold<double>(0, (s, b) => s + b.thanhTien);
+      // tong tien lai xe da tra khach de mua lai gas du - phai tru vao conLai ben duoi
+      final tongTienGasDu = gasDuCuaKhach.fold<double>(0, (s, g) => s + g.thanhTien);
       final tenKhachHang = banHangCuaKhach.isNotEmpty
           ? banHangCuaKhach.first.tenKhachHang
           : null;
@@ -944,7 +984,8 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
         'banHangList': banHangCuaKhach,
         'tienMat': tienMat,
         'tienCK': tienCK,
-        'conLai': tongTien - tienMat - tienCK,
+        // conLai = tien hang ban - tien mua gas du (da tra khach) - tien da thu (mat + ck)
+        'conLai': tongTien - tongTienGasDu - tienMat - tienCK,
       }).then((_) {
         ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
       });
@@ -1192,15 +1233,20 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
               itemBuilder: (_, i) {
               final entry = groupEntries[i];
               final rows = entry.value;
+              // loc rieng cac dong mua gas du cua khach nay tu cx.banHangGasDu (list rieng, khong nam trong rows)
+              final gasDuRows = cx.banHangGasDu.where((g) => g.khachHangId == entry.key).toList();
               final khachTen = rows.first.tenKhachHang ?? '—';
               final khachTotal  = rows.fold<double>(0, (s, b) => s + b.thanhTien);
+              // tong tien lai xe da tra khach de mua lai gas du - so tien nay phai duoc TRU vao no
+              final tongTienGasDu = gasDuRows.fold<double>(0, (s, g) => s + g.thanhTien);
               final soBinhBan   = rows.where((b) => b.soVoThu == 0 && b.soVoBan == 0).fold(0, (s, b) => s + b.soLuong);
               final soVoThu     = rows.fold(0, (s, b) => s + b.soVoThu);
               final tienDaTra   = rows.fold(0.0, (s, b) => s + b.tienMat + b.tienCK);
-              final tienNo      = (khachTotal - tienDaTra).clamp(0.0, double.infinity);
+              // no = tien hang ban - tien mua gas du (da tra khach) - tien da thu (mat + ck)
+              final tienNo      = (khachTotal - tongTienGasDu - tienDaTra).clamp(0.0, double.infinity);
 
               return InkWell(
-                onTap: () => _openKhachHangDetail(cx, rows),
+                onTap: () => _openKhachHangDetail(cx, rows, gasDuRows),
                 borderRadius: BorderRadius.circular(10),
                 child: Card(
                   margin: const EdgeInsets.only(bottom: 10),
@@ -1373,31 +1419,46 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                       ),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 14, vertical: 8),
-                      child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _StatChip(
-                            icon: Icons.propane_tank_outlined,
-                            label: '$soBinhBan bình',
-                            color: Colors.teal.shade700,
+                          Row(
+                            children: [
+                              _StatChip(
+                                icon: Icons.propane_tank_outlined,
+                                label: '$soBinhBan bình',
+                                color: Colors.teal.shade700,
+                              ),
+                              const SizedBox(width: 10),
+                              _StatChip(
+                                icon: Icons.recycling,
+                                label: '$soVoThu vỏ thu',
+                                color: Colors.blueGrey,
+                              ),
+                              const Spacer(),
+                              tienNo > 0
+                                  ? _StatChip(
+                                      icon: Icons.warning_amber_rounded,
+                                      label: 'Nợ ${fmt.format(tienNo)}đ',
+                                      color: Colors.red,
+                                    )
+                                  : _StatChip(
+                                      icon: Icons.check_circle_outline,
+                                      label: 'Đã thu đủ',
+                                      color: Colors.green,
+                                    ),
+                            ],
                           ),
-                          const SizedBox(width: 10),
-                          _StatChip(
-                            icon: Icons.recycling,
-                            label: '$soVoThu vỏ thu',
-                            color: Colors.blueGrey,
-                          ),
-                          const Spacer(),
-                          tienNo > 0
-                              ? _StatChip(
-                                  icon: Icons.warning_amber_rounded,
-                                  label: 'Nợ ${fmt.format(tienNo)}đ',
-                                  color: Colors.red,
-                                )
-                              : _StatChip(
-                                  icon: Icons.check_circle_outline,
-                                  label: 'Đã thu đủ',
-                                  color: Colors.green,
-                                ),
+                          // chi hien dong nay neu khach co ban gas du - de user thay ro
+                          // day la tien mua gas du (khong phai khach mua binh gas), da tru vao no o tren
+                          if (tongTienGasDu > 0) ...[
+                            const SizedBox(height: 6), // khoang cach voi dong stat phia tren
+                            _StatChip(
+                              icon: Icons.local_gas_station_outlined, // icon rieng cho gas du, khac icon binh gas
+                              label: 'Mua gas dư ${fmt.format(tongTienGasDu)}đ', // ghi ro la mua gas du, khong phai ban binh
+                              color: Colors.orange.shade700, // mau cam - dong bo voi mau gas du mua lai trong _KhachHangDetailSheet
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -1804,7 +1865,11 @@ class _TabThuTien extends StatelessWidget {
       tienMat: tienMat,
       tienCK: tienCK,
       tongTienNop: tongTienNop,
-      soTienNo: (cx.tongTienThu - tongTienNop) < 0 ? 0 : cx.tongTienThu - tongTienNop,
+      // no = tien hang ban - tien mua gas du (da tra khach) - tien da thu (mat + ck)
+      // truoc day thieu tru tongTienTraGasDu du bien nay da tinh san o tren, gay hien thi no sai
+      soTienNo: (cx.tongTienThu - tongTienTraGasDu - tongTienNop) < 0
+          ? 0
+          : cx.tongTienThu - tongTienTraGasDu - tongTienNop,
       soVoThuThucTe: soVoThu,
       tienUngMuaVo: 0,
       soVoMua: 0,

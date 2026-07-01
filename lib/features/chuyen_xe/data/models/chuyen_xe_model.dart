@@ -437,6 +437,7 @@ class ChuyenXeModel {
   final List<TienCKTaiKhoanModel> tienCKTheoTaiKhoan;
   final int soKhachDaXacNhan;
   final int soKhachChuaXacNhan;
+  final int tongSoKhachHang;
 
   const ChuyenXeModel({
     required this.id,
@@ -472,6 +473,7 @@ class ChuyenXeModel {
     this.tienCKTheoTaiKhoan = const [],
     this.soKhachDaXacNhan = 0,
     this.soKhachChuaXacNhan = 0,
+    this.tongSoKhachHang = 0,
   });
 
   factory ChuyenXeModel.fromJson(Map<String, dynamic> json) => ChuyenXeModel(
@@ -524,6 +526,7 @@ class ChuyenXeModel {
             .toList(),
         soKhachDaXacNhan:     json['soKhachDaXacNhan'] as int? ?? 0,
         soKhachChuaXacNhan:   json['soKhachChuaXacNhan'] as int? ?? 0,
+        tongSoKhachHang:      json['tongSoKhachHang'] as int? ?? 0,
       );
 
   /// Nhãn trạng thái hiển thị tiếng Việt.

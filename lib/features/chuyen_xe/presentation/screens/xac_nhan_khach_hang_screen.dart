@@ -2,6 +2,7 @@
 import 'dart:io'; // thu vien xu ly file tren he thong
 import 'dart:typed_data'; // thu vien xu ly du lieu nhi phan (Uint8List)
 import 'package:flutter/material.dart'; // thu vien ui flutter
+import 'package:flutter_image_compress/flutter_image_compress.dart'; // nen anh truoc khi upload
 import 'package:flutter_riverpod/flutter_riverpod.dart'; // quan ly state voi riverpod
 import 'package:image_picker/image_picker.dart'; // chup anh tu camera
 import 'package:intl/intl.dart'; // dinh dang so tien
@@ -51,20 +52,59 @@ class XacNhanKhachHangScreen extends ConsumerStatefulWidget {
 class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen> {
   bool _uploading = false; // trang thai dang upload de khoa nut va hien loading
 
+  // nen anh giam dan quality/kich thuoc toi khi duoi nguong an toan (900KB, chua margin
+  // duoi hard-limit 1MB cua backend XacNhanKhachHangController) - anh camera thuong 2-8MB
+  Future<Uint8List> _compressPhotoBytes(Uint8List rawBytes) async {
+    const maxBytes = 900 * 1024;
+    var quality = 85;
+    var minSize = 1600;
+
+    Future<Uint8List> compressOnce() => FlutterImageCompress.compressWithList(
+          rawBytes,
+          quality: quality,
+          minWidth: minSize,
+          minHeight: minSize,
+        );
+
+    var result = await compressOnce();
+
+    while (result.lengthInBytes > maxBytes && quality > 30) {
+      quality -= 15;
+      result = await compressOnce();
+    }
+
+    while (result.lengthInBytes > maxBytes && minSize > 600) {
+      minSize -= 300;
+      result = await compressOnce();
+    }
+
+    return result;
+  }
+
   // xu ly chup anh bien lai da co chu ky tay cua khach roi upload len server
   Future<void> _uploadAnh() async {
     try {
       setState(() => _uploading = true); // bat trang thai loading
       final picker = ImagePicker(); // khoi tao doi tuong chup anh
-      final photo = await picker.pickImage(source: ImageSource.camera); // mo camera
+      final photo = await picker.pickImage(source: ImageSource.camera, imageQuality: 90); // mo camera
       if (photo == null) return; // nguoi dung huy khong chup anh thi thoat
+
+      // nen anh truoc khi upload de tranh vuot gioi han 1MB cua backend
+      final rawBytes = await File(photo.path).readAsBytes();
+      final compressedBytes = await _compressPhotoBytes(rawBytes);
+
+      final tempDir = Directory.systemTemp;
+      final tempFile = File('${tempDir.path}/receipt_${widget.xacNhanId}_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await tempFile.writeAsBytes(compressedBytes);
 
       final repo = ref.read(chuyenXeRepositoryProvider); // lay repository tu provider
       await repo.uploadXacNhan( // goi api upload anh len server
         widget.xacNhanId, // id ban ghi xac nhan can cap nhat
-        file: File(photo.path), // chuyen duong dan anh thanh doi tuong File
+        file: tempFile, // file anh da nen
         loaiXacNhan: 'anh', // danh dau day la xac nhan bang anh
       );
+
+      await tempFile.delete().catchError((_) => tempFile); // xoa file tam, bo qua neu xoa loi
 
       if (mounted) { // kiem tra widget con tren cay truoc khi cap nhat UI
         ScaffoldMessenger.of(context).showSnackBar( // hien thong bao thanh cong

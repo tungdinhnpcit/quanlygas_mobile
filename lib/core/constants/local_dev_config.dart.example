@@ -1,0 +1,7 @@
+// lib/core/constants/local_dev_config.dart.example
+// Copy file này thành "local_dev_config.dart" (bỏ đuôi .example) rồi sửa IP
+// cho đúng với máy dev + mạng WiFi hiện tại của bạn.
+// File "local_dev_config.dart" đã được thêm vào .gitignore — mỗi máy tự giữ IP riêng.
+class LocalDevConfig {
+  static const String devApiUrl = 'http://192.168.1.9:5001';
+}

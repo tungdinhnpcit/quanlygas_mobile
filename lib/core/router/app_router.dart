@@ -237,12 +237,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           final extra = state.extra as Map<String, dynamic>? ?? {}; // du lieu extra, mac dinh map rong
           final rows  = (extra['rows'] as List?) // lay danh sach dong ban hang hien tai
               ?.map((e) => e as BanHangKhachHangModel).toList() ?? [];
+          final gasDuRows = (extra['gasDuRows'] as List?) // lay danh sach dong mua gas du hien tai
+              ?.map((e) => e as GasDuChiTietModel).toList() ?? <GasDuChiTietModel>[];
           return CupertinoPage(
             key: state.pageKey,
             child: SuaBanHangKhachHangScreen(
               chuyenXeId: cxId,
               khachHangId: khId,
               rows: rows, // truyen cac dong ban hang hien tai vao man hinh sua
+              gasDuRows: gasDuRows, // truyen cac dong mua gas du hien tai vao man hinh sua
               canEdit: cxId > 0, // chi cho sua neu co server id (khong sua offline record)
             ),
           );

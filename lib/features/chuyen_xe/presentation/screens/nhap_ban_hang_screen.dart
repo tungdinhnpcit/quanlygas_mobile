@@ -38,7 +38,10 @@ class _SaleRow {
 
   int get soLuong => int.tryParse(soLuongCtrl.text) ?? 0;
   double get donGia =>
-      double.tryParse(donGiaCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+      double.tryParse(
+        donGiaCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+      ) ??
+      0;
   double get thanhTien => isVo ? 0 : soLuong * donGia;
   int get soVoThu => isVo && loaiVo == 'thu' ? soLuong : 0;
   int get soVoBan => isVo && loaiVo == 'ban' ? soLuong : 0;
@@ -59,10 +62,12 @@ class _GasDuRow {
     tongTienCtrl.dispose();
   }
 
-  double get soKg =>
-      double.tryParse(soKgCtrl.text.replaceAll(',', '')) ?? 0;
+  double get soKg => double.tryParse(soKgCtrl.text.replaceAll(',', '')) ?? 0;
   double get tongTien =>
-      double.tryParse(tongTienCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+      double.tryParse(
+        tongTienCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+      ) ??
+      0;
   double get thanhTien => tongTien;
   double get donGia => soKg > 0 ? tongTien / soKg : 0;
 }
@@ -128,22 +133,29 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   int get _tongBinhBan =>
       _saleRows.where((r) => !r.isVo).fold(0, (s, r) => s + r.soLuong);
 
-  int get _tongVoThu =>
-      _saleRows.where((r) => r.isVo && r.loaiVo == 'thu').fold(0, (s, r) => s + r.soLuong);
+  int get _tongVoThu => _saleRows
+      .where((r) => r.isVo && r.loaiVo == 'thu')
+      .fold(0, (s, r) => s + r.soLuong);
 
-  double get _tongTienBanHang =>
-      _saleRows.fold(0.0, (s, r) => s + r.thanhTien);
+  double get _tongTienBanHang => _saleRows.fold(0.0, (s, r) => s + r.thanhTien);
 
-  double get _tongTienGasDu =>
-      _gasDuRows.fold(0.0, (s, r) => s + r.thanhTien);
+  double get _tongTienGasDu => _gasDuRows.fold(0.0, (s, r) => s + r.thanhTien);
 
-  double get _tongTien => _tongTienBanHang + _tongTienGasDu;
+  // tong tien khach thuc phai tra = tien ban binh - tien mua gas du (lai xe tra lai khach)
+  // truoc day cong nham _tongTienGasDu khien tong tien va no bi day len cao sai
+  double get _tongTien => _tongTienBanHang - _tongTienGasDu;
 
   double get _tienMat =>
-      double.tryParse(_tienMatCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+      double.tryParse(
+        _tienMatCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+      ) ??
+      0;
 
   double get _tienCK =>
-      double.tryParse(_tienCKCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+      double.tryParse(
+        _tienCKCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+      ) ??
+      0;
 
   double get _conLai => _tongTien - _tienMat - _tienCK;
 
@@ -197,9 +209,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     final nccId = mh['nha_cung_cap_id'] as int?;
     final maNcc = nccId != null
         ? (_nhaCCList.firstWhere(
-          (n) => n['server_id'] == nccId,
-      orElse: () => {},
-    )['ma_ncc'] as String? ?? '')
+                    (n) => n['server_id'] == nccId,
+                    orElse: () => {},
+                  )['ma_ncc']
+                  as String? ??
+              '')
         : '';
     final ma = mh['ma_mat_hang'] as String? ?? '';
     final ten = mh['ten_mat_hang'] as String? ?? '';
@@ -232,7 +246,6 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
-
     if (_selectedKhachHang == null) {
       _showError('Vui lòng chọn khách hàng');
       return;
@@ -258,27 +271,33 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         final xacNhanId = await _repo.nhapKhachHang(widget.chuyenXeServerId!, {
           'khachHangId': khServerId,
           'chiTiet': validRows
-              .map((r) => {
-            'matHangId': r.matHangId,
-            'soLuong': r.soLuong,
-            'donGia': r.donGia,
-            'soVoBan': r.soVoBan,
-            'soVoThu': r.soVoThu,
-          })
+              .map(
+                (r) => {
+                  'matHangId': r.matHangId,
+                  'soLuong': r.soLuong,
+                  'donGia': r.donGia,
+                  'soVoBan': r.soVoBan,
+                  'soVoThu': r.soVoThu,
+                },
+              )
               .toList(),
           'gasDu': _gasDuRows
               .where((r) => r.matHangId != null && r.soKg > 0 && r.tongTien > 0)
-              .map((r) => {
-            'matHangId': r.matHangId,
-            'soKg': r.soKg,
-            'donGia': r.donGia,  // computed: tongTien / soKg
-          })
+              .map(
+                (r) => {
+                  'matHangId': r.matHangId,
+                  'soKg': r.soKg,
+                  'donGia': r.donGia, // computed: tongTien / soKg
+                },
+              )
               .toList(),
           'tienMat': _tienMat,
           'tienCK': _tienCK,
           if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
           if (widget.phuXeId != null) 'phuXeId': widget.phuXeId,
-          'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
+          'ghiChu': _ghiChuCtrl.text.trim().isEmpty
+              ? null
+              : _ghiChuCtrl.text.trim(),
         });
         if (mounted) {
           // Redirect sang xác nhận khách hàng
@@ -297,29 +316,34 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'tienMat': _tienMat,
               'tienCK': _tienCK,
               'conLai': _conLai,
-              'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
+              'ghiChu': _ghiChuCtrl.text.trim().isEmpty
+                  ? null
+                  : _ghiChuCtrl.text.trim(),
               'tenTaiKhoan': selectedTk['ten_tai_khoan'] as String?,
               'soTaiKhoan': selectedTk['so_tai_khoan'] as String?,
               'tenNganHang': selectedTk['ngan_hang'] as String?,
-              'banHangList': validRows.map((r) =>
-                BanHangKhachHangModel(
-                  id: 0,  // Không có ID trước khi lưu
-                  khachHangId: khServerId,
-                  tenKhachHang: _selectedKhachHang!['ten_khach_hang'] as String?,
-                  matHangId: r.matHangId!,
-                  maMatHang: r.maMatHang,
-                  tenMatHang: r.tenMatHang,
-                  maNhaCungCap: r.maNhaCungCap,
-                  tenNhaCungCap: r.tenNhaCungCap,
-                  donViTinh: r.donViTinh,
-                  soLuong: r.soLuong,
-                  donGia: r.donGia,
-                  thanhTien: r.thanhTien,
-                  soVoBan: r.soVoBan,
-                  soVoThu: r.soVoThu,
-                  createdAt: DateTime.now(),
-                )
-              ).toList(),
+              'banHangList': validRows
+                  .map(
+                    (r) => BanHangKhachHangModel(
+                      id: 0, // Không có ID trước khi lưu
+                      khachHangId: khServerId,
+                      tenKhachHang:
+                          _selectedKhachHang!['ten_khach_hang'] as String?,
+                      matHangId: r.matHangId!,
+                      maMatHang: r.maMatHang,
+                      tenMatHang: r.tenMatHang,
+                      maNhaCungCap: r.maNhaCungCap,
+                      tenNhaCungCap: r.tenNhaCungCap,
+                      donViTinh: r.donViTinh,
+                      soLuong: r.soLuong,
+                      donGia: r.donGia,
+                      thanhTien: r.thanhTien,
+                      soVoBan: r.soVoBan,
+                      soVoThu: r.soVoThu,
+                      createdAt: DateTime.now(),
+                    ),
+                  )
+                  .toList(),
             },
           );
         }
@@ -352,7 +376,9 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             });
             isFirstRow = false;
           }
-          for (final r in _gasDuRows.where((g) => g.matHangId != null && g.soKg > 0 && g.tongTien > 0)) {
+          for (final r in _gasDuRows.where(
+            (g) => g.matHangId != null && g.soKg > 0 && g.tongTien > 0,
+          )) {
             await _db.insertBanHangGasDuLocal({
               'chuyen_xe_server_id': widget.chuyenXeServerId,
               'chuyen_xe_local_id': widget.chuyenXeLocalId,
@@ -367,8 +393,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             });
           }
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                content: Text('Đã lưu offline. Sẽ đồng bộ khi có mạng.')));
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Đã lưu offline. Sẽ đồng bộ khi có mạng.'),
+              ),
+            );
             context.pop();
           }
         }
@@ -385,21 +414,25 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     builder: (ctx) => AlertDialog(
       title: const Text('Không có mạng'),
       content: const Text(
-          'Không thể kết nối server. Bạn có muốn lưu dữ liệu offline và đồng bộ sau không?'),
+        'Không thể kết nối server. Bạn có muốn lưu dữ liệu offline và đồng bộ sau không?',
+      ),
       actions: [
         TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Huỷ')),
+          onPressed: () => Navigator.pop(ctx, false),
+          child: const Text('Huỷ'),
+        ),
         ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Lưu offline')),
+          onPressed: () => Navigator.pop(ctx, true),
+          child: const Text('Lưu offline'),
+        ),
       ],
     ),
   );
 
   void _showError(String msg) {
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -438,10 +471,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               const SizedBox(height: 10),
 
               // ── Mua gas dư ───────────────────────────────────────────────────
-              _SectionCard(
-                title: 'Mua gas dư',
-                child: _buildGasDuSection(),
-              ),
+              _SectionCard(title: 'Mua gas dư', child: _buildGasDuSection()),
               const SizedBox(height: 10),
 
               // ── Thanh toán ───────────────────────────────────────────────────
@@ -461,7 +491,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                   labelText: 'Ghi chú',
                   border: OutlineInputBorder(),
                   isDense: true,
-                  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 8,
+                  ),
                 ),
                 onTap: () => _ensureVisible(_ghiChuKey),
               ),
@@ -471,8 +504,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                 onPressed: _saving ? null : _save,
                 icon: _saving
                     ? const SizedBox(
-                    width: 18, height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2))
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
                     : const Icon(Icons.save_rounded),
                 label: Text(_saving ? 'Đang lưu...' : 'Lưu'),
                 style: ElevatedButton.styleFrom(
@@ -480,7 +515,8 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                   foregroundColor: Colors.white,
                   minimumSize: const Size.fromHeight(46),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -527,8 +563,9 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             Expanded(
               child: OutlinedButton.icon(
                 onPressed: () async {
-                  final selected = await context
-                      .push<Map<String, dynamic>>(AppRoutes.timKiemKhachHang);
+                  final selected = await context.push<Map<String, dynamic>>(
+                    AppRoutes.timKiemKhachHang,
+                  );
                   if (selected != null && mounted) {
                     setState(() => _selectedKhachHang = selected);
                   }
@@ -543,9 +580,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                       : const Color(0xFF00897B),
                 ),
                 label: Text(
-                  _selectedKhachHang == null
-                      ? 'Tìm kiếm khách hàng...'
-                      : tenKH,
+                  _selectedKhachHang == null ? 'Tìm kiếm khách hàng...' : tenKH,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: _selectedKhachHang == null
@@ -558,8 +593,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                 ),
                 style: OutlinedButton.styleFrom(
                   alignment: Alignment.centerLeft,
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
                   side: BorderSide(
                     color: _selectedKhachHang == null
                         ? Colors.grey.shade400
@@ -578,8 +615,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Tạo'),
               style: OutlinedButton.styleFrom(
-                  padding:
-                  const EdgeInsets.symmetric(horizontal: 10, vertical: 10)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 10,
+                ),
+              ),
             ),
           ],
         ),
@@ -593,12 +633,16 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.cancel_outlined,
-                      size: 16, color: Colors.grey),
+                  const Icon(
+                    Icons.cancel_outlined,
+                    size: 16,
+                    color: Colors.grey,
+                  ),
                   const SizedBox(width: 4),
-                  Text('Bỏ chọn',
-                      style: TextStyle(
-                          fontSize: 12, color: Colors.grey.shade600)),
+                  Text(
+                    'Bỏ chọn',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
                 ],
               ),
             ),
@@ -610,8 +654,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   Widget _buildSaleRowsSection() {
     return Column(
       children: [
-        for (int i = 0; i < _saleRows.length; i++)
-          _buildSaleRow(i),
+        for (int i = 0; i < _saleRows.length; i++) _buildSaleRow(i),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
@@ -654,29 +697,33 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     border: const OutlineInputBorder(),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 8),
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     suffixIcon: row.matHangId != null
                         ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
-                      onPressed: () => setState(() {
-                        row.matHangId = null;
-                        row.matHangLabel = '';
-                        row.matHangSearchCtrl.clear();
-                        row.isVo = false;
-                        row.donGiaCtrl.clear();
-                      }),
-                    )
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () => setState(() {
+                              row.matHangId = null;
+                              row.matHangLabel = '';
+                              row.matHangSearchCtrl.clear();
+                              row.isVo = false;
+                              row.donGiaCtrl.clear();
+                            }),
+                          )
                         : null,
                   ),
                   onTap: () async {
                     _ensureVisible(row.containerKey);
-                    final selected = await context
-                        .push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
+                    final selected = await context.push<Map<String, dynamic>>(
+                      AppRoutes.timKiemMatHang,
+                    );
                     if (selected != null && mounted) {
                       final label = _matHangLabel(selected);
                       final dg = (selected['don_gia'] as num? ?? 0).toDouble();
-                      final isVo = (selected['don_vi_tinh'] as String? ?? '')
-                          .toLowerCase() ==
+                      final isVo =
+                          (selected['don_vi_tinh'] as String? ?? '')
+                              .toLowerCase() ==
                           'vỏ';
                       setState(() {
                         row.matHangId = selected['server_id'] as int;
@@ -698,8 +745,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               ),
               if (_saleRows.length > 1)
                 IconButton(
-                  icon: const Icon(Icons.delete_outline,
-                      color: Colors.red, size: 20),
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    color: Colors.red,
+                    size: 20,
+                  ),
                   onPressed: () => _removeSaleRow(index),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -727,7 +777,8 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                       style: ButtonStyle(
                         visualDensity: VisualDensity.compact,
                         textStyle: WidgetStateProperty.all(
-                            const TextStyle(fontSize: 12)),
+                          const TextStyle(fontSize: 12),
+                        ),
                       ),
                     ),
                   ],
@@ -742,8 +793,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     border: OutlineInputBorder(),
                     isDense: true,
                     suffixText: 'vỏ',
-                    contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                   ),
                   onTap: () => _ensureVisible(row.containerKey),
                   onChanged: (_) => setState(() {}),
@@ -762,8 +815,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     border: OutlineInputBorder(),
                     isDense: true,
                     suffixText: 'bình',
-                    contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                   ),
                   onTap: () => _ensureVisible(row.containerKey),
                   onChanged: (_) => setState(() {}),
@@ -778,8 +833,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     border: OutlineInputBorder(),
                     isDense: true,
                     suffixText: 'đ',
-                    contentPadding:
-                    EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                   ),
                   onTap: () => _ensureVisible(row.containerKey),
                   onChanged: (_) => setState(() {}),
@@ -788,14 +845,17 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Thành tiền',
-                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const Text(
+                      'Thành tiền',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
                     Text(
                       '${_fmtMoney.format(row.thanhTien)} đ',
                       style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF00897B),
-                          fontSize: 13),
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF00897B),
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
@@ -809,8 +869,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   Widget _buildGasDuSection() {
     return Column(
       children: [
-        for (int i = 0; i < _gasDuRows.length; i++)
-          _buildGasDuRow(i),
+        for (int i = 0; i < _gasDuRows.length; i++) _buildGasDuRow(i),
         const SizedBox(height: 8),
         Align(
           alignment: Alignment.centerLeft,
@@ -821,8 +880,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           ),
         ),
         if (_gasDuRows.isEmpty)
-          const Text('Không có gas dư',
-              style: TextStyle(color: Colors.grey, fontSize: 13)),
+          const Text(
+            'Không có gas dư',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
       ],
     );
   }
@@ -856,22 +917,25 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     border: const OutlineInputBorder(),
                     isDense: true,
                     contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 8),
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
                     suffixIcon: row.matHangId != null
                         ? IconButton(
-                      icon: const Icon(Icons.clear, size: 16),
-                      onPressed: () => setState(() {
-                        row.matHangId = null;
-                        row.matHangLabel = '';
-                        row.matHangSearchCtrl.clear();
-                      }),
-                    )
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () => setState(() {
+                              row.matHangId = null;
+                              row.matHangLabel = '';
+                              row.matHangSearchCtrl.clear();
+                            }),
+                          )
                         : null,
                   ),
                   onTap: () async {
                     _ensureVisible(row.containerKey);
-                    final selected = await context
-                        .push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
+                    final selected = await context.push<Map<String, dynamic>>(
+                      AppRoutes.timKiemMatHang,
+                    );
                     if (selected != null && mounted) {
                       final label = _matHangLabel(selected);
                       setState(() {
@@ -884,8 +948,11 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.delete_outline,
-                    color: Colors.red, size: 20),
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                  size: 20,
+                ),
                 onPressed: () => _removeGasDuRow(index),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -895,15 +962,13 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: row.soKgCtrl,
-            keyboardType:
-            const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: const InputDecoration(
               labelText: 'Số kg',
               border: OutlineInputBorder(),
               isDense: true,
               suffixText: 'kg',
-              contentPadding:
-              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
             onTap: () => _ensureVisible(row.containerKey),
             onChanged: (_) => setState(() {}),
@@ -918,8 +983,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               border: OutlineInputBorder(),
               isDense: true,
               suffixText: 'đ',
-              contentPadding:
-              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
             onTap: () => _ensureVisible(row.containerKey),
             onChanged: (_) => setState(() {}),
@@ -944,8 +1008,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             border: OutlineInputBorder(),
             isDense: true,
             suffixText: 'đ',
-            contentPadding:
-            EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
           onChanged: (_) => setState(() {}),
         ),
@@ -960,8 +1023,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             border: OutlineInputBorder(),
             isDense: true,
             suffixText: 'đ',
-            contentPadding:
-            EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
           onTap: () => _ensureVisible(_thanhToanSectionKey),
           onChanged: (_) => setState(() {}),
@@ -976,21 +1038,21 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               labelText: 'Tài khoản nhận CK',
               border: OutlineInputBorder(),
               isDense: true,
-              contentPadding:
-              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
             hint: const Text('Chọn tài khoản (không bắt buộc)'),
             items: [
               const DropdownMenuItem<int>(
                 value: null,
-                child: Text('— Không chọn —',
-                    style: TextStyle(color: Colors.grey)),
+                child: Text(
+                  '— Không chọn —',
+                  style: TextStyle(color: Colors.grey),
+                ),
               ),
               ..._taiKhoanList.map((tk) {
                 final ten = tk['ten_tai_khoan'] as String? ?? '';
                 final nganHang = tk['ngan_hang'] as String?;
-                final label =
-                nganHang != null ? '$ten — $nganHang' : ten;
+                final label = nganHang != null ? '$ten — $nganHang' : ten;
                 return DropdownMenuItem<int>(
                   value: tk['server_id'] as int,
                   child: Text(label, overflow: TextOverflow.ellipsis),
@@ -1004,8 +1066,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text('Còn lại / Nợ:',
-                style: TextStyle(fontWeight: FontWeight.w500)),
+            const Text(
+              'Còn lại / Nợ:',
+              style: TextStyle(fontWeight: FontWeight.w500),
+            ),
             Text(
               '${_fmtMoney.format(_conLai)} đ',
               style: TextStyle(
@@ -1037,11 +1101,14 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title,
-                style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13,
-                    color: Color(0xFF00897B))),
+            Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: Color(0xFF00897B),
+              ),
+            ),
             const Divider(height: 12),
             child,
           ],
@@ -1060,15 +1127,19 @@ class _SummaryItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label,
-            style: const TextStyle(
-                color: Colors.white70, fontSize: 11)),
+        Text(
+          label,
+          style: const TextStyle(color: Colors.white70, fontSize: 11),
+        ),
         const SizedBox(height: 2),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 13)),
+        Text(
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
+        ),
       ],
     );
   }
@@ -1077,9 +1148,7 @@ class _SummaryItem extends StatelessWidget {
 class _SummaryDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      height: 32, width: 1, color: Colors.white30,
-    );
+    return Container(height: 32, width: 1, color: Colors.white30);
   }
 }
 
@@ -1090,7 +1159,9 @@ class _ThousandsFormatter extends TextInputFormatter {
 
   @override
   TextEditingValue formatEditUpdate(
-      TextEditingValue oldValue, TextEditingValue newValue) {
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
     final raw = newValue.text.replaceAll('.', '').replaceAll(',', '');
     if (raw.isEmpty) return newValue.copyWith(text: '');
     final n = int.tryParse(raw);

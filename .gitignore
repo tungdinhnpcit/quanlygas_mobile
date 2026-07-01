@@ -46,6 +46,7 @@ app.*.map.json
 
 # Local machine config — không commit
 android/local.properties
+lib/core/constants/local_dev_config.dart
 
 # Build logs
 build_log.txt

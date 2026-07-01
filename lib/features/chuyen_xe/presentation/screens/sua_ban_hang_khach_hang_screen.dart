@@ -39,12 +39,36 @@ class _SaleRow {
   int get soVoBan => isVo && loaiVo == 'ban' ? soLuong : 0;
 }
 
+class _GasDuRow {
+  final GlobalKey containerKey = GlobalKey();
+  int? matHangId;
+  String matHangLabel = '';
+  final matHangSearchCtrl = TextEditingController();
+
+  final soKgCtrl = TextEditingController(text: '0');
+  final tongTienCtrl = TextEditingController();
+
+  void dispose() {
+    matHangSearchCtrl.dispose();
+    soKgCtrl.dispose();
+    tongTienCtrl.dispose();
+  }
+
+  double get soKg =>
+      double.tryParse(soKgCtrl.text.replaceAll(',', '')) ?? 0;
+  double get tongTien =>
+      double.tryParse(tongTienCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+  double get thanhTien => tongTien;
+  double get donGia => soKg > 0 ? tongTien / soKg : 0;
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 class SuaBanHangKhachHangScreen extends ConsumerStatefulWidget {
   final int chuyenXeId;
   final int khachHangId;
   final List<BanHangKhachHangModel> rows;
+  final List<GasDuChiTietModel> gasDuRows;
   final bool canEdit;
 
   const SuaBanHangKhachHangScreen({
@@ -52,6 +76,7 @@ class SuaBanHangKhachHangScreen extends ConsumerStatefulWidget {
     required this.chuyenXeId,
     required this.khachHangId,
     required this.rows,
+    required this.gasDuRows,
     required this.canEdit,
   });
 
@@ -71,6 +96,9 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
   // Sản phẩm (multi-row)
   late final List<_SaleRow> _saleRows;
 
+  // Gas dư (multi-row)
+  final List<_GasDuRow> _gasDuRows = [];
+
   // Thanh toán
   final _tienMatCtrl = TextEditingController();
   final _tienCKCtrl = TextEditingController();
@@ -88,7 +116,11 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
   double get _tongTienBanHang =>
       _saleRows.fold(0.0, (s, r) => s + r.thanhTien);
 
-  double get _tongTien => _tongTienBanHang;
+  double get _tongTienGasDu =>
+      _gasDuRows.fold(0.0, (s, r) => s + r.thanhTien);
+
+  // tong tien khach thuc phai tra = tien ban binh - tien mua gas du (lai xe tra lai khach)
+  double get _tongTien => _tongTienBanHang - _tongTienGasDu;
 
   double get _tienMat =>
       double.tryParse(_tienMatCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
@@ -139,6 +171,17 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
       _saleRows.add(row);
     }
 
+    // Khởi tạo các dòng mua gas dư từ dữ liệu hiện có
+    for (final g in widget.gasDuRows) {
+      final row = _GasDuRow();
+      row.matHangId = g.matHangId;
+      row.matHangLabel = g.tenMatHang ?? '';
+      row.matHangSearchCtrl.text = row.matHangLabel;
+      row.soKgCtrl.text = g.soKg.toString();
+      row.tongTienCtrl.text = _fmtMoney.format(g.thanhTien.toInt());
+      _gasDuRows.add(row);
+    }
+
     // Sum tienMat, tienCK (lưu ở row đầu)
     if (widget.rows.isNotEmpty) {
       final tienMat = widget.rows.fold(0.0, (s, b) => s + b.tienMat);
@@ -153,6 +196,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
     for (final r in _saleRows) r.dispose();
+    for (final r in _gasDuRows) r.dispose();
     super.dispose();
   }
 
@@ -196,6 +240,17 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
     });
   }
 
+  void _addGasDuRow() {
+    setState(() => _gasDuRows.add(_GasDuRow()));
+  }
+
+  void _removeGasDuRow(int index) {
+    setState(() {
+      _gasDuRows[index].dispose();
+      _gasDuRows.removeAt(index);
+    });
+  }
+
   // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
@@ -210,9 +265,12 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
     setState(() => _saving = true);
 
     try {
-      // 1. Xóa tất cả rows cũ
+      // 1. Xóa tất cả rows cũ (bán hàng + gas dư) — tránh nhân đôi khi tạo lại
       for (final b in widget.rows) {
         await _repo.deleteBanHang(widget.chuyenXeId, b.id);
+      }
+      for (final g in widget.gasDuRows) {
+        await _repo.deleteBanHangGasDu(widget.chuyenXeId, g.id);
       }
 
       // 2. Re-create với dữ liệu mới
@@ -225,6 +283,14 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
           'donGia': r.donGia,
           'soVoBan': r.soVoBan,
           'soVoThu': r.soVoThu,
+        })
+            .toList(),
+        'gasDu': _gasDuRows
+            .where((r) => r.matHangId != null && r.soKg > 0 && r.tongTien > 0)
+            .map((r) => {
+          'matHangId': r.matHangId,
+          'soKg': r.soKg,
+          'donGia': r.donGia, // computed: tongTien / soKg
         })
             .toList(),
         'tienMat': _tienMat,
@@ -275,6 +341,13 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
               _SectionCard(
                 title: 'Chi tiết bán hàng',
                 child: _buildSaleRowsSection(),
+              ),
+              const SizedBox(height: 10),
+
+              // ── Mua gas dư ───────────────────────────────────────────────────
+              _SectionCard(
+                title: 'Mua gas dư',
+                child: _buildGasDuSection(),
               ),
               const SizedBox(height: 10),
 
@@ -550,6 +623,135 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
                 ),
               ],
             ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGasDuSection() {
+    return Column(
+      children: [
+        for (int i = 0; i < _gasDuRows.length; i++)
+          _buildGasDuRow(i),
+        const SizedBox(height: 8),
+        if (widget.canEdit)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _addGasDuRow,
+              icon: const Icon(Icons.add, size: 16),
+              label: const Text('Thêm gas dư'),
+            ),
+          ),
+        if (_gasDuRows.isEmpty)
+          const Text('Không có gas dư',
+              style: TextStyle(color: Colors.grey, fontSize: 13)),
+      ],
+    );
+  }
+
+  Widget _buildGasDuRow(int index) {
+    final row = _gasDuRows[index];
+
+    return Container(
+      key: row.containerKey,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.orange.shade50,
+        border: Border.all(color: Colors.orange.shade200),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // ── Picker mặt hàng (chạm để chọn) ──────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: row.matHangSearchCtrl,
+                  readOnly: true,
+                  enabled: widget.canEdit,
+                  decoration: InputDecoration(
+                    labelText: 'Mặt hàng',
+                    hintText: 'Chạm để chọn mặt hàng...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 8),
+                    suffixIcon: widget.canEdit && row.matHangId != null
+                        ? IconButton(
+                      icon: const Icon(Icons.clear, size: 16),
+                      onPressed: () => setState(() {
+                        row.matHangId = null;
+                        row.matHangLabel = '';
+                        row.matHangSearchCtrl.clear();
+                      }),
+                    )
+                        : null,
+                  ),
+                  onTap: () async {
+                    if (!widget.canEdit) return;
+                    _ensureVisible(row.containerKey);
+                    final selected = await context
+                        .push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
+                    if (selected != null && mounted) {
+                      final label = _matHangLabel(selected);
+                      setState(() {
+                        row.matHangId = selected['server_id'] as int;
+                        row.matHangLabel = label;
+                        row.matHangSearchCtrl.text = label;
+                      });
+                    }
+                  },
+                ),
+              ),
+              if (widget.canEdit)
+                IconButton(
+                  icon: const Icon(Icons.delete_outline,
+                      color: Colors.red, size: 20),
+                  onPressed: () => _removeGasDuRow(index),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: row.soKgCtrl,
+            enabled: widget.canEdit,
+            keyboardType:
+            const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Số kg',
+              border: OutlineInputBorder(),
+              isDense: true,
+              suffixText: 'kg',
+              contentPadding:
+              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onTap: () => _ensureVisible(row.containerKey),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: row.tongTienCtrl,
+            enabled: widget.canEdit,
+            keyboardType: TextInputType.number,
+            inputFormatters: [_ThousandsFormatter()],
+            decoration: const InputDecoration(
+              labelText: 'Tổng tiền',
+              border: OutlineInputBorder(),
+              isDense: true,
+              suffixText: 'đ',
+              contentPadding:
+              EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onTap: () => _ensureVisible(row.containerKey),
+            onChanged: (_) => setState(() {}),
+          ),
         ],
       ),
     );

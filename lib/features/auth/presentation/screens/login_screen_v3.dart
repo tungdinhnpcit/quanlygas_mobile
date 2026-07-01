@@ -45,8 +45,8 @@ class _LoginScreenV3State extends ConsumerState<LoginScreenV3> {
   void initState() {
     super.initState();
     if (kDebugMode) {
-      _usernameCtrl.text = 'thannt';
-      _passwordCtrl.text = '123456';
+      _usernameCtrl.text = 'admin';
+      _passwordCtrl.text = 'diepSam@2026##';
     }
     _checkBiometric();
   }

@@ -199,8 +199,10 @@ class _ChuyenXeStatCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      // chi hien 2 trang thai don gian: tat ca da ky hay con khach chua ky
-                      chuaxn > 0 ? 'Chưa xác nhận/ký ($chuaxn KH)' : 'Đã xác nhận/ký',
+                      // hien so khach da xac nhan / tong so khach trong chuyen
+                      chuaxn > 0
+                          ? 'Đã xác nhận $daxn/${item.tongSoKhachHang} khách'
+                          : 'Đã xác nhận ${item.tongSoKhachHang}/${item.tongSoKhachHang} khách',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
