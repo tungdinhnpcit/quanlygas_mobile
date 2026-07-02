@@ -101,6 +101,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
   // Thanh toán
   final _tienMatCtrl = TextEditingController();
   final _tienCKCtrl = TextEditingController();
+  final _dieuChinhTienCtrl = TextEditingController();
 
   bool _saving = false;
 
@@ -119,13 +120,17 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
       _gasDuRows.fold(0.0, (s, r) => s + r.thanhTien);
 
   // tong tien khach thuc phai tra = tien ban binh - tien mua gas du (lai xe tra lai khach)
-  double get _tongTien => _tongTienBanHang - _tongTienGasDu;
+  //   + dieu chinh tien (duong = them, am = bot)
+  double get _tongTien => _tongTienBanHang - _tongTienGasDu + _dieuChinhTien;
 
   double get _tienMat =>
       double.tryParse(_tienMatCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
 
   double get _tienCK =>
       double.tryParse(_tienCKCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
+
+  double get _dieuChinhTien =>
+      double.tryParse(_dieuChinhTienCtrl.text.replaceAll('.', '').replaceAll(',', '')) ?? 0;
 
   double get _conLai => _tongTien - _tienMat - _tienCK;
 
@@ -181,12 +186,17 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
       _gasDuRows.add(row);
     }
 
-    // Sum tienMat, tienCK (lưu ở row đầu)
+    // Sum tienMat, tienCK, dieuChinhTien (lưu ở row đầu)
     if (widget.rows.isNotEmpty) {
       final tienMat = widget.rows.fold(0.0, (s, b) => s + b.tienMat);
       final tienCK = widget.rows.fold(0.0, (s, b) => s + b.tienCK);
+      final dieuChinhTien = widget.rows.fold(0.0, (s, b) => s + b.dieuChinhTien);
       _tienMatCtrl.text = _fmtMoney.format(tienMat.toInt());
       _tienCKCtrl.text = _fmtMoney.format(tienCK.toInt());
+      if (dieuChinhTien != 0) {
+        _dieuChinhTienCtrl.text =
+            (dieuChinhTien < 0 ? '-' : '') + _fmtMoney.format(dieuChinhTien.abs().toInt());
+      }
     }
   }
 
@@ -194,6 +204,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
   void dispose() {
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
+    _dieuChinhTienCtrl.dispose();
     for (final r in _saleRows) {
       r.dispose();
     }
@@ -298,6 +309,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
             .toList(),
         'tienMat': _tienMat,
         'tienCK': _tienCK,
+        'dieuChinhTien': _dieuChinhTien,
       });
 
       if (mounted) {
@@ -798,6 +810,24 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 8),
+        // Điều chỉnh tiền (+/-): số dương = thêm tiền, số âm = bớt tiền
+        TextField(
+          controller: _dieuChinhTienCtrl,
+          enabled: widget.canEdit,
+          keyboardType: const TextInputType.numberWithOptions(signed: true),
+          inputFormatters: [_SignedThousandsFormatter()],
+          decoration: const InputDecoration(
+            labelText: 'Điều chỉnh tiền (+/-)',
+            hintText: 'VD: -20.000 để bớt, 20.000 để thêm',
+            border: OutlineInputBorder(),
+            isDense: true,
+            suffixText: 'đ',
+            contentPadding:
+                EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -893,6 +923,34 @@ class _ThousandsFormatter extends TextInputFormatter {
     final n = int.tryParse(raw);
     if (n == null) return oldValue;
     final formatted = _fmt.format(n);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+// ─── Signed thousands separator formatter (cho phép dấu '-' ở đầu) ───────────
+
+class _SignedThousandsFormatter extends TextInputFormatter {
+  static final _fmt = NumberFormat('#,##0', 'vi_VN');
+
+  @override
+  TextEditingValue formatEditUpdate(
+      TextEditingValue oldValue, TextEditingValue newValue) {
+    var raw = newValue.text.replaceAll('.', '').replaceAll(',', '');
+    final isNegative = raw.startsWith('-');
+    if (isNegative) raw = raw.substring(1);
+    if (raw.isEmpty) {
+      final text = isNegative ? '-' : '';
+      return newValue.copyWith(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+    final n = int.tryParse(raw);
+    if (n == null) return oldValue;
+    final formatted = (isNegative ? '-' : '') + _fmt.format(n);
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),

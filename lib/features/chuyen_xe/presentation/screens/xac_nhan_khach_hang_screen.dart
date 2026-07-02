@@ -23,6 +23,7 @@ class XacNhanKhachHangScreen extends ConsumerStatefulWidget {
   final List<BanHangKhachHangModel>? banHangList; // danh sach hang ban truyen tu man hinh nhap
   final double tienMat; // so tien khach tra bang tien mat
   final double tienCK; // so tien khach tra bang chuyen khoan
+  final double dieuChinhTien; // dieu chinh tien (+/-): duong = them, am = bot
   final double conLai; // so tien con lai chua tra (no)
   final String? ghiChu; // ghi chu them tu lai xe
   final String? tenTaiKhoan; // ten tai khoan cong ty nhan chuyen khoan
@@ -37,6 +38,7 @@ class XacNhanKhachHangScreen extends ConsumerStatefulWidget {
     this.banHangList, // co the null neu khong co danh sach hang
     this.tienMat = 0, // mac dinh 0 neu khong truyen (truong hop xac nhan lai tu badge)
     this.tienCK = 0, // mac dinh 0 neu khong truyen
+    this.dieuChinhTien = 0, // mac dinh 0 neu khong truyen
     this.conLai = 0, // mac dinh 0 neu khong truyen
     this.ghiChu, // co the null neu khong co ghi chu
     this.tenTaiKhoan, // co the null neu khong chon tai khoan CK
@@ -283,6 +285,13 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
                   const Text('Thanh toán:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54)),
                   const SizedBox(height: 4),
                   _infoRow('Tổng tiền:', '${_vnd.format(tongTien)} đ', valueColor: Colors.teal.shade700, bold: true),
+                  // chi hien dong dieu chinh khi co gia tri khac 0 (them/bot tien luc nhap ban hang)
+                  if (widget.dieuChinhTien != 0)
+                    _infoRow(
+                      'Điều chỉnh:',
+                      '${widget.dieuChinhTien > 0 ? '+' : ''}${_vnd.format(widget.dieuChinhTien)} đ',
+                      valueColor: widget.dieuChinhTien > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                    ),
                   _infoRow('Tiền mặt:', '${_vnd.format(widget.tienMat)} đ'), // luon hien du co = 0
                   _infoRow('Chuyển khoản:', '${_vnd.format(widget.tienCK)} đ'), // luon hien du co = 0
                   // hien thong tin tai khoan nhan CK neu co (chi hien khi co chuyen khoan)

@@ -893,6 +893,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
           .where((g) => g.khachHangId == khachHangId).toList();
       final tienMat = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienMat);
       final tienCK  = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienCK);
+      final dieuChinhTien = banHangCuaKhach.isNotEmpty ? banHangCuaKhach.first.dieuChinhTien : 0.0;
       final tongTien = banHangCuaKhach.fold<double>(0, (s, b) => s + b.thanhTien);
       // tong tien lai xe da tra khach de mua lai gas du - phai tru vao conLai ben duoi
       final tongTienGasDu = gasDuCuaKhach.fold<double>(0, (s, g) => s + g.thanhTien);
@@ -905,8 +906,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
         'banHangList': banHangCuaKhach,
         'tienMat': tienMat,
         'tienCK': tienCK,
-        // conLai = tien hang ban - tien mua gas du (da tra khach) - tien da thu (mat + ck)
-        'conLai': tongTien - tongTienGasDu - tienMat - tienCK,
+        'dieuChinhTien': dieuChinhTien,
+        // conLai = tien hang ban - tien mua gas du (da tra khach) + dieu chinh - tien da thu (mat + ck)
+        'conLai': tongTien - tongTienGasDu + dieuChinhTien - tienMat - tienCK,
       }).then((_) {
         ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
       });
@@ -1231,8 +1233,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
               final soBinhBan   = rows.where((b) => b.soVoThu == 0 && b.soVoBan == 0).fold(0, (s, b) => s + b.soLuong);
               final soVoThu     = rows.fold(0, (s, b) => s + b.soVoThu);
               final tienDaTra   = rows.fold(0.0, (s, b) => s + b.tienMat + b.tienCK);
-              // no = tien hang ban - tien mua gas du (da tra khach) - tien da thu (mat + ck)
-              final tienNo      = (khachTotal - tongTienGasDu - tienDaTra).clamp(0.0, double.infinity);
+              final dieuChinhTien = rows.first.dieuChinhTien;
+              // no = tien hang ban - tien mua gas du (da tra khach) + dieu chinh - tien da thu (mat + ck)
+              final tienNo      = (khachTotal - tongTienGasDu + dieuChinhTien - tienDaTra).clamp(0.0, double.infinity);
 
               return InkWell(
                 onTap: () => _openKhachHangDetail(cx, rows, gasDuRows),
@@ -2568,6 +2571,7 @@ class _BanHangSummaryCard extends StatelessWidget {
     for (final rows in groups.values) {
       tongTienMat += rows.first.tienMat;
       tongTienCK += rows.first.tienCK;
+      tongTienPhai += rows.first.dieuChinhTien;
       for (final b in rows) {
         if (b.soVoThu == 0 && b.soVoBan == 0) {
           tongBinhGas += b.soLuong;

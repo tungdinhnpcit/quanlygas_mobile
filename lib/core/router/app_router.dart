@@ -338,6 +338,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               banHangList: extra?['banHangList'] as List<BanHangKhachHangModel>?, // danh sach hang ban hien thi tren bien lai
               tienMat: (extra?['tienMat'] as double?) ?? 0, // tien mat khach da tra
               tienCK: (extra?['tienCK'] as double?) ?? 0, // tien chuyen khoan khach da tra
+              dieuChinhTien: (extra?['dieuChinhTien'] as double?) ?? 0, // dieu chinh tien (+/-)
               conLai: (extra?['conLai'] as double?) ?? 0, // so tien con no chua thanh toan
               ghiChu: extra?['ghiChu'] as String?, // ghi chu them neu co
               tenTaiKhoan: extra?['tenTaiKhoan'] as String?, // ten tai khoan cong ty nhan CK

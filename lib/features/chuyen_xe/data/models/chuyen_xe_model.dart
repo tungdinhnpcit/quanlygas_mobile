@@ -95,6 +95,7 @@ class BanHangKhachHangModel {
   final int soVoThu;
   final double tienMat;
   final double tienCK;
+  final double dieuChinhTien;   // dieu chinh tien (+/-): duong = them, am = bot; chi row dau moi lan nhap
   final int? taiKhoanCKId;       // id tai khoan ngan hang nhan chuyen khoan
   final String? tenTaiKhoanCK;   // ten tai khoan hien thi (tu nav TaiKhoanCK)
   final int? xacNhanId;
@@ -118,6 +119,7 @@ class BanHangKhachHangModel {
     required this.soVoThu,
     this.tienMat = 0,
     this.tienCK = 0,
+    this.dieuChinhTien = 0,
     this.taiKhoanCKId,
     this.tenTaiKhoanCK,
     this.xacNhanId,
@@ -143,6 +145,7 @@ class BanHangKhachHangModel {
         soVoThu:        json['soVoThu'] as int? ?? 0,
         tienMat:        (json['tienMat'] as num? ?? 0).toDouble(),
         tienCK:         (json['tienCK']  as num? ?? 0).toDouble(),
+        dieuChinhTien:  (json['dieuChinhTien'] as num? ?? 0).toDouble(),
         taiKhoanCKId:   json['taiKhoanCKId'] as int?,
         tenTaiKhoanCK:  json['tenTaiKhoanCK'] as String?,
         xacNhanId:      json['xacNhanId'] as int?,

@@ -17,7 +17,7 @@ class LocalDatabase {
     final dir = await getDatabasesPath();
     return openDatabase(
       join(dir, 'gasmanager.db'),
-      version: 4,
+      version: 5,
       onCreate: _create,
       onUpgrade: _onUpgrade,
     );
@@ -69,6 +69,11 @@ class LocalDatabase {
       ''');
       await db.execute(
         'ALTER TABLE ban_hang_offline ADD COLUMN tai_khoan_ck_id INTEGER NULL',
+      );
+    }
+    if (oldVersion < 5) {
+      await db.execute(
+        'ALTER TABLE ban_hang_offline ADD COLUMN dieu_chinh_tien REAL NOT NULL DEFAULT 0',
       );
     }
   }
@@ -160,6 +165,7 @@ class LocalDatabase {
         so_vo_thu             INTEGER DEFAULT 0,
         tien_mat              REAL NOT NULL DEFAULT 0,
         tien_ck               REAL NOT NULL DEFAULT 0,
+        dieu_chinh_tien       REAL NOT NULL DEFAULT 0,
         ghi_chu               TEXT,
         created_at            TEXT,
         is_synced             INTEGER NOT NULL DEFAULT 0,

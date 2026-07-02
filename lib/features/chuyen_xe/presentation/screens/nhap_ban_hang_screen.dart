@@ -116,6 +116,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   // Thanh toán
   final _tienMatCtrl = TextEditingController(text: '');
   final _tienCKCtrl = TextEditingController(text: '');
+  final _dieuChinhTienCtrl = TextEditingController(text: '');
   int? _selectedTaiKhoanId;
 
   // Ghi chú
@@ -142,8 +143,9 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   double get _tongTienGasDu => _gasDuRows.fold(0.0, (s, r) => s + r.thanhTien);
 
   // tong tien khach thuc phai tra = tien ban binh - tien mua gas du (lai xe tra lai khach)
+  //   + dieu chinh tien (duong = them, am = bot)
   // truoc day cong nham _tongTienGasDu khien tong tien va no bi day len cao sai
-  double get _tongTien => _tongTienBanHang - _tongTienGasDu;
+  double get _tongTien => _tongTienBanHang - _tongTienGasDu + _dieuChinhTien;
 
   double get _tienMat =>
       double.tryParse(
@@ -154,6 +156,12 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   double get _tienCK =>
       double.tryParse(
         _tienCKCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+      ) ??
+      0;
+
+  double get _dieuChinhTien =>
+      double.tryParse(
+        _dieuChinhTienCtrl.text.replaceAll('.', '').replaceAll(',', ''),
       ) ??
       0;
 
@@ -171,6 +179,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   void dispose() {
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
+    _dieuChinhTienCtrl.dispose();
     _ghiChuCtrl.dispose();
     for (final r in _saleRows) {
       r.dispose();
@@ -297,6 +306,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               .toList(),
           'tienMat': _tienMat,
           'tienCK': _tienCK,
+          'dieuChinhTien': _dieuChinhTien,
           if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
           if (widget.phuXeId != null) 'phuXeId': widget.phuXeId,
           'ghiChu': _ghiChuCtrl.text.trim().isEmpty
@@ -319,6 +329,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'tenKhachHang': _selectedKhachHang!['ten_khach_hang'] as String?,
               'tienMat': _tienMat,
               'tienCK': _tienCK,
+              'dieuChinhTien': _dieuChinhTien,
               'conLai': _conLai,
               'ghiChu': _ghiChuCtrl.text.trim().isEmpty
                   ? null
@@ -370,6 +381,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'so_vo_thu': r.soVoThu,
               'tien_mat': isFirstRow ? _tienMat : 0.0,
               'tien_ck': isFirstRow ? _tienCK : 0.0,
+              'dieu_chinh_tien': isFirstRow ? _dieuChinhTien : 0.0,
               'tai_khoan_ck_id': isFirstRow ? _selectedTaiKhoanId : null,
               'phu_xe_id': isFirstRow ? phuXeIdOffline : null,
               'ghi_chu': isFirstRow && _ghiChuCtrl.text.trim().isNotEmpty
@@ -1067,6 +1079,23 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           ),
         ],
         const SizedBox(height: 8),
+        // Điều chỉnh tiền (+/-): số dương = thêm tiền, số âm = bớt tiền
+        TextField(
+          controller: _dieuChinhTienCtrl,
+          keyboardType: const TextInputType.numberWithOptions(signed: true),
+          inputFormatters: [_SignedThousandsFormatter()],
+          onTap: () => _ensureVisible(_thanhToanSectionKey),
+          decoration: const InputDecoration(
+            labelText: 'Điều chỉnh tiền (+/-)',
+            hintText: 'VD: -20.000 để bớt, 20.000 để thêm',
+            border: OutlineInputBorder(),
+            isDense: true,
+            suffixText: 'đ',
+            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -1171,6 +1200,36 @@ class _ThousandsFormatter extends TextInputFormatter {
     final n = int.tryParse(raw);
     if (n == null) return oldValue;
     final formatted = _fmt.format(n);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
+
+// ─── Signed thousands separator formatter (cho phép dấu '-' ở đầu) ───────────
+
+class _SignedThousandsFormatter extends TextInputFormatter {
+  static final _fmt = NumberFormat('#,##0', 'vi_VN');
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    var raw = newValue.text.replaceAll('.', '').replaceAll(',', '');
+    final isNegative = raw.startsWith('-');
+    if (isNegative) raw = raw.substring(1);
+    if (raw.isEmpty) {
+      final text = isNegative ? '-' : '';
+      return newValue.copyWith(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+    final n = int.tryParse(raw);
+    if (n == null) return oldValue;
+    final formatted = (isNegative ? '-' : '') + _fmt.format(n);
     return TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
