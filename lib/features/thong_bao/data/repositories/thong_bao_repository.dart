@@ -3,13 +3,27 @@ import '../../../../core/network/api_client.dart';
 import '../models/thong_bao_model.dart';
 
 class ThongBaoRepository {
-  /// Danh sách thông báo của user (mới nhất trước)
-  Future<List<ThongBaoModel>> getList(int userId) async {
-    final res = await ApiClient.instance.dio
-        .get('/api/thong-bao', queryParameters: {'userId': userId, 'pageSize': 100});
+  /// Danh sách thông báo phân trang (mới nhất trước).
+  /// [daDoc] null = tất cả, false = chưa đọc, true = đã đọc.
+  Future<({List<ThongBaoModel> items, int total})> getListPaged(
+    int userId, {
+    required int page,
+    int pageSize = 20,
+    bool? daDoc,
+  }) async {
+    final res = await ApiClient.instance.dio.get('/api/thong-bao', queryParameters: {
+      'userId': userId,
+      'page': page,
+      'pageSize': pageSize,
+      if (daDoc != null) 'daDoc': daDoc,
+    });
     final data  = res.data;
     final items = data is Map ? (data['items'] as List? ?? []) : (data as List? ?? []);
-    return items.map((e) => ThongBaoModel.fromJson(e as Map<String, dynamic>)).toList();
+    final total = data is Map ? (data['totalCount'] as int? ?? items.length) : items.length;
+    return (
+      items: items.map((e) => ThongBaoModel.fromJson(e as Map<String, dynamic>)).toList(),
+      total: total,
+    );
   }
 
   /// Chi tiết một thông báo — không phụ thuộc list cache (dùng khi mở từ notification tap)

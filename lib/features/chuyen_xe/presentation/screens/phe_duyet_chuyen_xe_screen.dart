@@ -102,17 +102,21 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
   Future<void> _submit(ChuyenXeModel cx) async {
     setState(() => _saving = true);
     try {
-      final chiTiet = cx.banHang
-          .where((b) => b.thanhTien > 0)
-          .map((b) => {
-                'khachHangId': b.khachHangId,
-                'matHangId': b.matHangId,
-                'soLuong': b.soLuong,
-                'donGia': b.donGia,
-                'soVoBan': b.soVoBan,
-                'soVoThu': b.soVoThu,
-              })
-          .toList();
+      // Gửi TẤT CẢ dòng bán hàng (kể cả dòng vỏ thanhTien=0) để không mất vỏ thu.
+      // Dòng vỏ (thanhTien==0) đánh dấu loaiVo='thu' → backend không tính vào bình bán,
+      // nhưng vẫn cộng soVoThu vào SoVoThuThucTe.
+      final chiTiet = cx.banHang.map((b) {
+        final isVoRow = b.thanhTien == 0;
+        return {
+          'khachHangId': b.khachHangId,
+          'matHangId': b.matHangId,
+          'soLuong': isVoRow ? 0 : b.soLuong,
+          'donGia': b.donGia,
+          'soVoBan': b.soVoBan,
+          'soVoThu': b.soVoThu,
+          if (isVoRow) 'loaiVo': 'thu',
+        };
+      }).toList();
 
       final traNoCu = _traNoCuRows
           .where((r) => r.khachHangId != null && _parseNum(r.soTienCtrl.text) > 0)
@@ -131,10 +135,20 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
               })
           .toList();
 
+      // Giữ lại gas dư lái xe đã nhập (nếu không gửi, KetThuc.GasDu rỗng → mất số kg/tiền gas dư)
+      final gasDu = cx.banHangGasDu
+          .map((g) => {
+                'khachHangId': g.khachHangId,
+                'matHangId': g.matHangId,
+                'soKg': g.soKg,
+                'donGia': g.donGia,
+              })
+          .toList();
+
       final body = {
         'chiTiet': chiTiet,
         'voThu': <Map>[],
-        'gasDu': <Map>[],
+        'gasDu': gasDu,
         'traNoCu': traNoCu,
         'tienMat': _parseNum(_tienMatCtrl.text),
         if (_tienMatTaiKhoanId != null) 'taiKhoanTienMatId': _tienMatTaiKhoanId,

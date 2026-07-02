@@ -21,6 +21,7 @@ final _fmtCurrency =
     NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 final _fmtDate = DateFormat('dd/MM/yyyy HH:mm');
 final _fmtDateOnly = DateFormat('dd/MM/yyyy');
+final _fmtKg = NumberFormat('#,##0.##', 'vi_VN');
 
 class ChuyenXeDetailScreen extends ConsumerStatefulWidget {
   const ChuyenXeDetailScreen({super.key, required this.chuyenXeId});
@@ -2458,9 +2459,11 @@ class _TabThuNoState extends State<_TabThuNo> {
             final daTra = no.daTra > 0;
             final conNo = no.conNo;
             final daTraXong = conNo <= 0;
+            final ngay = DateTime.tryParse(no.ngayXuat);
+            final ngayHienThi = ngay != null ? _fmtDateOnly.format(ngay) : no.ngayXuat;
             return ListTile(
               dense: true,
-              title: Text('${no.maChuyenXe} — ${no.ngayXuat}',
+              title: Text('${no.maChuyenXe} — $ngayHienThi',
                   style: const TextStyle(fontSize: 13)),
               subtitle: Text(
                 'Nợ gốc: ${_fmtCurrency.format(no.soTienNo)}'
@@ -2678,7 +2681,6 @@ class _BanHangSummaryCard extends StatelessWidget {
     }
 
     var tongBinhGas = 0;
-    var tongVoThu = 0;
     var tongTienPhai = 0.0;
     var tongTienMat = 0.0;
     var tongTienCK = 0.0;
@@ -2687,7 +2689,6 @@ class _BanHangSummaryCard extends StatelessWidget {
       tongTienMat += rows.first.tienMat;
       tongTienCK += rows.first.tienCK;
       for (final b in rows) {
-        tongVoThu += b.soVoThu;
         if (b.soVoThu == 0 && b.soVoBan == 0) {
           tongBinhGas += b.soLuong;
           tongTienPhai += b.thanhTien;
@@ -2697,12 +2698,12 @@ class _BanHangSummaryCard extends StatelessWidget {
     final tongConNo =
         (tongTienPhai - tongTienMat - tongTienCK).clamp(0.0, double.infinity);
 
-    // --- Tính từ cx.ketThuc (chỉ khi đã settle) ---
+    // --- Vỏ / gas dư: dùng aggregate backend (đúng cho cả mobile-kết-thúc lẫn đã duyệt) ---
     final kt = cx.ketThuc;
-    final tongGasDu =
-        kt?.gasDu.fold<double>(0, (s, e) => s + e.soKg) ?? 0;
-    final tongTienGasDu = kt?.tongTienTraGasDu ?? 0.0;
-    final tongNoDaTra = kt?.tongThuNoCu ?? 0.0;
+    final tongGasDu     = cx.tongGasDuKg;      // kg gas dư (kt: KetThuc.GasDu; else: banHangGasDu)
+    final tongTienGasDu = cx.tienMuaGasDu;     // tiền mua gas dư
+    final tongVoAggregate = cx.tongSoVo;       // tổng vỏ thu thực tế
+    final tongNoDaTra   = kt?.tongThuNoCu ?? 0.0;
 
     if (cx.banHang.isEmpty && kt == null) return const SizedBox.shrink();
 
@@ -2722,7 +2723,7 @@ class _BanHangSummaryCard extends StatelessWidget {
 
             // --- Từ banHang (mọi trạng thái) ---
             _BanHangSummaryRow('Số bình gas', '$tongBinhGas bình'),
-            _BanHangSummaryRow('Số vỏ thu', '$tongVoThu vỏ'),
+            _BanHangSummaryRow('Số vỏ thu', '$tongVoAggregate vỏ'),
             _BanHangSummaryRow('Tiền phải thu', _fmtCurrency.format(tongTienPhai),
                 bold: true),
             _BanHangSummaryRow('Tiền mặt đã thu', _fmtCurrency.format(tongTienMat)),
@@ -2731,13 +2732,20 @@ class _BanHangSummaryCard extends StatelessWidget {
             _BanHangSummaryRow('Còn nợ', _fmtCurrency.format(tongConNo),
                 color: tongConNo > 0 ? Colors.red.shade700 : null),
 
-            // --- Từ ketThuc (chỉ khi đã settle) ---
-            if (kt != null) ...[
+            // --- Gas dư (aggregate backend — hiện cho mọi trạng thái nếu có) ---
+            if (tongGasDu > 0 || tongTienGasDu > 0) ...[
               const SizedBox(height: 8),
               const Divider(height: 1),
               const SizedBox(height: 8),
-              _BanHangSummaryRow('Gas dư', '$tongGasDu bình'),
+              _BanHangSummaryRow('Gas dư', '${_fmtKg.format(tongGasDu)} kg'),
               _BanHangSummaryRow('Tiền mua gas dư', _fmtCurrency.format(tongTienGasDu)),
+            ],
+
+            // --- Nợ cũ đã thu (chỉ khi đã settle) ---
+            if (kt != null && tongNoDaTra > 0) ...[
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
               _BanHangSummaryRow('Nợ cũ đã thu', _fmtCurrency.format(tongNoDaTra)),
             ],
           ],
