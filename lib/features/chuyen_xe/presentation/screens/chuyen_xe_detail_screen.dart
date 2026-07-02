@@ -167,8 +167,11 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
       ref.read(chuyenXeListProvider.notifier).load(
         nhanVienId: nhanVienId > 0 ? nhanVienId : null,
       );
-      if (context.canPop()) context.pop();
-      else context.go(AppRoutes.home);
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.home);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -584,93 +587,6 @@ class _TabChiTiet extends StatelessWidget {
   }
 }
 
-// Card một cửa hàng trong chuyến.
-class _ChiTietCard extends StatelessWidget {
-  final int index;
-  final ChuyenXeChiTietModel item;
-  const _ChiTietCard({required this.index, required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor:
-                      const Color(0xFF00897B).withValues(alpha: 0.15),
-                  child: Text(
-                    '${index + 1}',
-                    style: const TextStyle(
-                        color: Color(0xFF00897B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    item.tenKhachHang ?? 'Khách hàng #${item.khachHangId}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                ),
-                Text(
-                  _fmtCurrency.format(item.thanhTien),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF00897B),
-                      fontSize: 14),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _DataChip(
-                      label: 'Mặt hàng',
-                      value: item.tenMatHang ?? 'ID ${item.matHangId}'),
-                ),
-                _DataChip(label: 'SL', value: '${item.soLuong} bình'),
-                const SizedBox(width: 8),
-                _DataChip(
-                    label: 'Đ/bình',
-                    value: _fmtCurrency.format(item.donGia)),
-              ],
-            ),
-            if (item.soVoBan > 0 || item.soVoThu > 0) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  _DataChip(
-                      label: 'Vỏ bán',
-                      value: '${item.soVoBan}',
-                      color: Colors.blue),
-                  const SizedBox(width: 8),
-                  _DataChip(
-                      label: 'Vỏ thu',
-                      value: '${item.soVoThu}',
-                      color: Colors.teal),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // Card khách hàng khi chuyến đã kết thúc — hiển thị tên KH + mặt hàng + giá thực tế.
 class _KetThucChiTietCard extends StatelessWidget {
   final int index;
@@ -917,7 +833,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     );
     if (ok != true || !mounted) return;
 
-    for (final b in rows) setState(() => _deleting.add(b.id));
+    for (final b in rows) {
+      setState(() => _deleting.add(b.id));
+    }
     try {
       for (final b in rows) {
         await _repo.deleteBanHang(widget.cx.id, b.id);
@@ -930,7 +848,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
         SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     } finally {
-      for (final b in rows) if (mounted) setState(() => _deleting.remove(b.id));
+      for (final b in rows) {
+        if (mounted) setState(() => _deleting.remove(b.id));
+      }
     }
   }
 
@@ -2558,7 +2478,7 @@ class _TabThuNoState extends State<_TabThuNo> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: hinhThuc,
+                initialValue: hinhThuc,
                 decoration: const InputDecoration(
                     labelText: 'Hình thức', border: OutlineInputBorder(), isDense: true),
                 items: const [
@@ -2570,7 +2490,7 @@ class _TabThuNoState extends State<_TabThuNo> {
               if (hinhThuc == 'chuyen-khoan') ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: taiKhoanId == 0 ? null : taiKhoanId,
+                  initialValue: taiKhoanId == 0 ? null : taiKhoanId,
                   decoration: const InputDecoration(
                       labelText: 'Tài khoản CK', border: OutlineInputBorder(), isDense: true),
                   items: tkList.map((tk) => DropdownMenuItem<int>(
@@ -2624,46 +2544,6 @@ class _TabThuNoState extends State<_TabThuNo> {
   }
 }
 
-
-// Card một dòng thu nợ.
-class _TraNoCuCard extends StatelessWidget {
-  final TraNoCuModel item;
-  const _TraNoCuCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.purple.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.receipt_long_outlined,
-              color: Colors.purple, size: 22),
-        ),
-        title: Text(
-          item.tenKhachHang ?? 'Khách hàng #${item.khachHangId}',
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-        subtitle: item.ghiChu != null && item.ghiChu!.isNotEmpty
-            ? Text(item.ghiChu!,
-                style: const TextStyle(fontSize: 12, color: Colors.grey))
-            : null,
-        trailing: Text(
-          _fmtCurrency.format(item.soTien),
-          style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-              color: Colors.purple),
-        ),
-      ),
-    );
-  }
-}
 
 // ── Tổng hợp bán hàng ──────────────────────────────────────────────────────
 

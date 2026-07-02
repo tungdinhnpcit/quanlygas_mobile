@@ -154,7 +154,6 @@ class BackgroundPollingService {
     // Khởi tạo Workmanager với callback dispatcher
     await Workmanager().initialize(
       callbackDispatcher, // Function sẽ xử lý các periodic job
-      isInDebugMode: false, // false = production mode (không print debug info thừa)
     );
   }
 

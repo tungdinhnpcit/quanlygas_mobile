@@ -172,8 +172,12 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
     _ghiChuCtrl.dispose();
-    for (final r in _saleRows) r.dispose();
-    for (final r in _gasDuRows) r.dispose();
+    for (final r in _saleRows) {
+      r.dispose();
+    }
+    for (final r in _gasDuRows) {
+      r.dispose();
+    }
     super.dispose();
   }
 
@@ -1033,7 +1037,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           const SizedBox(height: 8),
           DropdownButtonFormField<int>(
             isExpanded: true,
-            value: _selectedTaiKhoanId,
+            initialValue: _selectedTaiKhoanId,
             decoration: const InputDecoration(
               labelText: 'Tài khoản nhận CK',
               border: OutlineInputBorder(),

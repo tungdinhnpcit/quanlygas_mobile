@@ -430,7 +430,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     ref.invalidate(soChuaDocProvider);
     final uid = ref.read(userInfoProvider).valueOrNull?.userId ?? 0;
     if (uid > 0) {
-      ref.read(thongBaoListProvider.notifier).load(userId: uid);
+      ref.invalidate(thongBaoListProvider);
     }
   });
   ApiClient.setNavigateToLogin((route) => router.go(route)); // dang ky callback chuyen sang login khi token het han (401)

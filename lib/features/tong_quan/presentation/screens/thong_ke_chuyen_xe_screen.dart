@@ -25,10 +25,10 @@ class ThongKeChuyenXeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final _tuNgay = tuNgay ?? today;
-    final _denNgay = denNgay ?? today;
+    final effectiveTuNgay = tuNgay ?? today;
+    final effectiveDenNgay = denNgay ?? today;
 
-    final dataAsync = ref.watch(thongKeChuyenXeProvider((_tuNgay, _denNgay)));
+    final dataAsync = ref.watch(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay)));
 
     return Scaffold(
       appBar: AppBar(
@@ -57,7 +57,7 @@ class ThongKeChuyenXeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => ref.refresh(thongKeChuyenXeProvider((_tuNgay, _denNgay))),
+                onPressed: () => ref.refresh(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay))),
                 child: const Text('Thử lại'),
               ),
             ],

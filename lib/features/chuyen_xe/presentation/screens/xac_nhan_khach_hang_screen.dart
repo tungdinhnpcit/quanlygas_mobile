@@ -192,8 +192,11 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
       appBar: AppBar(
         title: const Text('Xác nhận khách hàng'), // tieu de man hinh
         leading: BackButton(onPressed: () { // nut quay lai
-          if (context.canPop()) context.pop(); // neu co man hinh truoc thi pop
-          else context.go('/'); // neu khong co thi ve trang chu
+          if (context.canPop()) {
+            context.pop(); // neu co man hinh truoc thi pop
+          } else {
+            context.go('/'); // neu khong co thi ve trang chu
+          }
         }),
       ),
       body: SingleChildScrollView( // cho phep cuon khi noi dung dai hon man hinh

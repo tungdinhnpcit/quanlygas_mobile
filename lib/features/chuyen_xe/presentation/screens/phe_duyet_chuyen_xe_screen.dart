@@ -51,8 +51,12 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
   void dispose() {
     _tienMatCtrl.dispose();
     _ghiChuCtrl.dispose();
-    for (final r in _ckRows) r.dispose();
-    for (final r in _traNoCuRows) r.dispose();
+    for (final r in _ckRows) {
+      r.dispose();
+    }
+    for (final r in _traNoCuRows) {
+      r.dispose();
+    }
     super.dispose();
   }
 
@@ -355,7 +359,7 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
           Expanded(
             flex: 3,
             child: DropdownButtonFormField<int>(
-              value: hasValue ? row.taiKhoanId : null,
+              initialValue: hasValue ? row.taiKhoanId : null,
               isDense: true,
               hint: Text(row.tenTaiKhoan ?? 'Chọn ngân hàng', overflow: TextOverflow.ellipsis),
               decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true,

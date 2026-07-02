@@ -10,7 +10,6 @@ import '../../../../core/router/app_routes.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 import '../../data/models/chuyen_xe_model.dart';
-import '../providers/chuyen_xe_provider.dart';
 
 // ─── Helper state classes ────────────────────────────────────────────────────
 
@@ -195,8 +194,12 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
   void dispose() {
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
-    for (final r in _saleRows) r.dispose();
-    for (final r in _gasDuRows) r.dispose();
+    for (final r in _saleRows) {
+      r.dispose();
+    }
+    for (final r in _gasDuRows) {
+      r.dispose();
+    }
     super.dispose();
   }
 
