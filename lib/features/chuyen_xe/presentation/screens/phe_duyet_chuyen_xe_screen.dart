@@ -1,16 +1,19 @@
 // lib/features/chuyen_xe/presentation/screens/phe_duyet_chuyen_xe_screen.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/database/local_database.dart';
+import '../../../../core/router/app_routes.dart';
+import '../../../cong_no/data/cong_no_model.dart';
 import '../../data/models/chuyen_xe_model.dart';
 import '../../data/repositories/chuyen_xe_repository.dart';
 import '../providers/chuyen_xe_provider.dart';
 
 // Man hinh phe duyet chuyen xe danh cho ke toan/quan ly sau khi lai xe da ket thuc tren mobile.
-// Ke toan nhap so lieu quyet toan roi goi API POST /api/chuyen-xe/{id}/ket-thuc.
+// Tong hop san tien mat + tien CK theo tung ngan hang tu du lieu lai xe nhap; ke toan chi kiem tra,
+// sua neu can roi phe duyet (POST /api/chuyen-xe/{id}/ket-thuc).
 class PheDuyetChuyenXeScreen extends ConsumerStatefulWidget {
   final int chuyenXeId;
   const PheDuyetChuyenXeScreen({super.key, required this.chuyenXeId});
@@ -21,35 +24,61 @@ class PheDuyetChuyenXeScreen extends ConsumerStatefulWidget {
 
 class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen> {
   final _repo = ChuyenXeRepository();
+  final _db = LocalDatabase.instance;
   final _fmt = NumberFormat('#,##0', 'vi_VN');
 
-  // Controllers thanh toan
   final _tienMatCtrl = TextEditingController();
-  final _tienCKCtrl  = TextEditingController();
   final _ghiChuCtrl  = TextEditingController();
 
+  // Danh sach CK theo tung ngan hang (pre-fill tu cx.tienCKTheoTaiKhoan, sua duoc)
+  final List<_CKRow> _ckRows = [];
   // Danh sach no cu khach hang can tra
   final List<_TraNoCuRow> _traNoCuRows = [];
 
+  List<Map<String, dynamic>> _taiKhoanList = [];
+  int? _tienMatTaiKhoanId; // tai khoan tien mat mac dinh (loai = 'tien-mat')
+
+  bool _initialized = false;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTaiKhoan();
+  }
 
   @override
   void dispose() {
     _tienMatCtrl.dispose();
-    _tienCKCtrl.dispose();
     _ghiChuCtrl.dispose();
+    for (final r in _ckRows) r.dispose();
     for (final r in _traNoCuRows) r.dispose();
     super.dispose();
   }
 
+  // Tai danh sach tai khoan tu cache local; xac dinh tai khoan tien mat mac dinh
+  Future<void> _loadTaiKhoan() async {
+    final tk = await _db.getTaiKhoanList();
+    if (!mounted) return;
+    setState(() {
+      _taiKhoanList = tk;
+      final tienMatTk = tk.where((t) => (t['loai'] as String?) == 'tien-mat');
+      _tienMatTaiKhoanId = tienMatTk.isNotEmpty ? tienMatTk.first['server_id'] as int? : null;
+    });
+  }
+
+  // Danh sach tai khoan ngan hang cho dropdown chon them dong CK
+  List<Map<String, dynamic>> get _nganHangList =>
+      _taiKhoanList.where((t) => (t['loai'] as String?) == 'ngan-hang').toList();
+
   double _parseNum(String s) =>
       double.tryParse(s.replaceAll('.', '').replaceAll(',', '')) ?? 0;
 
-  // Xu ly onChange input so tien: strip ky tu la, reformat theo phan nghin
+  // Strip ky tu la + reformat theo phan nghin
   void _handleNumInput(TextEditingController ctrl, String raw) {
     final digits = raw.replaceAll(RegExp(r'[^\d]'), '');
-    final num = int.tryParse(digits) ?? 0;
-    final formatted = num > 0 ? _fmt.format(num) : '';
+    final n = int.tryParse(digits) ?? 0;
+    final formatted = n > 0 ? _fmt.format(n) : '';
     ctrl.value = TextEditingValue(
       text: formatted,
       selection: TextSelection.collapsed(offset: formatted.length),
@@ -57,11 +86,22 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
     setState(() {});
   }
 
-  // Goi API phe duyet voi so lieu ke toan nhap
+  // Pre-fill 1 lan tu du lieu tong hop cua chuyen (tien mat + CK theo ngan hang)
+  void _prefill(ChuyenXeModel cx) {
+    _tienMatCtrl.text = cx.tongTienMat > 0 ? _fmt.format(cx.tongTienMat.toInt()) : '';
+    for (final ck in cx.tienCKTheoTaiKhoan) {
+      final row = _CKRow(taiKhoanId: ck.taiKhoanId, tenTaiKhoan: ck.tenTaiKhoan);
+      row.soTienCtrl.text = ck.tienCK > 0 ? _fmt.format(ck.tienCK.toInt()) : '';
+      _ckRows.add(row);
+    }
+  }
+
+  double get _tongCK => _ckRows.fold(0.0, (s, r) => s + _parseNum(r.soTienCtrl.text));
+
+  // Goi API phe duyet
   Future<void> _submit(ChuyenXeModel cx) async {
     setState(() => _saving = true);
     try {
-      // Xay dung request body tuong tu web settle dialog
       final chiTiet = cx.banHang
           .where((b) => b.thanhTien > 0)
           .map((b) => {
@@ -78,17 +118,27 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
           .where((r) => r.khachHangId != null && _parseNum(r.soTienCtrl.text) > 0)
           .map((r) => {
                 'khachHangId': r.khachHangId,
+                if (r.chuyenXeId != null) 'chuyenXeId': r.chuyenXeId,
+                'soTien': _parseNum(r.soTienCtrl.text),
+              })
+          .toList();
+
+      final ckTheoTaiKhoan = _ckRows
+          .where((r) => r.taiKhoanId != null && _parseNum(r.soTienCtrl.text) > 0)
+          .map((r) => {
+                'taiKhoanId': r.taiKhoanId,
                 'soTien': _parseNum(r.soTienCtrl.text),
               })
           .toList();
 
       final body = {
         'chiTiet': chiTiet,
-        'voThu': <Map>[],  // Vo thu duoc tinh tu banHang
+        'voThu': <Map>[],
         'gasDu': <Map>[],
         'traNoCu': traNoCu,
-        'tongTienMat': _parseNum(_tienMatCtrl.text),
-        'tongTienCK': _parseNum(_tienCKCtrl.text),
+        'tienMat': _parseNum(_tienMatCtrl.text),
+        if (_tienMatTaiKhoanId != null) 'taiKhoanTienMatId': _tienMatTaiKhoanId,
+        'ckTheoTaiKhoan': ckTheoTaiKhoan,
         'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
       };
 
@@ -124,7 +174,13 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
-        data: (cx) => _buildContent(cx),
+        data: (cx) {
+          if (!_initialized) {
+            _prefill(cx);
+            _initialized = true;
+          }
+          return _buildContent(cx);
+        },
       ),
     );
   }
@@ -133,21 +189,8 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
     final tongTienBanHang = cx.banHang.fold<double>(0, (s, b) => s + b.thanhTien);
     final tongVoThu = cx.banHang.fold<int>(0, (s, b) => s + b.soVoThu);
     final tienMat = _parseNum(_tienMatCtrl.text);
-    final tienCK  = _parseNum(_tienCKCtrl.text);
-    final conLai  = tongTienBanHang - tienMat - tienCK;
-
-    // Tim tai khoan CK tu row dau tien co tienCK > 0 va co ten tai khoan
-    final rowCoTaiKhoan = cx.banHang
-        .where((b) => b.tienCK > 0 && b.tenTaiKhoanCK != null)
-        .fold<BanHangKhachHangModel?>(null, (acc, b) => acc ?? b);
-
-    // Lay danh sach khach hang tu banHang de chon khi nhap no cu
-    final khachHangs = cx.banHang.map((b) => {'id': b.khachHangId, 'ten': b.tenKhachHang ?? 'KH#${b.khachHangId}'})
-        .fold<Map<int, String>>({}, (map, kh) {
-          final id = kh['id'] as int;
-          if (!map.containsKey(id)) map[id] = kh['ten'] as String;
-          return map;
-        });
+    final tongThu = tienMat + _tongCK;
+    final conLai  = tongTienBanHang - tongThu;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -173,42 +216,42 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
           ),
           const SizedBox(height: 16),
 
-          // --- Thu tien ---
-          const Text('Thu tiền', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+          // --- Tien mat ---
+          const Text('Tiền mặt', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
           const SizedBox(height: 8),
           _NumField(
             label: 'Tiền mặt (đ)',
             ctrl: _tienMatCtrl,
             onChanged: (v) => _handleNumInput(_tienMatCtrl, v),
           ),
-          const SizedBox(height: 8),
-          _NumField(
-            label: 'Tiền chuyển khoản (đ)',
-            ctrl: _tienCKCtrl,
-            onChanged: (v) => _handleNumInput(_tienCKCtrl, v),
-          ),
-          if (rowCoTaiKhoan != null)
-            Padding(
-              padding: const EdgeInsets.only(top: 4, left: 4, bottom: 4),
-              child: Text(
-                'Tài khoản nhận: ${rowCoTaiKhoan.tenTaiKhoanCK}',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic),
-              ),
-            ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
+
+          // --- Tien CK theo tung ngan hang ---
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Còn lại (nợ):', style: TextStyle(fontWeight: FontWeight.w600)),
-              Text(
-                '${_fmt.format(conLai.toInt())} đ',
-                style: TextStyle(
-                  fontWeight: FontWeight.w700,
-                  color: conLai > 0 ? Colors.red.shade700 : Colors.green.shade700,
-                ),
+              const Text('Chuyển khoản theo ngân hàng',
+                  style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+              TextButton.icon(
+                onPressed: _nganHangList.isEmpty ? null : () => setState(() => _ckRows.add(_CKRow())),
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Thêm'),
               ),
             ],
           ),
+          if (_ckRows.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text('Chưa có khoản chuyển khoản nào',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+            ),
+          ..._ckRows.asMap().entries.map((e) => _buildCKRow(e.key, e.value)),
+          const SizedBox(height: 8),
+
+          // --- Tong hop ---
+          _tongRow('Tổng thu:', tongThu, color: Colors.teal.shade700),
+          _tongRow('Còn lại (nợ):', conLai,
+              color: conLai > 0 ? Colors.red.shade700 : Colors.green.shade700),
           const SizedBox(height: 16),
 
           // --- No cu khach hang tra ---
@@ -223,7 +266,7 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
               ),
             ],
           ),
-          ..._traNoCuRows.asMap().entries.map((e) => _buildTraNoCuRow(e.key, e.value, khachHangs)),
+          ..._traNoCuRows.asMap().entries.map((e) => _buildTraNoCuRow(e.key, e.value)),
           const SizedBox(height: 16),
 
           // --- Ghi chu ---
@@ -264,23 +307,51 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
     );
   }
 
-  Widget _buildTraNoCuRow(int idx, _TraNoCuRow row, Map<int, String> khachHangs) {
+  Widget _tongRow(String label, double value, {required Color color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
+          Text('${_fmt.format(value.toInt())} đ',
+              style: TextStyle(fontWeight: FontWeight.w700, color: color)),
+        ],
+      ),
+    );
+  }
+
+  // 1 dong CK: dropdown ngan hang + so tien
+  Widget _buildCKRow(int idx, _CKRow row) {
+    // Neu dong pre-fill tu server co taiKhoanId nhung khong nam trong _nganHangList (chua tai xong),
+    // van cho hien ten tai khoan da co.
+    final items = _nganHangList
+        .map((t) => DropdownMenuItem<int>(
+              value: t['server_id'] as int?,
+              child: Text(t['ten_tai_khoan'] as String? ?? '—', overflow: TextOverflow.ellipsis),
+            ))
+        .toList();
+    final hasValue = row.taiKhoanId != null &&
+        items.any((it) => it.value == row.taiKhoanId);
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           Expanded(
-            flex: 2,
+            flex: 3,
             child: DropdownButtonFormField<int>(
-              value: row.khachHangId,
-              hint: const Text('Khách hàng'),
+              value: hasValue ? row.taiKhoanId : null,
               isDense: true,
+              hint: Text(row.tenTaiKhoan ?? 'Chọn ngân hàng', overflow: TextOverflow.ellipsis),
               decoration: const InputDecoration(border: OutlineInputBorder(), isDense: true,
                   contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8)),
-              items: khachHangs.entries
-                  .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, overflow: TextOverflow.ellipsis)))
-                  .toList(),
-              onChanged: (v) => setState(() => row.khachHangId = v),
+              items: items,
+              onChanged: (v) => setState(() {
+                row.taiKhoanId = v;
+                row.tenTaiKhoan = _nganHangList
+                    .firstWhere((t) => t['server_id'] == v, orElse: () => {})['ten_tai_khoan'] as String?;
+              }),
             ),
           ),
           const SizedBox(width: 8),
@@ -296,19 +367,131 @@ class _PheDuyetChuyenXeScreenState extends ConsumerState<PheDuyetChuyenXeScreen>
                 suffixText: 'đ',
                 contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               ),
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              onChanged: (_) => setState(() {}),
+              onChanged: (v) => _handleNumInput(row.soTienCtrl, v),
             ),
           ),
           IconButton(
             icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
             onPressed: () => setState(() {
-              _traNoCuRows[idx].dispose();
-              _traNoCuRows.removeAt(idx);
+              _ckRows[idx].dispose();
+              _ckRows.removeAt(idx);
             }),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
+        ],
+      ),
+    );
+  }
+
+  // Mo man picker chon khoan no cu; pre-fill so tien = con no
+  Future<void> _pickNoCu(_TraNoCuRow row) async {
+    final picked = await context.push<DuNoItemModel>(
+      AppRoutes.chonNoCu,
+      extra: {'excludeChuyenXeId': widget.chuyenXeId},
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      row.khachHangId  = picked.khachHangId;
+      row.tenKhachHang = picked.tenKhachHang;
+      row.chuyenXeId   = picked.chuyenXeId;
+      row.maChuyenXe   = picked.maChuyenXe;
+      row.ngayXuat     = picked.ngayXuat;
+      row.conNo        = picked.conNo;
+      row.soTienCtrl.text = picked.conNo > 0 ? _fmt.format(picked.conNo.toInt()) : '';
+    });
+  }
+
+  // Nhap so tien thu no cu — cap khong vuot qua con no cua khoan da chon
+  void _handleTraNoInput(_TraNoCuRow row, String raw) {
+    final digits = raw.replaceAll(RegExp(r'[^\d]'), '');
+    var n = int.tryParse(digits) ?? 0;
+    if (row.conNo > 0 && n > row.conNo) n = row.conNo.toInt();
+    final formatted = n > 0 ? _fmt.format(n) : '';
+    row.soTienCtrl.value = TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+    setState(() {});
+  }
+
+  Widget _buildTraNoCuRow(int idx, _TraNoCuRow row) {
+    final selected = row.khachHangId != null;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: InkWell(
+                  onTap: () => _pickNoCu(row),
+                  borderRadius: BorderRadius.circular(6),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: selected ? const Color(0xFF00897B) : Colors.grey.shade400),
+                      borderRadius: BorderRadius.circular(6),
+                      color: selected ? const Color(0xFFE0F2F1) : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(selected ? Icons.account_circle : Icons.person_search_outlined,
+                            size: 18, color: const Color(0xFF00897B)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: selected
+                              ? Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(row.tenKhachHang ?? '',
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                        overflow: TextOverflow.ellipsis),
+                                    Text('Chuyến ${row.maChuyenXe ?? ''} • Còn nợ ${_fmt.format(row.conNo.toInt())} đ',
+                                        style: TextStyle(fontSize: 11, color: Colors.grey.shade700)),
+                                  ],
+                                )
+                              : const Text('Chọn khách hàng còn nợ',
+                                  style: TextStyle(fontSize: 13, color: Colors.black54)),
+                        ),
+                        const Icon(Icons.chevron_right, size: 18, color: Colors.grey),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                onPressed: () => setState(() {
+                  _traNoCuRows[idx].dispose();
+                  _traNoCuRows.removeAt(idx);
+                }),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 32),
+              ),
+            ],
+          ),
+          if (selected) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: row.soTienCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Số tiền thu',
+                border: OutlineInputBorder(),
+                isDense: true,
+                suffixText: 'đ',
+                contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+              ),
+              onChanged: (v) => _handleTraNoInput(row, v),
+            ),
+          ],
         ],
       ),
     );
@@ -338,9 +521,23 @@ class _NumField extends StatelessWidget {
   }
 }
 
-// State cho 1 dong no cu khach hang
+// State cho 1 dong CK theo ngan hang
+class _CKRow {
+  int? taiKhoanId;
+  String? tenTaiKhoan;
+  final soTienCtrl = TextEditingController();
+  _CKRow({this.taiKhoanId, this.tenTaiKhoan});
+  void dispose() => soTienCtrl.dispose();
+}
+
+// State cho 1 dong no cu khach hang (chon qua man picker)
 class _TraNoCuRow {
   int? khachHangId;
+  String? tenKhachHang;
+  int? chuyenXeId;      // chuyen no goc
+  String? maChuyenXe;
+  String? ngayXuat;
+  double conNo = 0;     // so con no cua khoan da chon (de cap so tien thu)
   final soTienCtrl = TextEditingController();
   void dispose() => soTienCtrl.dispose();
 }

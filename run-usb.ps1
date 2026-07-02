@@ -1,4 +1,4 @@
-# run-usb.ps1 — Chạy app trên thiết bị thật, kết nối BE qua CABLE USB (không WiFi).
+﻿# run-usb.ps1 — Chạy app trên thiết bị thật, kết nối BE qua CABLE USB (không WiFi).
 # Luồng: thiết bị gọi localhost:5001 -> adb reverse tunnel qua USB -> BE trên máy dev (0.0.0.0:5001).
 #
 # Dùng:  .\run-usb.ps1                (tự chọn thiết bị android đầu tiên)

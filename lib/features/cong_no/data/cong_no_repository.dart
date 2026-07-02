@@ -10,6 +10,14 @@ class CongNoRepository {
     return (res.data as List).map((e) => CongNoChuyenXeModel.fromJson(e)).toList();
   }
 
+  // Lấy tất cả khoản nợ còn lại của mọi khách (cho màn chọn thu nợ cũ)
+  Future<List<DuNoItemModel>> getDuNoTatCa({int? excludeChuyenXeId}) async {
+    final res = await _dio.get('/api/cong-no/du-no-tat-ca', queryParameters: {
+      if (excludeChuyenXeId != null) 'excludeChuyenXeId': excludeChuyenXeId,
+    });
+    return (res.data as List).map((e) => DuNoItemModel.fromJson(e)).toList();
+  }
+
   Future<CongNoChuyenXeModel> traNo({
     required int khachHangId,
     required int chuyenXeId,

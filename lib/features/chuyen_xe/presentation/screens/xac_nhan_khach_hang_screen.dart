@@ -51,6 +51,8 @@ class XacNhanKhachHangScreen extends ConsumerStatefulWidget {
 // state cua man hinh xac nhan khach hang
 class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen> {
   bool _uploading = false; // trang thai dang upload de khoa nut va hien loading
+  bool _daChupAnh = false; // da upload anh bien lai ky tay chua
+  bool _daKy = false;      // da ky xac nhan tren app chua
 
   // nen anh giam dan quality/kich thuoc toi khi duoi nguong an toan (900KB, chua margin
   // duoi hard-limit 1MB cua backend XacNhanKhachHangController) - anh camera thuong 2-8MB
@@ -107,21 +109,14 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
       await tempFile.delete().catchError((_) => tempFile); // xoa file tam, bo qua neu xoa loi
 
       if (mounted) { // kiem tra widget con tren cay truoc khi cap nhat UI
+        setState(() => _daChupAnh = true); // danh dau da co anh bien lai, van cho ky tiep
         ScaffoldMessenger.of(context).showSnackBar( // hien thong bao thanh cong
           const SnackBar(
-            content: Text('✓ Xác nhận ảnh biên lai thành công'),
+            content: Text('✓ Đã lưu ảnh biên lai. Có thể ký thêm trên app.'),
             backgroundColor: Colors.green,
-            duration: Duration(milliseconds: 1500), // tu dong an sau 1.5 giay
+            duration: Duration(milliseconds: 2000), // tu dong an sau 2 giay
           ),
         );
-        Future.delayed(const Duration(milliseconds: 1500), () { // cho snackbar hien xong roi thoat
-          if (mounted) { // kiem tra lai widget con song truoc khi thuc hien
-            if (widget.chuyenXeId > 0) { // chi refresh neu co id chuyen xe hop le
-              ref.invalidate(chuyenXeDetailProvider(widget.chuyenXeId)); // buoc provider fetch lai tu API
-            }
-            context.pop(); // quay ve man hinh truoc (tab ban hang)
-          }
-        });
       }
     } catch (e) {
       if (mounted) { // kiem tra widget con song truoc khi hien thong bao loi
@@ -144,16 +139,19 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
       MaterialPageRoute(builder: (_) => ChuKyScreen(xacNhanId: widget.xacNhanId)), // truyen xacNhanId sang man hinh chu ky
     );
     if (result != null && mounted) { // neu khach da ky thanh cong (result = 'ok') va widget con song
-      if (widget.chuyenXeId > 0) { // chi refresh neu co id chuyen xe hop le
-        ref.invalidate(chuyenXeDetailProvider(widget.chuyenXeId)); // buoc provider fetch lai de tab ban hang cap nhat
-      }
-      context.pop(); // quay ve man hinh truoc
+      setState(() => _daKy = true); // danh dau da ky tren app, van cho chup anh bien lai tiep
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✓ Đã lưu chữ ký. Có thể chụp thêm ảnh biên lai.'),
+          backgroundColor: Colors.green,
+          duration: Duration(milliseconds: 2000),
+        ),
+      );
     }
   }
 
-  // xu ly khi nguoi dung bam bo qua, khong xac nhan nhung van refresh tab ban hang
-  // de hien thi du lieu ban hang vua nhap (da luu truoc khi sang man hinh nay)
-  void _boQua() {
+  // hoan tat man hinh: refresh tab ban hang de hien du lieu vua nhap + xac nhan, roi quay ve
+  void _hoanTat() {
     if (widget.chuyenXeId > 0) {
       ref.invalidate(chuyenXeDetailProvider(widget.chuyenXeId)); // buoc provider fetch lai du lieu moi
     }
@@ -333,20 +331,25 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
             ),
             const SizedBox(height: 24), // khoang cach giua bien lai va cac nut
 
-            // ---- 3 nut xac nhan ----
+            // ---- Cac nut xac nhan (co the lam ca 2 luong song song) ----
             const Text(
               'Xác nhận bằng:', // tieu de nhom nut
               style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Có thể vừa ký trên app vừa chụp ảnh biên lai — cả hai đều được lưu.',
+              style: TextStyle(fontSize: 11, color: Colors.black54, fontStyle: FontStyle.italic),
             ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity, // nut rong toan man hinh
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.camera_alt_outlined, size: 20), // icon camera
-                label: const Text('📷 Chụp ảnh biên lai ký tay'), // nhan nut
+                icon: Icon(_daChupAnh ? Icons.check_circle : Icons.camera_alt_outlined, size: 20),
+                label: Text(_daChupAnh ? '✓ Đã có ảnh biên lai — chụp lại' : '📷 Chụp ảnh biên lai ký tay'),
                 onPressed: _uploading ? null : _uploadAnh, // vo hieu hoa khi dang upload
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1976D2), // mau xanh duong dam
+                  backgroundColor: _daChupAnh ? const Color(0xFF2E7D32) : const Color(0xFF1976D2), // xanh la khi da co
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   disabledBackgroundColor: Colors.grey.shade300, // mau xam khi bi vo hieu hoa
@@ -357,11 +360,11 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
             SizedBox(
               width: double.infinity, // nut rong toan man hinh
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.edit_outlined, size: 20), // icon but ve
-                label: const Text('✍️ Ký xác nhận trên app'), // nhan nut
+                icon: Icon(_daKy ? Icons.check_circle : Icons.edit_outlined, size: 20),
+                label: Text(_daKy ? '✓ Đã ký trên app — ký lại' : '✍️ Ký xác nhận trên app'),
                 onPressed: _uploading ? null : _kyXacNhan, // vo hieu hoa khi dang upload
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED), // mau tim
+                  backgroundColor: _daKy ? const Color(0xFF2E7D32) : const Color(0xFF7C3AED), // xanh la khi da co
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   disabledBackgroundColor: Colors.grey.shade300,
@@ -371,16 +374,28 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
             const SizedBox(height: 8),
             SizedBox(
               width: double.infinity, // nut rong toan man hinh
-              child: OutlinedButton.icon(
-                icon: const Icon(Icons.close_outlined, size: 20), // icon dong
-                label: const Text('Lưu và không xác nhận'), // nhan nut luu khong can ky xac nhan
-                onPressed: _uploading ? null : _boQua, // vo hieu hoa khi dang upload
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.grey.shade700,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  disabledForegroundColor: Colors.grey.shade300,
-                ),
-              ),
+              child: (_daChupAnh || _daKy)
+                  ? ElevatedButton.icon( // da xac nhan it nhat 1 luong -> nut Hoan tat noi bat
+                      icon: const Icon(Icons.done_all, size: 20),
+                      label: const Text('Hoàn tất'),
+                      onPressed: _uploading ? null : _hoanTat,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF00897B), // teal
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        disabledBackgroundColor: Colors.grey.shade300,
+                      ),
+                    )
+                  : OutlinedButton.icon( // chua xac nhan -> luu va bo qua
+                      icon: const Icon(Icons.close_outlined, size: 20),
+                      label: const Text('Lưu và không xác nhận'),
+                      onPressed: _uploading ? null : _hoanTat,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.grey.shade700,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        disabledForegroundColor: Colors.grey.shade300,
+                      ),
+                    ),
             ),
             const SizedBox(height: 16),
             if (_uploading) // chi hien loading khi dang xu ly

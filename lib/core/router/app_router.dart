@@ -38,6 +38,7 @@ import '../../features/chuyen_xe/presentation/screens/tim_kiem_khach_hang_screen
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_phu_xe_screen.dart'; // tim kiem phu xe
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_mat_hang_screen.dart'; // tim kiem mat hang
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_nha_cung_cap_screen.dart'; // tim kiem nha cung cap
+import '../../features/chuyen_xe/presentation/screens/chon_no_cu_screen.dart'; // chon khoan no cu de thu
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_theo_ngay_screen.dart'; // xem chuyen xe theo ngay
 import '../../features/chuyen_xe/presentation/screens/nhap_ban_hang_screen.dart'; // nhap ban hang cho khach
 import '../../features/chuyen_xe/presentation/screens/sua_ban_hang_khach_hang_screen.dart'; // sua ban hang da nhap
@@ -174,6 +175,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: const TimKiemNhaCungCapScreen(),
         ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.chonNoCu, // route chon khoan no cu de thu (popup chon)
+        pageBuilder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CupertinoPage(
+            key: state.pageKey,
+            child: ChonNoCuScreen(excludeChuyenXeId: extra?['excludeChuyenXeId'] as int?),
+          );
+        },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

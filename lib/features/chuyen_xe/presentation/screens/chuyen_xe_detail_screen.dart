@@ -329,7 +329,7 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     if (cx == null) return null;
 
     final roleCode = ref.watch(userInfoProvider).value?.roleCode ?? '';
-    final isLaiXe = roleCode == 'lai-xe' || roleCode.isEmpty;
+    final isLaiXe = roleCode == 'LaiXe' || roleCode.isEmpty;
 
     // Lai xe thay button "Ket thuc chuyen" khi dang-giao
     if (cx.trangThai == 'dang-giao' && isLaiXe) {
@@ -1002,11 +1002,12 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
       ref.refresh(chuyenXeDetailProvider(widget.cx.id).future);
 
   /// Mo dialog xem anh bien lai hoac chu ky xac nhan cua khach hang
-  void _xemAnhXacNhan(XacNhanKhachHangModel xn) {
+  // Xem ảnh xác nhận phóng to theo url cụ thể (biên lai hoặc chữ ký) — hỗ trợ 2 luồng song song
+  void _xemAnhFull(String relativeUrl, {required bool isKy, DateTime? ngayXacNhan}) {
     final baseUrl = AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
-    final imageUrl = '$baseUrl${xn.url}';
-    final title = xn.loaiXacNhan == 'ky' ? 'Chữ ký xác nhận' : 'Ảnh biên lai';
-    final iconData = xn.loaiXacNhan == 'ky' ? Icons.draw_outlined : Icons.image_outlined;
+    final imageUrl = '$baseUrl$relativeUrl';
+    final title = isKy ? 'Chữ ký xác nhận' : 'Ảnh biên lai';
+    final iconData = isKy ? Icons.draw_outlined : Icons.image_outlined;
 
     showDialog(
       context: context,
@@ -1060,19 +1061,86 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                   ),
                 ),
               ),
-              if (xn.ngayXacNhan != null)
+              if (ngayXacNhan != null)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   color: Colors.grey.shade50,
                   child: Text(
-                    'Xác nhận lúc: ${_fmtDate.format(xn.ngayXacNhan!.toLocal())}',
+                    'Xác nhận lúc: ${_fmtDate.format(ngayXacNhan.toLocal())}',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Strip hiển thị thumbnail ảnh biên lai + chữ ký của khách (cả 2 luồng nếu có)
+  Widget _buildXacNhanThumbnails(XacNhanKhachHangModel? xn) {
+    if (xn == null || (!xn.coAnh && !xn.coChuKy)) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+      color: const Color(0xFFF1F8F7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Ảnh xác nhận khách hàng:',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (xn.coAnh)
+                _xacNhanThumb(xn.anhUrl!, label: 'Biên lai', icon: Icons.image_outlined, isKy: false, ngay: xn.ngayXacNhan),
+              if (xn.coChuKy)
+                _xacNhanThumb(xn.chuKyUrl!, label: 'Chữ ký', icon: Icons.draw_outlined, isKy: true, ngay: xn.ngayXacNhan),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Một thumbnail ảnh xác nhận — bấm để phóng to
+  Widget _xacNhanThumb(String relativeUrl,
+      {required String label, required IconData icon, required bool isKy, DateTime? ngay}) {
+    final baseUrl = AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () => _xemAnhFull(relativeUrl, isKy: isKy, ngayXacNhan: ngay),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 64,
+                height: 64,
+                color: Colors.white,
+                child: Image.network(
+                  '$baseUrl$relativeUrl',
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Icon(icon, size: 12, color: Colors.grey.shade600),
+              const SizedBox(width: 3),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1298,21 +1366,6 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                               ],
                             ),
                           ),
-                          // Nut xem anh bien lai / chu ky (chi hien khi da xac nhan)
-                          if (xacNhanMap[entry.key]?.daXacNhan == true)
-                            IconButton(
-                              icon: Icon(
-                                xacNhanMap[entry.key]?.loaiXacNhan == 'ky'
-                                    ? Icons.draw_outlined
-                                    : Icons.image_outlined,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              onPressed: () => _xemAnhXacNhan(xacNhanMap[entry.key]!),
-                              tooltip: 'Xem ảnh xác nhận',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            ),
                           if (canEdit)
                             IconButton(
                               icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.white70),
@@ -1331,6 +1384,8 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                         ],
                       ),
                     ),
+                    // Strip thumbnail ảnh xác nhận (biên lai + chữ ký) — 2 luồng song song
+                    _buildXacNhanThumbnails(xacNhanMap[entry.key]),
                     // Danh sách mặt hàng
                     ...rows.asMap().entries.map((e) {
                       final idx = e.key;
