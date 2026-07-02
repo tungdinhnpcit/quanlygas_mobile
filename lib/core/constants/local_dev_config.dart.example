@@ -4,4 +4,7 @@
 // File "local_dev_config.dart" đã được thêm vào .gitignore — mỗi máy tự giữ IP riêng.
 class LocalDevConfig {
   static const String devApiUrl = 'http://192.168.1.9:5001';
+
+  /// true = debug mode gọi API production qua internet (bỏ qua LAN/emulator)
+  static const bool useInternetInDebug = false;
 }

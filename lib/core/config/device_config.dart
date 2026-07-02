@@ -4,6 +4,8 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:flutter/foundation.dart';
 
+import '../constants/local_dev_config.dart';
+
 class DeviceConfig {
   /// Trả về base API URL phù hợp với thiết bị đang chạy.
   /// Release mode → luôn production.
@@ -15,6 +17,9 @@ class DeviceConfig {
     required String prodUrl,
   }) async {
     if (kReleaseMode) return prodUrl;
+
+    // Debug nhưng muốn test với API internet (bật cờ trong local_dev_config.dart)
+    if (LocalDevConfig.useInternetInDebug) return prodUrl;
 
     // Debug mode
     if (Platform.isAndroid) {

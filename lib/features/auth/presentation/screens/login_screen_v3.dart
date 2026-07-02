@@ -257,12 +257,17 @@ class _LoginScreenV3State extends ConsumerState<LoginScreenV3> {
             ),
           ),
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+            child: LayoutBuilder(
+              builder: (context, constraints) => SingleChildScrollView(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: IntrinsicHeight(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
                   const Padding(
                     padding: EdgeInsets.fromLTRB(32, 24, 32, 32),
                     child: Column(
@@ -445,9 +450,13 @@ class _LoginScreenV3State extends ConsumerState<LoginScreenV3> {
                           ),
                         ),
                       ),
-                    ],
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ],
+                ),
+                ),
               ),
             ),
           ),
