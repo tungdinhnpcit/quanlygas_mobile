@@ -38,101 +38,114 @@ class _KhachHangListScreenState extends ConsumerState<KhachHangListScreen> {
   Widget build(BuildContext context) {
     final listAsync = ref.watch(khachHangListProvider);
 
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          child: TextField(
-            controller: _searchCtrl,
-            decoration: InputDecoration(
-              hintText: 'Tìm theo mã, tên, SĐT, địa chỉ...',
-              prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchCtrl.text.isNotEmpty
-                  ? IconButton(
-                      icon: const Icon(Icons.clear),
-                      onPressed: () {
-                        _searchCtrl.clear();
-                        setState(() => _filterQuery = '');
-                      },
-                    )
-                  : null,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-              isDense: true,
-            ),
-            onChanged: (text) {
-              setState(() {});
-              _debounce?.cancel();
-              _debounce = Timer(const Duration(milliseconds: 1000), () {
-                setState(() => _filterQuery = removeDiacritics(text.trim()));
-              });
-            },
-          ),
-        ),
-        Expanded(
-          child: RefreshIndicator(
-            onRefresh: () => ref
-                .read(khachHangListProvider.notifier)
-                .load(),
-            child: listAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (e, _) => Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-                    const SizedBox(height: 12),
-                    Text(e.toString(),
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: () => ref.read(khachHangListProvider.notifier).load(),
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Thử lại'),
-                    ),
-                  ],
-                ),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: TextField(
+              controller: _searchCtrl,
+              decoration: InputDecoration(
+                hintText: 'Tìm theo mã, tên, SĐT, địa chỉ...',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchCtrl.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchCtrl.clear();
+                          setState(() => _filterQuery = '');
+                        },
+                      )
+                    : null,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                isDense: true,
               ),
-              data: (list) {
-                final allItems = list;
-                final items = _filterQuery.isEmpty
-                    ? allItems
-                    : allItems.where((kh) {
-                        final name = removeDiacritics(kh.tenKhachHang);
-                        final ma = removeDiacritics(kh.maKhachHang);
-                        final addr = removeDiacritics(kh.diaChi ?? '');
-                        return name.contains(_filterQuery) ||
-                            ma.contains(_filterQuery) ||
-                            addr.contains(_filterQuery);
-                      }).toList();
-
-                if (items.isEmpty) {
-                  return ListView(children: const [
-                    SizedBox(height: 120),
-                    Center(
-                      child: Column(children: [
-                        Icon(Icons.people_outline, size: 64, color: Colors.white24),
-                        SizedBox(height: 12),
-                        Text('Không có khách hàng nào',
-                            style: TextStyle(color: Colors.white38)),
-                      ]),
-                    ),
-                  ]);
-                }
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  itemCount: items.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (ctx, i) => _KhachHangCard(
-                    item: items[i],
-                    onTap: () => ctx.push(AppRoutes.khachHangDetail(items[i].id)),
-                  ),
-                );
+              onChanged: (text) {
+                setState(() {});
+                _debounce?.cancel();
+                _debounce = Timer(const Duration(milliseconds: 1000), () {
+                  setState(() => _filterQuery = removeDiacritics(text.trim()));
+                });
               },
             ),
           ),
-        ),
-      ],
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: () => ref
+                  .read(khachHangListProvider.notifier)
+                  .load(),
+              child: listAsync.when(
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                      const SizedBox(height: 12),
+                      Text(e.toString(),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 16),
+                      FilledButton.icon(
+                        onPressed: () => ref.read(khachHangListProvider.notifier).load(),
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Thử lại'),
+                      ),
+                    ],
+                  ),
+                ),
+                data: (list) {
+                  final allItems = list;
+                  final items = _filterQuery.isEmpty
+                      ? allItems
+                      : allItems.where((kh) {
+                          final name = removeDiacritics(kh.tenKhachHang);
+                          final ma = removeDiacritics(kh.maKhachHang);
+                          final addr = removeDiacritics(kh.diaChi ?? '');
+                          return name.contains(_filterQuery) ||
+                              ma.contains(_filterQuery) ||
+                              addr.contains(_filterQuery);
+                        }).toList();
+
+                  if (items.isEmpty) {
+                    return ListView(children: const [
+                      SizedBox(height: 120),
+                      Center(
+                        child: Column(children: [
+                          Icon(Icons.people_outline, size: 64, color: Colors.white24),
+                          SizedBox(height: 12),
+                          Text('Không có khách hàng nào',
+                              style: TextStyle(color: Colors.white38)),
+                        ]),
+                      ),
+                    ]);
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (ctx, i) => _KhachHangCard(
+                      item: items[i],
+                      onTap: () => ctx.push(AppRoutes.khachHangDetail(items[i].id)),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          await context.push(AppRoutes.taoKhachHang);
+          if (mounted) ref.read(khachHangListProvider.notifier).load();
+        },
+        icon: const Icon(Icons.add),
+        label: const Text('Thêm khách hàng'),
+        backgroundColor: const Color(0xFF00897B),
+        foregroundColor: Colors.white,
+      ),
     );
   }
 }
