@@ -9,60 +9,125 @@ final thongBaoRepositoryProvider = Provider<ThongBaoRepository>(
   (_) => ThongBaoRepository(),
 );
 
-class ThongBaoListNotifier extends StateNotifier<AsyncValue<List<ThongBaoModel>>> {
+/// State danh sách thông báo có phân trang.
+class ThongBaoPageState {
+  final List<ThongBaoModel> items;
+  final bool isLoading;      // đang tải trang đầu
+  final bool isLoadingMore;  // đang tải thêm
+  final bool hasMore;
+  final Object? error;
+
+  const ThongBaoPageState({
+    this.items = const [],
+    this.isLoading = true,
+    this.isLoadingMore = false,
+    this.hasMore = true,
+    this.error,
+  });
+
+  ThongBaoPageState copyWith({
+    List<ThongBaoModel>? items,
+    bool? isLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    Object? error,
+    bool clearError = false,
+  }) =>
+      ThongBaoPageState(
+        items: items ?? this.items,
+        isLoading: isLoading ?? this.isLoading,
+        isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+        hasMore: hasMore ?? this.hasMore,
+        error: clearError ? null : (error ?? this.error),
+      );
+}
+
+class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
   final ThongBaoRepository _repo;
   final Ref _ref;
+  final bool? _daDoc;   // null=tất cả, false=chưa đọc, true=đã đọc
   int _userId = 0;
+  int _page = 1;
+  static const int _pageSize = 20;
 
-  ThongBaoListNotifier(this._repo, this._ref) : super(const AsyncValue.data([]));
+  ThongBaoListNotifier(this._repo, this._ref, this._daDoc) : super(const ThongBaoPageState());
 
-  /// Tải danh sách thông báo. Lần đầu phải truyền userId.
-  /// Chưa đọc được sắp xếp lên đầu, trong từng nhóm mới nhất trước.
-  Future<void> load({int? userId}) async {
-    if (userId != null) _userId = userId;
+  /// Tải trang đầu (reset). Truyền userId lần đầu.
+  Future<void> loadFirst(int userId) async {
+    _userId = userId;
     if (_userId <= 0) return;
-    state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() async {
-      final items = await _repo.getList(_userId);
-      items.sort((a, b) {
-        if (a.daDoc != b.daDoc) return a.daDoc ? 1 : -1;
-        return b.createdAt.compareTo(a.createdAt);
-      });
-      return items;
-    });
-  }
-
-  /// Đánh dấu đã đọc — cập nhật state local ngay, gọi API nền.
-  Future<void> markAsRead(int id) async {
-    final current = state.valueOrNull;
-    if (current == null) return;
-    state = AsyncValue.data(
-      current.map((t) => t.id == id ? t.copyWith(daDoc: true) : t).toList(),
-    );
-    try { await _repo.markAsRead(id); } catch (_) {}
-  }
-
-  /// Đánh dấu tất cả thông báo chưa đọc là đã đọc
-  Future<void> markAllAsRead() async {
-    final current = state.valueOrNull;
-    if (current == null) return;
-    // Optimistic update: đánh dấu tất cả là đã đọc trong state local
-    state = AsyncValue.data(
-      current.map((t) => t.copyWith(daDoc: true)).toList(),
-    );
+    _page = 1;
+    state = const ThongBaoPageState(isLoading: true);
     try {
-      await _repo.markAllAsRead(_userId);
-      // Invalidate badge count
+      final res = await _repo.getListPaged(_userId, page: _page, pageSize: _pageSize, daDoc: _daDoc);
+      state = ThongBaoPageState(
+        items: res.items,
+        isLoading: false,
+        hasMore: res.items.length < res.total,
+      );
+    } catch (e) {
+      state = ThongBaoPageState(isLoading: false, hasMore: false, error: e);
+    }
+  }
+
+  Future<void> refresh() => loadFirst(_userId);
+
+  /// Tải thêm trang kế tiếp (infinite scroll).
+  Future<void> loadMore() async {
+    if (state.isLoadingMore || !state.hasMore || state.isLoading) return;
+    state = state.copyWith(isLoadingMore: true);
+    _page += 1;
+    try {
+      final res = await _repo.getListPaged(_userId, page: _page, pageSize: _pageSize, daDoc: _daDoc);
+      final merged = [...state.items, ...res.items];
+      state = state.copyWith(
+        items: merged,
+        isLoadingMore: false,
+        hasMore: merged.length < res.total,
+      );
+    } catch (_) {
+      _page -= 1; // rollback để thử lại lần sau
+      state = state.copyWith(isLoadingMore: false);
+    }
+  }
+
+  /// Đánh dấu đã đọc — optimistic local + gọi API + đồng bộ các tab khác + badge.
+  Future<void> markAsRead(int id) async {
+    // Cập nhật local: nếu đang ở tab "Chưa đọc" thì bỏ item khỏi list, ngược lại set daDoc
+    final updated = _daDoc == false
+        ? state.items.where((t) => t.id != id).toList()
+        : state.items.map((t) => t.id == id ? t.copyWith(daDoc: true) : t).toList();
+    state = state.copyWith(items: updated);
+    try {
+      await _repo.markAsRead(id);
+    } catch (_) {}
+    _ref.invalidate(soChuaDocProvider);
+    _invalidateOtherTabs();
+  }
+
+  /// Đánh dấu tất cả đã đọc.
+  Future<void> markAllAsRead(int userId) async {
+    try {
+      await _repo.markAllAsRead(userId);
       _ref.invalidate(soChuaDocProvider);
-      // Cập nhật baseline polling để tránh re-notification
       await BackgroundPollingService.updateLastKnownCount(0);
     } catch (_) {}
+    // Reset toàn bộ family để 3 tab đồng bộ
+    _ref.invalidate(thongBaoListProvider);
+  }
+
+  // Reset các instance family khác (giữ tab hiện tại đã cập nhật optimistic)
+  void _invalidateOtherTabs() {
+    for (final f in <bool?>[null, false, true]) {
+      if (f != _daDoc) _ref.invalidate(thongBaoListProvider(f));
+    }
   }
 }
 
-final thongBaoListProvider =
-    StateNotifierProvider.autoDispose<ThongBaoListNotifier, AsyncValue<List<ThongBaoModel>>>(
-  (ref) => ThongBaoListNotifier(ref.watch(thongBaoRepositoryProvider), ref),
+/// Family theo bộ lọc: null=Tất cả, false=Chưa đọc, true=Đã đọc.
+final thongBaoListProvider = StateNotifierProvider.autoDispose
+    .family<ThongBaoListNotifier, ThongBaoPageState, bool?>(
+  (ref, daDoc) => ThongBaoListNotifier(ref.watch(thongBaoRepositoryProvider), ref, daDoc),
 );
 
 /// Chi tiết thông báo — FutureProvider.family, không phụ thuộc list cache.

@@ -146,8 +146,11 @@ class _ChuyenXeTheoNgayScreenState
       appBar: AppBar(
         title: Text('Chuyến xe $ngayLabel'),
         leading: BackButton(onPressed: () {
-          if (context.canPop()) context.pop();
-          else context.go(AppRoutes.home);
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.home);
+          }
         }),
       ),
       bottomNavigationBar: const AppBottomNavBar(),
@@ -156,7 +159,7 @@ class _ChuyenXeTheoNgayScreenState
           // Header thông tin xe + lái xe
           Container(
             width: double.infinity,
-            color: const Color(0xFF00897B).withOpacity(0.08),
+            color: const Color(0xFF00897B).withValues(alpha: 0.08),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
@@ -358,9 +361,9 @@ class _StatusBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,

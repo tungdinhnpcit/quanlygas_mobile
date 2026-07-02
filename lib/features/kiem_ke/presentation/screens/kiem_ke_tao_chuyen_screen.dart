@@ -201,8 +201,11 @@ class _KiemKeTaoChuyenScreenState extends State<KiemKeTaoChuyenScreen> {
       appBar: AppBar(
         title: const Text('Tạo chuyến xe'),
         leading: BackButton(onPressed: () {
-          if (context.canPop()) context.pop();
-          else context.go(AppRoutes.kiemKeList);
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.kiemKeList);
+          }
         }),
       ),
       body: Padding(
@@ -255,7 +258,7 @@ class _KiemKeTaoChuyenScreenState extends State<KiemKeTaoChuyenScreen> {
                             style: TextStyle(color: Colors.grey))
                         : DropdownButtonFormField<int>(
                             isExpanded: true,
-                            value: _selectedXeId,
+                            initialValue: _selectedXeId,
                             decoration: const InputDecoration(
                               border: OutlineInputBorder(),
                               contentPadding:

@@ -25,10 +25,10 @@ class ThongKeChuyenXeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final _tuNgay = tuNgay ?? today;
-    final _denNgay = denNgay ?? today;
+    final effectiveTuNgay = tuNgay ?? today;
+    final effectiveDenNgay = denNgay ?? today;
 
-    final dataAsync = ref.watch(thongKeChuyenXeProvider((_tuNgay, _denNgay)));
+    final dataAsync = ref.watch(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay)));
 
     return Scaffold(
       appBar: AppBar(
@@ -57,7 +57,7 @@ class ThongKeChuyenXeScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               TextButton(
-                onPressed: () => ref.refresh(thongKeChuyenXeProvider((_tuNgay, _denNgay))),
+                onPressed: () => ref.refresh(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay))),
                 child: const Text('Thử lại'),
               ),
             ],
@@ -164,11 +164,11 @@ class _ChuyenXeStatCard extends StatelessWidget {
                 label1: 'Phụ xe',
                 value1: item.tenPhuXe ?? '—',
                 label2: 'Tổng bình bán',
-                value2: item.hasKetThuc ? _num.format(item.tongSoBinhBan) : '—',
+                value2: '${_num.format(item.tongSoBinhBan)} bình',
               ),
               _Row2Col(
                 label1: 'Tổng vỏ',
-                value1: item.hasKetThuc ? _num.format(item.tongSoVo) : '—',
+                value1: '${_num.format(item.tongSoVo)} vỏ',
                 label2: 'Nợ',
                 value2: item.soTienNo != null && item.soTienNo! > 0
                     ? '${_vnd.format(item.soTienNo)} đ'
@@ -176,11 +176,10 @@ class _ChuyenXeStatCard extends StatelessWidget {
               ),
               _Row2Col(
                 label1: 'Tổng tiền thu',
-                value1: item.tongTienThu > 0
-                    ? '${_vnd.format(item.tongTienThu)} đ'
-                    : '0 đ',
-                label2: 'Gas dư (kg)',
-                value2: item.hasKetThuc ? _vnd.format(item.tongGasDuKg) : '—',
+                value1: '${_vnd.format(item.tongTienThu)} đ',
+                label2: 'Gas dư',
+                value2:
+                    '${_vnd.format(item.tongGasDuKg)} kg · ${_vnd.format(item.tienMuaGasDu)} đ',
               ),
               _Row2Col(
                 label1: 'Tiền mặt',

@@ -27,8 +27,10 @@ class XacNhanKhachHangModel {
   final int id;
   final int khachHangId;
   final String? tenKhachHang;
-  final String? loaiXacNhan;  // 'anh' | 'ky' | null
+  final String? loaiXacNhan;  // 'anh' | 'ky' | null — loại lần upload gần nhất
   final String? url;
+  final String? anhUrl;       // ảnh biên lai ký tay
+  final String? chuKyUrl;     // chữ ký vẽ trên app
   final DateTime? ngayXacNhan;
 
   const XacNhanKhachHangModel({
@@ -37,6 +39,8 @@ class XacNhanKhachHangModel {
     this.tenKhachHang,
     this.loaiXacNhan,
     this.url,
+    this.anhUrl,
+    this.chuKyUrl,
     this.ngayXacNhan,
   });
 
@@ -46,21 +50,27 @@ class XacNhanKhachHangModel {
         tenKhachHang:   json['tenKhachHang'] as String?,
         loaiXacNhan:    json['loaiXacNhan'] as String?,
         url:            json['url'] as String?,
+        anhUrl:         json['anhUrl'] as String?,
+        chuKyUrl:       json['chuKyUrl'] as String?,
         ngayXacNhan:    DateTime.tryParse(json['ngayXacNhan'] as String? ?? ''),
       );
 
-  bool get daXacNhan => url != null && url!.isNotEmpty;
+  bool get coAnh => anhUrl != null && anhUrl!.isNotEmpty;
+  bool get coChuKy => chuKyUrl != null && chuKyUrl!.isNotEmpty;
+  bool get daXacNhan => coAnh || coChuKy || (url != null && url!.isNotEmpty);
 }
 
 // ---------- Tổng tiền chuyển khoản theo tài khoản (aggregate card tổng quan) ----------
 
 class TienCKTaiKhoanModel {
+  final int? taiKhoanId;
   final String? tenTaiKhoan;
   final double tienCK;
 
-  const TienCKTaiKhoanModel({this.tenTaiKhoan, required this.tienCK});
+  const TienCKTaiKhoanModel({this.taiKhoanId, this.tenTaiKhoan, required this.tienCK});
 
   factory TienCKTaiKhoanModel.fromJson(Map<String, dynamic> json) => TienCKTaiKhoanModel(
+        taiKhoanId:  json['taiKhoanId'] as int?,
         tenTaiKhoan: json['tenTaiKhoan'] as String?,
         tienCK:      (json['tienCK'] as num? ?? 0).toDouble(),
       );

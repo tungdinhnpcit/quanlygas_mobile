@@ -21,6 +21,7 @@ final _fmtCurrency =
     NumberFormat.currency(locale: 'vi_VN', symbol: '₫', decimalDigits: 0);
 final _fmtDate = DateFormat('dd/MM/yyyy HH:mm');
 final _fmtDateOnly = DateFormat('dd/MM/yyyy');
+final _fmtKg = NumberFormat('#,##0.##', 'vi_VN');
 
 class ChuyenXeDetailScreen extends ConsumerStatefulWidget {
   const ChuyenXeDetailScreen({super.key, required this.chuyenXeId});
@@ -166,8 +167,11 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
       ref.read(chuyenXeListProvider.notifier).load(
         nhanVienId: nhanVienId > 0 ? nhanVienId : null,
       );
-      if (context.canPop()) context.pop();
-      else context.go(AppRoutes.home);
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go(AppRoutes.home);
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -329,7 +333,7 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     if (cx == null) return null;
 
     final roleCode = ref.watch(userInfoProvider).value?.roleCode ?? '';
-    final isLaiXe = roleCode == 'lai-xe' || roleCode.isEmpty;
+    final isLaiXe = roleCode == 'LaiXe' || roleCode.isEmpty;
 
     // Lai xe thay button "Ket thuc chuyen" khi dang-giao
     if (cx.trangThai == 'dang-giao' && isLaiXe) {
@@ -583,93 +587,6 @@ class _TabChiTiet extends StatelessWidget {
   }
 }
 
-// Card một cửa hàng trong chuyến.
-class _ChiTietCard extends StatelessWidget {
-  final int index;
-  final ChuyenXeChiTietModel item;
-  const _ChiTietCard({required this.index, required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor:
-                      const Color(0xFF00897B).withValues(alpha: 0.15),
-                  child: Text(
-                    '${index + 1}',
-                    style: const TextStyle(
-                        color: Color(0xFF00897B),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    item.tenKhachHang ?? 'Khách hàng #${item.khachHangId}',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700, fontSize: 14),
-                  ),
-                ),
-                Text(
-                  _fmtCurrency.format(item.thanhTien),
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF00897B),
-                      fontSize: 14),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            const Divider(height: 1),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: _DataChip(
-                      label: 'Mặt hàng',
-                      value: item.tenMatHang ?? 'ID ${item.matHangId}'),
-                ),
-                _DataChip(label: 'SL', value: '${item.soLuong} bình'),
-                const SizedBox(width: 8),
-                _DataChip(
-                    label: 'Đ/bình',
-                    value: _fmtCurrency.format(item.donGia)),
-              ],
-            ),
-            if (item.soVoBan > 0 || item.soVoThu > 0) ...[
-              const SizedBox(height: 6),
-              Row(
-                children: [
-                  _DataChip(
-                      label: 'Vỏ bán',
-                      value: '${item.soVoBan}',
-                      color: Colors.blue),
-                  const SizedBox(width: 8),
-                  _DataChip(
-                      label: 'Vỏ thu',
-                      value: '${item.soVoThu}',
-                      color: Colors.teal),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 // Card khách hàng khi chuyến đã kết thúc — hiển thị tên KH + mặt hàng + giá thực tế.
 class _KetThucChiTietCard extends StatelessWidget {
   final int index;
@@ -916,7 +833,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     );
     if (ok != true || !mounted) return;
 
-    for (final b in rows) setState(() => _deleting.add(b.id));
+    for (final b in rows) {
+      setState(() => _deleting.add(b.id));
+    }
     try {
       for (final b in rows) {
         await _repo.deleteBanHang(widget.cx.id, b.id);
@@ -929,7 +848,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
         SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     } finally {
-      for (final b in rows) if (mounted) setState(() => _deleting.remove(b.id));
+      for (final b in rows) {
+        if (mounted) setState(() => _deleting.remove(b.id));
+      }
     }
   }
 
@@ -1002,11 +923,12 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
       ref.refresh(chuyenXeDetailProvider(widget.cx.id).future);
 
   /// Mo dialog xem anh bien lai hoac chu ky xac nhan cua khach hang
-  void _xemAnhXacNhan(XacNhanKhachHangModel xn) {
+  // Xem ảnh xác nhận phóng to theo url cụ thể (biên lai hoặc chữ ký) — hỗ trợ 2 luồng song song
+  void _xemAnhFull(String relativeUrl, {required bool isKy, DateTime? ngayXacNhan}) {
     final baseUrl = AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
-    final imageUrl = '$baseUrl${xn.url}';
-    final title = xn.loaiXacNhan == 'ky' ? 'Chữ ký xác nhận' : 'Ảnh biên lai';
-    final iconData = xn.loaiXacNhan == 'ky' ? Icons.draw_outlined : Icons.image_outlined;
+    final imageUrl = '$baseUrl$relativeUrl';
+    final title = isKy ? 'Chữ ký xác nhận' : 'Ảnh biên lai';
+    final iconData = isKy ? Icons.draw_outlined : Icons.image_outlined;
 
     showDialog(
       context: context,
@@ -1060,19 +982,86 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                   ),
                 ),
               ),
-              if (xn.ngayXacNhan != null)
+              if (ngayXacNhan != null)
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   color: Colors.grey.shade50,
                   child: Text(
-                    'Xác nhận lúc: ${_fmtDate.format(xn.ngayXacNhan!.toLocal())}',
+                    'Xác nhận lúc: ${_fmtDate.format(ngayXacNhan.toLocal())}',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  // Strip hiển thị thumbnail ảnh biên lai + chữ ký của khách (cả 2 luồng nếu có)
+  Widget _buildXacNhanThumbnails(XacNhanKhachHangModel? xn) {
+    if (xn == null || (!xn.coAnh && !xn.coChuKy)) return const SizedBox.shrink();
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 6),
+      color: const Color(0xFFF1F8F7),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Ảnh xác nhận khách hàng:',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              if (xn.coAnh)
+                _xacNhanThumb(xn.anhUrl!, label: 'Biên lai', icon: Icons.image_outlined, isKy: false, ngay: xn.ngayXacNhan),
+              if (xn.coChuKy)
+                _xacNhanThumb(xn.chuKyUrl!, label: 'Chữ ký', icon: Icons.draw_outlined, isKy: true, ngay: xn.ngayXacNhan),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Một thumbnail ảnh xác nhận — bấm để phóng to
+  Widget _xacNhanThumb(String relativeUrl,
+      {required String label, required IconData icon, required bool isKy, DateTime? ngay}) {
+    final baseUrl = AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () => _xemAnhFull(relativeUrl, isKy: isKy, ngayXacNhan: ngay),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 64,
+                height: 64,
+                color: Colors.white,
+                child: Image.network(
+                  '$baseUrl$relativeUrl',
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Icon(icon, size: 12, color: Colors.grey.shade600),
+              const SizedBox(width: 3),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1298,21 +1287,6 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                               ],
                             ),
                           ),
-                          // Nut xem anh bien lai / chu ky (chi hien khi da xac nhan)
-                          if (xacNhanMap[entry.key]?.daXacNhan == true)
-                            IconButton(
-                              icon: Icon(
-                                xacNhanMap[entry.key]?.loaiXacNhan == 'ky'
-                                    ? Icons.draw_outlined
-                                    : Icons.image_outlined,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                              onPressed: () => _xemAnhXacNhan(xacNhanMap[entry.key]!),
-                              tooltip: 'Xem ảnh xác nhận',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            ),
                           if (canEdit)
                             IconButton(
                               icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.white70),
@@ -1331,6 +1305,8 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                         ],
                       ),
                     ),
+                    // Strip thumbnail ảnh xác nhận (biên lai + chữ ký) — 2 luồng song song
+                    _buildXacNhanThumbnails(xacNhanMap[entry.key]),
                     // Danh sách mặt hàng
                     ...rows.asMap().entries.map((e) {
                       final idx = e.key;
@@ -2403,9 +2379,11 @@ class _TabThuNoState extends State<_TabThuNo> {
             final daTra = no.daTra > 0;
             final conNo = no.conNo;
             final daTraXong = conNo <= 0;
+            final ngay = DateTime.tryParse(no.ngayXuat);
+            final ngayHienThi = ngay != null ? _fmtDateOnly.format(ngay) : no.ngayXuat;
             return ListTile(
               dense: true,
-              title: Text('${no.maChuyenXe} — ${no.ngayXuat}',
+              title: Text('${no.maChuyenXe} — $ngayHienThi',
                   style: const TextStyle(fontSize: 13)),
               subtitle: Text(
                 'Nợ gốc: ${_fmtCurrency.format(no.soTienNo)}'
@@ -2500,7 +2478,7 @@ class _TabThuNoState extends State<_TabThuNo> {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
-                value: hinhThuc,
+                initialValue: hinhThuc,
                 decoration: const InputDecoration(
                     labelText: 'Hình thức', border: OutlineInputBorder(), isDense: true),
                 items: const [
@@ -2512,7 +2490,7 @@ class _TabThuNoState extends State<_TabThuNo> {
               if (hinhThuc == 'chuyen-khoan') ...[
                 const SizedBox(height: 12),
                 DropdownButtonFormField<int>(
-                  value: taiKhoanId == 0 ? null : taiKhoanId,
+                  initialValue: taiKhoanId == 0 ? null : taiKhoanId,
                   decoration: const InputDecoration(
                       labelText: 'Tài khoản CK', border: OutlineInputBorder(), isDense: true),
                   items: tkList.map((tk) => DropdownMenuItem<int>(
@@ -2567,46 +2545,6 @@ class _TabThuNoState extends State<_TabThuNo> {
 }
 
 
-// Card một dòng thu nợ.
-class _TraNoCuCard extends StatelessWidget {
-  final TraNoCuModel item;
-  const _TraNoCuCard({required this.item});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.purple.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Icon(Icons.receipt_long_outlined,
-              color: Colors.purple, size: 22),
-        ),
-        title: Text(
-          item.tenKhachHang ?? 'Khách hàng #${item.khachHangId}',
-          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-        ),
-        subtitle: item.ghiChu != null && item.ghiChu!.isNotEmpty
-            ? Text(item.ghiChu!,
-                style: const TextStyle(fontSize: 12, color: Colors.grey))
-            : null,
-        trailing: Text(
-          _fmtCurrency.format(item.soTien),
-          style: const TextStyle(
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-              color: Colors.purple),
-        ),
-      ),
-    );
-  }
-}
-
 // ── Tổng hợp bán hàng ──────────────────────────────────────────────────────
 
 /// Hiển thị tổng hợp thống kê bán hàng: số bình, vỏ, tiền mặt, CK, nợ, gas dư...
@@ -2623,7 +2561,6 @@ class _BanHangSummaryCard extends StatelessWidget {
     }
 
     var tongBinhGas = 0;
-    var tongVoThu = 0;
     var tongTienPhai = 0.0;
     var tongTienMat = 0.0;
     var tongTienCK = 0.0;
@@ -2632,7 +2569,6 @@ class _BanHangSummaryCard extends StatelessWidget {
       tongTienMat += rows.first.tienMat;
       tongTienCK += rows.first.tienCK;
       for (final b in rows) {
-        tongVoThu += b.soVoThu;
         if (b.soVoThu == 0 && b.soVoBan == 0) {
           tongBinhGas += b.soLuong;
           tongTienPhai += b.thanhTien;
@@ -2642,12 +2578,12 @@ class _BanHangSummaryCard extends StatelessWidget {
     final tongConNo =
         (tongTienPhai - tongTienMat - tongTienCK).clamp(0.0, double.infinity);
 
-    // --- Tính từ cx.ketThuc (chỉ khi đã settle) ---
+    // --- Vỏ / gas dư: dùng aggregate backend (đúng cho cả mobile-kết-thúc lẫn đã duyệt) ---
     final kt = cx.ketThuc;
-    final tongGasDu =
-        kt?.gasDu.fold<double>(0, (s, e) => s + e.soKg) ?? 0;
-    final tongTienGasDu = kt?.tongTienTraGasDu ?? 0.0;
-    final tongNoDaTra = kt?.tongThuNoCu ?? 0.0;
+    final tongGasDu     = cx.tongGasDuKg;      // kg gas dư (kt: KetThuc.GasDu; else: banHangGasDu)
+    final tongTienGasDu = cx.tienMuaGasDu;     // tiền mua gas dư
+    final tongVoAggregate = cx.tongSoVo;       // tổng vỏ thu thực tế
+    final tongNoDaTra   = kt?.tongThuNoCu ?? 0.0;
 
     if (cx.banHang.isEmpty && kt == null) return const SizedBox.shrink();
 
@@ -2667,7 +2603,7 @@ class _BanHangSummaryCard extends StatelessWidget {
 
             // --- Từ banHang (mọi trạng thái) ---
             _BanHangSummaryRow('Số bình gas', '$tongBinhGas bình'),
-            _BanHangSummaryRow('Số vỏ thu', '$tongVoThu vỏ'),
+            _BanHangSummaryRow('Số vỏ thu', '$tongVoAggregate vỏ'),
             _BanHangSummaryRow('Tiền phải thu', _fmtCurrency.format(tongTienPhai),
                 bold: true),
             _BanHangSummaryRow('Tiền mặt đã thu', _fmtCurrency.format(tongTienMat)),
@@ -2676,13 +2612,20 @@ class _BanHangSummaryCard extends StatelessWidget {
             _BanHangSummaryRow('Còn nợ', _fmtCurrency.format(tongConNo),
                 color: tongConNo > 0 ? Colors.red.shade700 : null),
 
-            // --- Từ ketThuc (chỉ khi đã settle) ---
-            if (kt != null) ...[
+            // --- Gas dư (aggregate backend — hiện cho mọi trạng thái nếu có) ---
+            if (tongGasDu > 0 || tongTienGasDu > 0) ...[
               const SizedBox(height: 8),
               const Divider(height: 1),
               const SizedBox(height: 8),
-              _BanHangSummaryRow('Gas dư', '$tongGasDu bình'),
+              _BanHangSummaryRow('Gas dư', '${_fmtKg.format(tongGasDu)} kg'),
               _BanHangSummaryRow('Tiền mua gas dư', _fmtCurrency.format(tongTienGasDu)),
+            ],
+
+            // --- Nợ cũ đã thu (chỉ khi đã settle) ---
+            if (kt != null && tongNoDaTra > 0) ...[
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
               _BanHangSummaryRow('Nợ cũ đã thu', _fmtCurrency.format(tongNoDaTra)),
             ],
           ],

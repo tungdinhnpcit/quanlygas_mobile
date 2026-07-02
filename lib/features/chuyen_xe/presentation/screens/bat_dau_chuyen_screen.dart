@@ -178,8 +178,11 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
       appBar: AppBar(
         title: const Text('Bán hàng'),
         leading: BackButton(onPressed: () {
-          if (context.canPop()) context.pop();
-          else context.go(AppRoutes.home);
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go(AppRoutes.home);
+          }
         }),
       ),
       bottomNavigationBar: const AppBottomNavBar(),
@@ -238,7 +241,7 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
                         style: TextStyle(color: Colors.grey))
                         : DropdownButtonFormField<int>(
                       isExpanded: true,
-                      value: _selectedXeId,
+                      initialValue: _selectedXeId,
                       decoration: const InputDecoration(
                         border: OutlineInputBorder(),
                         contentPadding: EdgeInsets.symmetric(
@@ -303,8 +306,9 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
                       initialValue:
                       TextEditingValue(text: _nhanVienText),
                       optionsBuilder: (textValue) {
-                        if (textValue.text.isEmpty)
+                        if (textValue.text.isEmpty) {
                           return _nhanVienList;
+                        }
                         final q = textValue.text.toLowerCase();
                         return _nhanVienList.where((nv) =>
                         (nv['ho_ten'] as String)

@@ -57,6 +57,7 @@ class AppRoutes {
   static const String timKiemPhuXe       = '/tim-kiem-phu-xe';
   static const String timKiemMatHang     = '/tim-kiem-mat-hang';
   static const String timKiemNhaCungCap  = '/tim-kiem-nha-cung-cap';
+  static const String chonNoCu           = '/chon-no-cu';
   static const String dongBo             = '/cai-dat/dong-bo';
 
   // Kế toán — kiểm kê xuất hàng

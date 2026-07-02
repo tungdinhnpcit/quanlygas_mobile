@@ -24,6 +24,7 @@ class _ThongTinTaiKhoanScreenState extends ConsumerState<ThongTinTaiKhoanScreen>
   static String get _staticBaseUrl =>
       AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '');
 
+  // nhanVienId > 0 → upload vào nhân viên (đồng bộ web); ngược lại (admin/không có NV) → avatar cấp user
   Future<void> _pickAndUpload(int nhanVienId) async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 90);
@@ -51,10 +52,10 @@ class _ThongTinTaiKhoanScreenState extends ConsumerState<ThongTinTaiKhoanScreen>
         ),
       });
 
-      final resp = await ApiClient.instance.dio.post(
-        '/api/nhan-vien/$nhanVienId/avatar',
-        data: form,
-      );
+      final endpoint = nhanVienId > 0
+          ? '/api/nhan-vien/$nhanVienId/avatar'
+          : '/api/auth/avatar';
+      final resp = await ApiClient.instance.dio.post(endpoint, data: form);
 
       final avatarUrl = resp.data['avatarUrl'] as String?;
       if (avatarUrl != null) {
@@ -114,15 +115,14 @@ class _ThongTinTaiKhoanScreenState extends ConsumerState<ThongTinTaiKhoanScreen>
             ),
             const SizedBox(height: 12),
 
-            // ── Nút upload (chỉ khi có liên kết nhân viên) ──
-            if (user.nhanVienId > 0)
-              Center(
-                child: TextButton.icon(
-                  onPressed: _uploading ? null : () => _pickAndUpload(user.nhanVienId),
-                  icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                  label: const Text('Thay đổi ảnh đại diện'),
-                ),
+            // ── Nút upload (mọi tài khoản; admin lưu avatar cấp user) ──
+            Center(
+              child: TextButton.icon(
+                onPressed: _uploading ? null : () => _pickAndUpload(user.nhanVienId),
+                icon: const Icon(Icons.camera_alt_outlined, size: 18),
+                label: const Text('Thay đổi ảnh đại diện'),
               ),
+            ),
 
             const SizedBox(height: 20),
 
@@ -140,12 +140,12 @@ class _ThongTinTaiKhoanScreenState extends ConsumerState<ThongTinTaiKhoanScreen>
 
   String _roleLabel(String roleCode) {
     return switch (roleCode) {
-      'admin'    => 'Quản trị hệ thống',
-      'giam-doc' => 'Giám đốc',
-      'ke-toan'  => 'Kế toán',
-      'lai-xe'   => 'Lái xe',
-      'quan-ly'  => 'Quản lý',
-      _          => roleCode,
+      'Admin'   => 'Quản trị hệ thống',
+      'GiamDoc' => 'Giám đốc',
+      'KeToan'  => 'Kế toán',
+      'LaiXe'   => 'Lái xe',
+      'QuanLy'  => 'Quản lý',
+      _         => roleCode,
     };
   }
 }

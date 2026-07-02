@@ -100,14 +100,19 @@ class NotificationService {
   static void _handleNotificationNavigation(Map<String, dynamic> data) {
     final loai = data['loai'] as String?;
     final id = data['id'] as String?;
+    final hasId = id != null && id.isNotEmpty;
 
     switch (loai) {
       case NotificationTypes.chuyenMoi:
       case NotificationTypes.capNhatChuyen:
-        if (id != null) _navigateTo?.call(AppRoutes.chuyenXeDetail(id));
+        if (hasId) {
+          _navigateTo?.call(AppRoutes.chuyenXeDetail(id));
+        } else {
+          _navigateTo?.call(AppRoutes.chuyenXeList);
+        }
         break;
       case NotificationTypes.thongBao:
-        if (id != null) {
+        if (hasId) {
           _navigateTo?.call(AppRoutes.thongBaoDetail(id));
         } else {
           _navigateTo?.call(AppRoutes.thongBaoList);

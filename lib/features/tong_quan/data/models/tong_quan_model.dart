@@ -167,6 +167,8 @@ class DaiLyBanHangModel {
   final List<DaiLyBanHangChiTietModel> chiTiet;
   final double tongTienBan;
   final double tienNo;
+  final String? anhUrl;       // ảnh biên lai ký tay của khách trong chuyến
+  final String? chuKyUrl;     // chữ ký vẽ trên app của khách trong chuyến
 
   DaiLyBanHangModel({
     required this.chuyenXeId,
@@ -175,6 +177,8 @@ class DaiLyBanHangModel {
     required this.chiTiet,
     required this.tongTienBan,
     required this.tienNo,
+    this.anhUrl,
+    this.chuKyUrl,
   });
 
   factory DaiLyBanHangModel.fromJson(Map<String, dynamic> j) =>
@@ -187,6 +191,8 @@ class DaiLyBanHangModel {
             .toList(),
         tongTienBan: (j['tongTienBan'] as num).toDouble(),
         tienNo:      (j['tienNo'] as num).toDouble(),
+        anhUrl:      j['anhUrl'] as String?,
+        chuKyUrl:    j['chuKyUrl'] as String?,
       );
 }
 

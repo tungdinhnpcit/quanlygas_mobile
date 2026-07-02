@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/constants/app_constants.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../khach_hang/data/models/khach_hang_model.dart';
 import '../../../khach_hang/presentation/providers/khach_hang_provider.dart';
@@ -351,6 +352,121 @@ class _ChuyenXeCard extends StatelessWidget {
                     color: Color(0xFF00695C)),
               ),
             ),
+            // Ảnh xác nhận: biên lai ký tay + chữ ký trên app (nếu có)
+            if ((item.anhUrl != null && item.anhUrl!.isNotEmpty) ||
+                (item.chuKyUrl != null && item.chuKyUrl!.isNotEmpty)) ...[
+              const Divider(height: 16),
+              const Text('Xác nhận khách hàng:',
+                  style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54)),
+              const SizedBox(height: 6),
+              Row(
+                children: [
+                  if (item.anhUrl != null && item.anhUrl!.isNotEmpty)
+                    _XacNhanThumbnail(url: item.anhUrl!, label: 'Ảnh biên lai', icon: Icons.image_outlined),
+                  if (item.chuKyUrl != null && item.chuKyUrl!.isNotEmpty)
+                    _XacNhanThumbnail(url: item.chuKyUrl!, label: 'Chữ ký', icon: Icons.draw_outlined),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// Thumbnail ảnh xác nhận (biên lai/chữ ký) — bấm mở dialog phóng to
+class _XacNhanThumbnail extends StatelessWidget {
+  final String url;    // đường dẫn tương đối trả về từ API (vd /uploads/xac-nhan/..)
+  final String label;  // nhãn hiển thị dưới thumbnail
+  final IconData icon; // icon minh họa loại xác nhận
+
+  const _XacNhanThumbnail({required this.url, required this.label, required this.icon});
+
+  // build URL đầy đủ: bỏ suffix /apimanager vì static file serve từ root server
+  String get _fullUrl =>
+      AppConstants.resolvedApiUrl.replaceFirst(RegExp(r'/apimanager$'), '') + url;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () => _xemAnh(context),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 84,
+                height: 84,
+                color: Colors.grey.shade100,
+                child: Image.network(
+                  _fullUrl,
+                  fit: BoxFit.cover,
+                  loadingBuilder: (c, child, progress) => progress == null
+                      ? child
+                      : const Center(child: SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorBuilder: (c, e, s) => const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(icon, size: 12, color: Colors.grey.shade600),
+              const SizedBox(width: 3),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // mở dialog phóng to ảnh, cho phép pinch-to-zoom qua InteractiveViewer
+  void _xemAnh(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        insetPadding: const EdgeInsets.all(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Icon(icon, size: 18, color: const Color(0xFF00695C)),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(label, style: const TextStyle(fontWeight: FontWeight.w700))),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
+            Flexible(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: Image.network(
+                  _fullUrl,
+                  fit: BoxFit.contain,
+                  loadingBuilder: (c, child, progress) => progress == null
+                      ? child
+                      : const Padding(padding: EdgeInsets.all(40), child: CircularProgressIndicator()),
+                  errorBuilder: (c, e, s) => const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Text('Không tải được ảnh'),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
           ],
         ),
       ),

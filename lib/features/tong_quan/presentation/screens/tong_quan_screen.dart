@@ -34,11 +34,13 @@ class _TongQuanScreenState extends ConsumerState<TongQuanScreen> {
     final initial = isFrom ? _tuNgay : _denNgay;
     await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) {
         return SafeArea(
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Padding(
@@ -73,6 +75,7 @@ class _TongQuanScreenState extends ConsumerState<TongQuanScreen> {
                 },
               ),
             ],
+          ),
           ),
         );
       },

@@ -1,7 +1,6 @@
 // lib/features/auth/data/auth_repository.dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../../core/network/api_client.dart';
@@ -104,20 +103,6 @@ class AuthRepository {
     } on DioException catch (e) {
       if (e.response?.statusCode == 400) return false;
       rethrow;
-    }
-  }
-
-  /// Gửi FCM device token lên backend để backend có thể gửi push notification.
-  Future<void> _registerFcmToken(String token) async {
-    try {
-      debugPrint('[FCM DEBUG] Gọi PUT /api/auth/device-token, token length=${token.length}');
-      final resp = await ApiClient.instance.dio.put(
-        '/api/auth/device-token',
-        data: {'fcmToken': token},
-      );
-      debugPrint('[FCM DEBUG] Response status: ${resp.statusCode}');
-    } catch (e) {
-      debugPrint('[FCM DEBUG] LỖI đăng ký token: $e');
     }
   }
 }

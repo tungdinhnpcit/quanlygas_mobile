@@ -38,6 +38,7 @@ import '../../features/chuyen_xe/presentation/screens/tim_kiem_khach_hang_screen
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_phu_xe_screen.dart'; // tim kiem phu xe
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_mat_hang_screen.dart'; // tim kiem mat hang
 import '../../features/chuyen_xe/presentation/screens/tim_kiem_nha_cung_cap_screen.dart'; // tim kiem nha cung cap
+import '../../features/chuyen_xe/presentation/screens/chon_no_cu_screen.dart'; // chon khoan no cu de thu
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_theo_ngay_screen.dart'; // xem chuyen xe theo ngay
 import '../../features/chuyen_xe/presentation/screens/nhap_ban_hang_screen.dart'; // nhap ban hang cho khach
 import '../../features/chuyen_xe/presentation/screens/sua_ban_hang_khach_hang_screen.dart'; // sua ban hang da nhap
@@ -49,6 +50,7 @@ import '../../features/kiem_ke/presentation/screens/kiem_ke_list_screen.dart'; /
 import '../../features/kiem_ke/presentation/screens/kiem_ke_nhap_screen.dart'; // nhap so lieu kiem ke
 import '../../features/kiem_ke/presentation/screens/kiem_ke_tao_chuyen_screen.dart'; // tao chuyen kiem ke moi
 import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart'; // provider so thong bao chua doc
+import '../providers/user_info_provider.dart'; // thong tin user dang nhap (lay userId)
 import '../database/local_database.dart'; // co so du lieu local (SQLite) cho offline
 import '../providers/sync_provider.dart'; // provider dong bo du lieu len server
 import '../services/background_polling_service.dart'; // dich vu kiem tra thong bao nen
@@ -174,6 +176,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: const TimKiemNhaCungCapScreen(),
         ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.chonNoCu, // route chon khoan no cu de thu (popup chon)
+        pageBuilder: (_, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          return CupertinoPage(
+            key: state.pageKey,
+            child: ChonNoCuScreen(excludeChuyenXeId: extra?['excludeChuyenXeId'] as int?),
+          );
+        },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
@@ -411,7 +424,15 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 
-  NotificationService.setNavigateCallback((route) => router.go(route)); // dang ky callback dieu huong khi bam thong bao FCM
+  NotificationService.setNavigateCallback((route) { // dang ky callback dieu huong khi bam thong bao FCM
+    router.go(route);
+    // Mo tu notification -> lam moi badge + nap lai danh sach de hien thi thong bao vua nhan
+    ref.invalidate(soChuaDocProvider);
+    final uid = ref.read(userInfoProvider).valueOrNull?.userId ?? 0;
+    if (uid > 0) {
+      ref.invalidate(thongBaoListProvider);
+    }
+  });
   ApiClient.setNavigateToLogin((route) => router.go(route)); // dang ky callback chuyen sang login khi token het han (401)
 
   return router;

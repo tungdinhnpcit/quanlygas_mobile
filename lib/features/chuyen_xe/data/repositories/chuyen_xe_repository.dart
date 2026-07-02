@@ -37,11 +37,9 @@ class ChuyenXeRepository {
 
       // 3. Ép kiểu về List<Map<String, dynamic>> để dùng chung với pattern của UI hiện tại
       return list.map((e) => e as Map<String, dynamic>).toList();
-    } on DioException catch (e) {
-
+    } on DioException {
       rethrow;
-    } catch (e) {
-
+    } catch (_) {
       rethrow;
     }
   }
@@ -148,7 +146,7 @@ class ChuyenXeRepository {
 
   /// Lấy chi tiết chuyến xe theo ID kèm danh sách hàng hóa và ảnh đã upload.
   Future<ChuyenXeModel> getById(int id) async {
-    debugPrint('[ChuyenXe] GET '+AppConstants.resolvedApiUrl+'/api/chuyen-xe/$id');
+    debugPrint('[ChuyenXe] GET ${AppConstants.resolvedApiUrl}/api/chuyen-xe/$id');
     try{
       final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$id');
       return ChuyenXeModel.fromJson(res.data as Map<String, dynamic>);

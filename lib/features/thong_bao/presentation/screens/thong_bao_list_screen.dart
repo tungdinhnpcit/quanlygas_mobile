@@ -9,6 +9,8 @@ import '../../../../core/providers/user_info_provider.dart';
 import '../../data/models/thong_bao_model.dart';
 import '../providers/thong_bao_provider.dart';
 
+const _teal = Color(0xFF00897B);
+
 class ThongBaoListScreen extends ConsumerStatefulWidget {
   const ThongBaoListScreen({super.key});
 
@@ -16,82 +18,169 @@ class ThongBaoListScreen extends ConsumerStatefulWidget {
   ConsumerState<ThongBaoListScreen> createState() => _ThongBaoListScreenState();
 }
 
-class _ThongBaoListScreenState extends ConsumerState<ThongBaoListScreen> {
+class _ThongBaoListScreenState extends ConsumerState<ThongBaoListScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tab;
+
   @override
   void initState() {
     super.initState();
-    Future.microtask(() async {
-      final userId = (await ref.read(userInfoProvider.future)).userId;
-      ref.read(thongBaoListProvider.notifier).load(userId: userId);
-    });
+    _tab = TabController(length: 3, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tab.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final listAsync = ref.watch(thongBaoListProvider);
+    final soChuaDoc = ref.watch(soChuaDocProvider).valueOrNull ?? 0;
+
+    return Column(
+      children: [
+        Material(
+          color: Theme.of(context).scaffoldBackgroundColor,
+          child: Row(
+            children: [
+              Expanded(
+                child: TabBar(
+                  controller: _tab,
+                  labelColor: _teal,
+                  unselectedLabelColor: Colors.grey,
+                  indicatorColor: _teal,
+                  labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                  tabs: [
+                    const Tab(text: 'Tất cả'),
+                    Tab(text: soChuaDoc > 0 ? 'Chưa đọc ($soChuaDoc)' : 'Chưa đọc'),
+                    const Tab(text: 'Đã đọc'),
+                  ],
+                ),
+              ),
+              if (soChuaDoc > 0)
+                TextButton.icon(
+                  icon: const Icon(Icons.done_all, size: 18),
+                  label: const Text('Đọc tất cả'),
+                  onPressed: () async {
+                    final userId = ref.read(userInfoProvider).valueOrNull?.userId ?? 0;
+                    if (userId > 0) {
+                      await ref.read(thongBaoListProvider(false).notifier).markAllAsRead(userId);
+                    }
+                  },
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: TabBarView(
+            controller: _tab,
+            children: const [
+              _ThongBaoTabList(daDoc: null),
+              _ThongBaoTabList(daDoc: false),
+              _ThongBaoTabList(daDoc: true),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Danh sách 1 tab — infinite scroll + pull to refresh, giữ state khi chuyển tab.
+class _ThongBaoTabList extends ConsumerStatefulWidget {
+  final bool? daDoc;
+  const _ThongBaoTabList({required this.daDoc});
+
+  @override
+  ConsumerState<_ThongBaoTabList> createState() => _ThongBaoTabListState();
+}
+
+class _ThongBaoTabListState extends ConsumerState<_ThongBaoTabList>
+    with AutomaticKeepAliveClientMixin {
+  final _scroll = ScrollController();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_onScroll);
+    Future.microtask(() async {
+      final userId = (await ref.read(userInfoProvider.future)).userId;
+      if (mounted) {
+        ref.read(thongBaoListProvider(widget.daDoc).notifier).loadFirst(userId);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.position.pixels >= _scroll.position.maxScrollExtent - 300) {
+      ref.read(thongBaoListProvider(widget.daDoc).notifier).loadMore();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final state = ref.watch(thongBaoListProvider(widget.daDoc));
+
+    if (state.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (state.error != null && state.items.isEmpty) {
+      return _ErrorView(
+        message: state.error.toString(),
+        onRetry: () => ref.read(thongBaoListProvider(widget.daDoc).notifier).refresh(),
+      );
+    }
 
     return RefreshIndicator(
       onRefresh: () async {
-        final userId = ref.read(userInfoProvider).valueOrNull?.userId ?? 0;
-        await ref.read(thongBaoListProvider.notifier).load(userId: userId);
+        await ref.read(thongBaoListProvider(widget.daDoc).notifier).refresh();
         ref.invalidate(soChuaDocProvider);
       },
-      child: listAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error:   (e, _) => _ErrorView(
-          message:  e.toString(),
-          onRetry:  () {
-            final userId = ref.read(userInfoProvider).valueOrNull?.userId ?? 0;
-            ref.read(thongBaoListProvider.notifier).load(userId: userId);
-          },
-        ),
-        data: (list) {
-          if (list.isEmpty) {
-            return ListView(children: const [
-              SizedBox(height: 160),
+      child: state.items.isEmpty
+          ? ListView(children: const [
+              SizedBox(height: 140),
               Center(
                 child: Column(children: [
-                  Icon(Icons.notifications_none, size: 64, color: Colors.white24),
+                  Icon(Icons.notifications_none, size: 64, color: Colors.grey),
                   SizedBox(height: 16),
-                  Text('Chưa có thông báo nào',
-                      style: TextStyle(color: Colors.white38, fontSize: 16)),
+                  Text('Không có thông báo', style: TextStyle(color: Colors.grey, fontSize: 16)),
                 ]),
               ),
-            ]);
-          }
-          final hasUnread = list.any((t) => !t.daDoc);
-          return Column(
-            children: [
-              if (hasUnread)
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton.icon(
-                    icon: const Icon(Icons.done_all, size: 18),
-                    label: const Text('Đọc tất cả'),
-                    onPressed: () => ref
-                        .read(thongBaoListProvider.notifier)
-                        .markAllAsRead(),
-                  ),
-                ),
-              Expanded(
-                child: ListView.separated(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
-                  itemBuilder: (context, i) => _ThongBaoCard(item: list[i]),
-                ),
-              ),
-            ],
-          );
-        },
-      ),
+            ])
+          : ListView.separated(
+              controller: _scroll,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              itemCount: state.items.length + (state.hasMore ? 1 : 0),
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (context, i) {
+                if (i >= state.items.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                  );
+                }
+                return _ThongBaoCard(item: state.items[i], daDoc: widget.daDoc);
+              },
+            ),
     );
   }
 }
 
 class _ThongBaoCard extends ConsumerWidget {
   final ThongBaoModel item;
-  const _ThongBaoCard({required this.item});
+  final bool? daDoc; // filter của tab chứa card này — để gọi đúng notifier
+  const _ThongBaoCard({required this.item, required this.daDoc});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -104,14 +193,13 @@ class _ThongBaoCard extends ConsumerWidget {
         borderRadius: BorderRadius.circular(14),
         side: item.daDoc
             ? BorderSide.none
-            : const BorderSide(color: Color(0xFF00897B), width: 1),
+            : const BorderSide(color: _teal, width: 1),
       ),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () {
           if (!item.daDoc) {
-            ref.read(thongBaoListProvider.notifier).markAsRead(item.id);
-            ref.invalidate(soChuaDocProvider);
+            ref.read(thongBaoListProvider(daDoc).notifier).markAsRead(item.id);
           }
           context.push(AppRoutes.thongBaoDetail(item.id.toString()));
         },
@@ -123,10 +211,10 @@ class _ThongBaoCard extends ConsumerWidget {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF00897B).withValues(alpha: 0.12),
+                  color: _teal.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(item.icon, color: const Color(0xFF00897B), size: 20),
+                child: Icon(item.icon, color: _teal, size: 20),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -150,7 +238,7 @@ class _ThongBaoCard extends ConsumerWidget {
                           width: 8, height: 8,
                           margin: const EdgeInsets.only(left: 6),
                           decoration: const BoxDecoration(
-                            color: Color(0xFF00897B), shape: BoxShape.circle,
+                            color: _teal, shape: BoxShape.circle,
                           ),
                         ),
                     ]),
@@ -169,13 +257,13 @@ class _ThongBaoCard extends ConsumerWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF00897B).withValues(alpha: 0.12),
+                          color: _teal.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
                           item.loaiLabel,
                           style: const TextStyle(
-                              color: Color(0xFF00897B), fontSize: 11, fontWeight: FontWeight.w600),
+                              color: _teal, fontSize: 11, fontWeight: FontWeight.w600),
                         ),
                       ),
                       const Spacer(),
