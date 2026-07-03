@@ -53,3 +53,6 @@ build_log.txt
 
 # Flutter IDE file
 *.flutter
+run-usb.ps1
+pubspec.lock
+pubspec.lock

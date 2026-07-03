@@ -11,7 +11,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$adb = "D:\Sdk\platform-tools\adb.exe"
+$adb = "C:\Users\TungDinh\AppData\Local\Android\Sdk\platform-tools\adb.exe"
 
 Write-Host "=== Run App qua USB (adb reverse + flutter run) ===" -ForegroundColor Cyan
 
