@@ -196,7 +196,17 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
     // loc ra cac dong ban binh gas: dong co thanh tien > 0 la ban binh, dong co thanh tien = 0 la vo
     final dongBanBinh = banHangList.where((b) => b.thanhTien > 0).toList();
 
-    return Scaffold(
+    return PopScope(
+      // Invalidate provider chi tiet tren MỌI duong thoat man hinh (swipe-back
+      // gesture cua CupertinoPage, nut back AppBar, nut Huỷ, nut Hoàn tất) để
+      // tab ban hang luon fetch lai danh sach khach + tong so moi nhat.
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop && widget.chuyenXeId > 0) {
+          ref.invalidate(chuyenXeDetailProvider(widget.chuyenXeId));
+        }
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Xác nhận khách hàng'), // tieu de man hinh
         leading: BackButton(onPressed: () { // nut quay lai
@@ -447,6 +457,7 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
               ),
           ],
         ),
+      ),
       ),
     );
   }

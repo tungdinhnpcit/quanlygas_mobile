@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/database/local_database.dart';
 import '../../../../core/services/connectivity_service.dart';
+import '../../../../core/utils/vietnamese_text.dart';
 import '../../../khach_hang/data/repositories/khach_hang_repository.dart';
 
 /// Màn hình tìm kiếm khách hàng — trả về Map khách hàng đã chọn qua context.pop().
@@ -76,15 +77,16 @@ class _TimKiemKhachHangScreenState extends State<TimKiemKhachHangScreen> {
   }
 
   void _onSearch() {
-    final q = _searchCtrl.text.trim().toLowerCase();
+    // Bỏ dấu tiếng Việt cả query lẫn dữ liệu để "tuan" khớp "Tuấn Hạnh"
+    final q = removeDiacritics(_searchCtrl.text.trim());
     setState(() {
       if (q.isEmpty) {
         _filtered = _all;
       } else {
         _filtered = _all.where((kh) {
-          final ten = (kh['ten_khach_hang'] as String? ?? '').toLowerCase();
-          final sdt = (kh['so_dien_thoai'] as String? ?? '').toLowerCase();
-          final dc  = (kh['dia_chi'] as String? ?? '').toLowerCase();
+          final ten = removeDiacritics(kh['ten_khach_hang'] as String? ?? '');
+          final sdt = removeDiacritics(kh['so_dien_thoai'] as String? ?? '');
+          final dc  = removeDiacritics(kh['dia_chi'] as String? ?? '');
           return ten.contains(q) || sdt.contains(q) || dc.contains(q);
         }).toList();
       }

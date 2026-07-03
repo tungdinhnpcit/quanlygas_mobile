@@ -83,6 +83,9 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
   Future<void> _pickDate() async {
     await showModalBottomSheet<void>(
       context: context,
+      // isScrollControlled: cho phép sheet vượt giới hạn 9/16 màn hình mặc định
+      // → CalendarDatePicker + header đủ chỗ, không bị ép cao gây tràn.
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (ctx) {
@@ -105,14 +108,20 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
                   ],
                 ),
               ),
-              CalendarDatePicker(
-                initialDate: _selectedDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime.now().add(const Duration(days: 30)),
-                onDateChanged: (picked) {
-                  setState(() => _selectedDate = picked);
-                  Navigator.pop(ctx);
-                },
+              // Flexible + SingleChildScrollView: khi chiều cao (do TextScaler
+              // hoặc màn hình nhỏ) vẫn vượt vùng khả dụng thì cuộn thay vì tràn.
+              Flexible(
+                child: SingleChildScrollView(
+                  child: CalendarDatePicker(
+                    initialDate: _selectedDate,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now().add(const Duration(days: 30)),
+                    onDateChanged: (picked) {
+                      setState(() => _selectedDate = picked);
+                      Navigator.pop(ctx);
+                    },
+                  ),
+                ),
               ),
             ],
           ),
