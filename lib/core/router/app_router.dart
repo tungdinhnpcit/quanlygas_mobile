@@ -252,6 +252,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               ?.map((e) => e as BanHangKhachHangModel).toList() ?? [];
           final gasDuRows = (extra['gasDuRows'] as List?) // lay danh sach dong mua gas du hien tai
               ?.map((e) => e as GasDuChiTietModel).toList() ?? <GasDuChiTietModel>[];
+          final noVoRows = (extra['noVoRows'] as List?) // lay danh sach dong no vo hien tai
+              ?.map((e) => e as BanHangNoVoModel).toList() ?? <BanHangNoVoModel>[];
+          final thanhToan = extra['thanhToan'] as BanHangThanhToanModel?; // thong tin thanh toan hien tai
           return CupertinoPage(
             key: state.pageKey,
             child: SuaBanHangKhachHangScreen(
@@ -259,6 +262,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               khachHangId: khId,
               rows: rows, // truyen cac dong ban hang hien tai vao man hinh sua
               gasDuRows: gasDuRows, // truyen cac dong mua gas du hien tai vao man hinh sua
+              noVoRows: noVoRows, // truyen cac dong no vo hien tai vao man hinh sua
+              thanhToan: thanhToan, // truyen thong tin thanh toan hien tai vao man hinh sua
               canEdit: cxId > 0, // chi cho sua neu co server id (khong sua offline record)
             ),
           );
@@ -339,6 +344,8 @@ final routerProvider = Provider<GoRouter>((ref) {
               tienMat: (extra?['tienMat'] as double?) ?? 0, // tien mat khach da tra
               tienCK: (extra?['tienCK'] as double?) ?? 0, // tien chuyen khoan khach da tra
               dieuChinhTien: (extra?['dieuChinhTien'] as double?) ?? 0, // dieu chinh tien (+/-)
+              tienChenhLechVo: (extra?['tienChenhLechVo'] as double?) ?? 0, // chenh lech tien doi vo (+/-)
+              noVoList: extra?['noVoList'] as List<BanHangNoVoModel>?, // danh sach no vo cua khach
               conLai: (extra?['conLai'] as double?) ?? 0, // so tien con no chua thanh toan
               ghiChu: extra?['ghiChu'] as String?, // ghi chu them neu co
               tenTaiKhoan: extra?['tenTaiKhoan'] as String?, // ten tai khoan cong ty nhan CK

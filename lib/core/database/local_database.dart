@@ -17,7 +17,7 @@ class LocalDatabase {
     final dir = await getDatabasesPath();
     return openDatabase(
       join(dir, 'gasmanager.db'),
-      version: 5,
+      version: 6,
       onCreate: _create,
       onUpgrade: _onUpgrade,
     );
@@ -75,6 +75,24 @@ class LocalDatabase {
       await db.execute(
         'ALTER TABLE ban_hang_offline ADD COLUMN dieu_chinh_tien REAL NOT NULL DEFAULT 0',
       );
+    }
+    if (oldVersion < 6) {
+      await db.execute(
+        'ALTER TABLE ban_hang_offline ADD COLUMN tien_chenh_lech_vo REAL NOT NULL DEFAULT 0',
+      );
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS ban_hang_no_vo_local (
+          local_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+          chuyen_xe_server_id   INTEGER,
+          chuyen_xe_local_id    INTEGER,
+          khach_hang_server_id  INTEGER,
+          khach_hang_local_id   INTEGER,
+          mat_hang_id           INTEGER NOT NULL,
+          so_luong              INTEGER NOT NULL DEFAULT 0,
+          is_synced             INTEGER NOT NULL DEFAULT 0,
+          created_at            TEXT
+        )
+      ''');
     }
   }
 
@@ -166,6 +184,7 @@ class LocalDatabase {
         tien_mat              REAL NOT NULL DEFAULT 0,
         tien_ck               REAL NOT NULL DEFAULT 0,
         dieu_chinh_tien       REAL NOT NULL DEFAULT 0,
+        tien_chenh_lech_vo    REAL NOT NULL DEFAULT 0,
         ghi_chu               TEXT,
         created_at            TEXT,
         is_synced             INTEGER NOT NULL DEFAULT 0,
@@ -183,6 +202,19 @@ class LocalDatabase {
         so_kg                 REAL NOT NULL DEFAULT 0,
         don_gia               REAL NOT NULL DEFAULT 0,
         thanh_tien            REAL NOT NULL DEFAULT 0,
+        is_synced             INTEGER NOT NULL DEFAULT 0,
+        created_at            TEXT
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE ban_hang_no_vo_local (
+        local_id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        chuyen_xe_server_id   INTEGER,
+        chuyen_xe_local_id    INTEGER,
+        khach_hang_server_id  INTEGER,
+        khach_hang_local_id   INTEGER,
+        mat_hang_id           INTEGER NOT NULL,
+        so_luong              INTEGER NOT NULL DEFAULT 0,
         is_synced             INTEGER NOT NULL DEFAULT 0,
         created_at            TEXT
       )
@@ -423,6 +455,25 @@ class LocalDatabase {
   Future<void> markBanHangGasDuSynced(int localId) async {
     final d = await db;
     await d.update('ban_hang_gas_du_local', {'is_synced': 1},
+        where: 'local_id = ?', whereArgs: [localId]);
+  }
+
+  // ── Nợ vỏ offline ────────────────────────────────────────────────────────
+
+  Future<int> insertBanHangNoVoLocal(Map<String, dynamic> data) async {
+    final d = await db;
+    return d.insert('ban_hang_no_vo_local', data);
+  }
+
+  Future<List<Map<String, dynamic>>> getPendingBanHangNoVo() async {
+    final d = await db;
+    return d.query('ban_hang_no_vo_local',
+        where: 'is_synced = 0', orderBy: 'local_id ASC');
+  }
+
+  Future<void> markBanHangNoVoSynced(int localId) async {
+    final d = await db;
+    await d.update('ban_hang_no_vo_local', {'is_synced': 1},
         where: 'local_id = ?', whereArgs: [localId]);
   }
 

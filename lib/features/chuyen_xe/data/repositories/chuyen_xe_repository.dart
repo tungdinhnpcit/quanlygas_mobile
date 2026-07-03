@@ -237,6 +237,18 @@ class ChuyenXeRepository {
         .post('/api/chuyen-xe/$chuyenXeId/ban-hang-gas-du/$gasDuId/delete');
   }
 
+  /// Xóa 1 dòng nợ vỏ.
+  Future<void> deleteBanHangNoVo(int chuyenXeId, int noVoId) async {
+    await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/ban-hang-no-vo/$noVoId/delete');
+  }
+
+  /// Xóa 1 dòng thanh toán (cascade tự xóa hết dòng chi tiết mặt hàng liên quan).
+  Future<void> deleteBanHangThanhToan(int chuyenXeId, int thanhToanId) async {
+    await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/ban-hang-thanh-toan/$thanhToanId/delete');
+  }
+
   /// Xóa chuyến xe (chỉ dùng khi chuyến chưa kết thúc / kỳ chưa chốt).
   Future<void> deleteTrip(int chuyenXeId) async {
     await ApiClient.instance.dio.post('/api/chuyen-xe/$chuyenXeId/delete');

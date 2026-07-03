@@ -24,6 +24,8 @@ class XacNhanKhachHangScreen extends ConsumerStatefulWidget {
   final double tienMat; // so tien khach tra bang tien mat
   final double tienCK; // so tien khach tra bang chuyen khoan
   final double dieuChinhTien; // dieu chinh tien (+/-): duong = them, am = bot
+  final double tienChenhLechVo; // chenh lech tien khi doi vo khac hang/gia (+/-)
+  final List<BanHangNoVoModel>? noVoList; // danh sach no vo cua khach nay
   final double conLai; // so tien con lai chua tra (no)
   final String? ghiChu; // ghi chu them tu lai xe
   final String? tenTaiKhoan; // ten tai khoan cong ty nhan chuyen khoan
@@ -39,6 +41,8 @@ class XacNhanKhachHangScreen extends ConsumerStatefulWidget {
     this.tienMat = 0, // mac dinh 0 neu khong truyen (truong hop xac nhan lai tu badge)
     this.tienCK = 0, // mac dinh 0 neu khong truyen
     this.dieuChinhTien = 0, // mac dinh 0 neu khong truyen
+    this.tienChenhLechVo = 0, // mac dinh 0 neu khong truyen
+    this.noVoList, // co the null neu khong co no vo
     this.conLai = 0, // mac dinh 0 neu khong truyen
     this.ghiChu, // co the null neu khong co ghi chu
     this.tenTaiKhoan, // co the null neu khong chon tai khoan CK
@@ -184,9 +188,11 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
   @override
   Widget build(BuildContext context) {
     final banHangList = widget.banHangList ?? []; // lay danh sach hang, neu null thi dung list rong
-    final tongTien = banHangList.fold<double>(0, (sum, b) => sum + b.thanhTien); // tinh tong tien tu tat ca cac dong hang
+    final tongTien = banHangList.fold<double>(0, (sum, b) => sum + b.thanhTien) +
+        widget.tienChenhLechVo; // tinh tong tien tu tat ca cac dong hang + chenh lech doi vo
     final tongVoThu = banHangList.fold<int>(0, (sum, b) => sum + b.soVoThu); // tong so vo thu tu khach
     final tongVoBan = banHangList.fold<int>(0, (sum, b) => sum + b.soVoBan); // tong so vo ban cho khach
+    final noVoList = widget.noVoList ?? []; // danh sach no vo cua khach nay
     // loc ra cac dong ban binh gas: dong co thanh tien > 0 la ban binh, dong co thanh tien = 0 la vo
     final dongBanBinh = banHangList.where((b) => b.thanhTien > 0).toList();
 
@@ -280,11 +286,32 @@ class _XacNhanKhachHangScreenState extends ConsumerState<XacNhanKhachHangScreen>
                     const SizedBox(height: 8),
                   ],
 
+                  // section no vo (chi hien neu co khai bao no vo khi nhap ban hang)
+                  if (noVoList.isNotEmpty) ...[
+                    const Divider(height: 10),
+                    const Text('Nợ vỏ:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54)),
+                    const SizedBox(height: 4),
+                    for (final n in noVoList)
+                      _infoRow(
+                        '${n.tenNhaCungCap ?? '(Không rõ hãng)'} • ${n.tenMatHang ?? ''}:',
+                        '${n.soLuong} vỏ',
+                        valueColor: Colors.orange.shade700,
+                      ),
+                    const SizedBox(height: 8),
+                  ],
+
                   // section tong hop thanh toan
                   const Divider(height: 10),
                   const Text('Thanh toán:', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Colors.black54)),
                   const SizedBox(height: 4),
                   _infoRow('Tổng tiền:', '${_vnd.format(tongTien)} đ', valueColor: Colors.teal.shade700, bold: true),
+                  // chi hien dong chenh lech doi vo khi khac 0
+                  if (widget.tienChenhLechVo != 0)
+                    _infoRow(
+                      'Chênh lệch đổi vỏ:',
+                      '${widget.tienChenhLechVo > 0 ? '+' : ''}${_vnd.format(widget.tienChenhLechVo)} đ',
+                      valueColor: widget.tienChenhLechVo > 0 ? Colors.green.shade700 : Colors.red.shade700,
+                    ),
                   // chi hien dong dieu chinh khi co gia tri khac 0 (them/bot tien luc nhap ban hang)
                   if (widget.dieuChinhTien != 0)
                     _infoRow(

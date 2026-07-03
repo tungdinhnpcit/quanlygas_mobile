@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
+import '../../../../core/utils/vietnamese_text.dart';
 import '../../data/models/chuyen_xe_model.dart';
 import '../../data/models/kiem_ke_model.dart';
 import '../../data/repositories/chuyen_xe_repository.dart';
@@ -756,6 +757,9 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
   // ── Phụ xe selection ────────────────────────────────────────────────────
   Map<String, dynamic>? _selectedPhuXe;
 
+  // ── Tìm kiếm khách hàng (filter trực tiếp danh sách bên dưới) ──────────────
+  final _customerSearchCtrl = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -767,11 +771,28 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
 
   Future<void> _openKhachHangDetail(ChuyenXeModel cx, List<BanHangKhachHangModel> rows,
       List<GasDuChiTietModel> gasDuRows) async {
+    final noVoRows = cx.banHangNoVo
+        .where((n) => n.khachHangId == rows.first.khachHangId)
+        .toList();
+    final thanhToanMatches = cx.banHangThanhToan
+        .where((t) => t.khachHangId == rows.first.khachHangId);
+    final thanhToan = thanhToanMatches.isEmpty ? null : thanhToanMatches.first;
     await context.push(
       AppRoutes.suaBanHangKhachHang(cx.id, rows.first.khachHangId),
-      extra: {'rows': rows, 'gasDuRows': gasDuRows},
+      extra: {
+        'rows': rows,
+        'gasDuRows': gasDuRows,
+        'noVoRows': noVoRows,
+        'thanhToan': thanhToan,
+      },
     );
     if (mounted) ref.invalidate(chuyenXeDetailProvider(cx.id));
+  }
+
+  @override
+  void dispose() {
+    _customerSearchCtrl.dispose();
+    super.dispose();
   }
 
   Future<void> _delete(BanHangKhachHangModel b) async {
@@ -891,12 +912,18 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
       // loc rieng cac dong mua gas du cua khach nay - nam trong list rieng cx.banHangGasDu
       final gasDuCuaKhach = widget.cx.banHangGasDu
           .where((g) => g.khachHangId == khachHangId).toList();
-      final tienMat = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienMat);
-      final tienCK  = banHangCuaKhach.fold<double>(0, (s, b) => s + b.tienCK);
-      final dieuChinhTien = banHangCuaKhach.isNotEmpty ? banHangCuaKhach.first.dieuChinhTien : 0.0;
+      // thong tin thanh toan cua khach nay nam trong list rieng cx.banHangThanhToan
+      final thanhToanCuaKhach = widget.cx.banHangThanhToan
+          .where((t) => t.khachHangId == khachHangId).toList();
+      final tienMat = thanhToanCuaKhach.fold<double>(0, (s, t) => s + t.tienMat);
+      final tienCK  = thanhToanCuaKhach.fold<double>(0, (s, t) => s + t.tienCK);
+      final dieuChinhTien = thanhToanCuaKhach.isNotEmpty ? thanhToanCuaKhach.first.dieuChinhTien : 0.0;
+      final tienChenhLechVo = thanhToanCuaKhach.isNotEmpty ? thanhToanCuaKhach.first.tienChenhLechVo : 0.0;
       final tongTien = banHangCuaKhach.fold<double>(0, (s, b) => s + b.thanhTien);
       // tong tien lai xe da tra khach de mua lai gas du - phai tru vao conLai ben duoi
       final tongTienGasDu = gasDuCuaKhach.fold<double>(0, (s, g) => s + g.thanhTien);
+      final noVoCuaKhach = widget.cx.banHangNoVo
+          .where((n) => n.khachHangId == khachHangId).toList();
       final tenKhachHang = banHangCuaKhach.isNotEmpty
           ? banHangCuaKhach.first.tenKhachHang
           : null;
@@ -907,8 +934,10 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
         'tienMat': tienMat,
         'tienCK': tienCK,
         'dieuChinhTien': dieuChinhTien,
-        // conLai = tien hang ban - tien mua gas du (da tra khach) + dieu chinh - tien da thu (mat + ck)
-        'conLai': tongTien - tongTienGasDu + dieuChinhTien - tienMat - tienCK,
+        'tienChenhLechVo': tienChenhLechVo,
+        'noVoList': noVoCuaKhach,
+        // conLai = tien hang ban - tien mua gas du (da tra khach) + dieu chinh + chenh lech vo - tien da thu (mat + ck)
+        'conLai': tongTien - tongTienGasDu + dieuChinhTien + tienChenhLechVo - tienMat - tienCK,
       }).then((_) {
         ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
       });
@@ -1085,6 +1114,14 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     final groupEntries = groups.entries.toList()
       ..sort((a, b) => a.value.first.createdAt.compareTo(b.value.first.createdAt));
 
+    final searchQuery = removeDiacritics(_customerSearchCtrl.text.trim());
+    final filteredEntries = searchQuery.isEmpty
+        ? groupEntries
+        : groupEntries
+            .where((e) => removeDiacritics(e.value.first.tenKhachHang ?? '')
+                .contains(searchQuery))
+            .toList();
+
     // Lấy xacNhan list từ cx
     final xacNhanMap = <int, XacNhanKhachHangModel?>{};
     for (final xn in cx.xacNhan) {
@@ -1153,6 +1190,31 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
           ),
         ),
 
+        // ── Tìm kiếm khách hàng (filter trực tiếp danh sách bên dưới) ─────────────
+        // Luôn hiện kể cả khi canEdit=false vì chỉ đọc dữ liệu, không sửa.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+          child: TextField(
+            controller: _customerSearchCtrl,
+            decoration: InputDecoration(
+              hintText: 'Tìm khách hàng...',
+              prefixIcon: const Icon(Icons.search, size: 18),
+              isDense: true,
+              border: const OutlineInputBorder(),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              suffixIcon: _customerSearchCtrl.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.clear, size: 18),
+                      onPressed: () =>
+                          setState(() => _customerSearchCtrl.clear()),
+                    )
+                  : null,
+            ),
+            onChanged: (_) => setState(() {}),
+          ),
+        ),
+
         // Button Nhập bán hàng ở đầu tab — chỉ hiện khi chuyến đang giao
         if (canEdit)
           Padding(
@@ -1211,6 +1273,20 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
               ),
             ),
           )
+        else if (filteredEntries.isEmpty)
+          Expanded(
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.search_off, size: 48, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  Text('Không tìm thấy khách hàng phù hợp',
+                      style: TextStyle(color: Colors.grey)),
+                ],
+              ),
+            ),
+          )
         else ...[
         // Boc RefreshIndicator de ho tro pull-to-refresh khi co data
         Expanded(
@@ -1220,22 +1296,27 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
               // AlwaysScrollableScrollPhysics bat buoc de pull gesture hoat dong khi list ngan hon viewport
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              itemCount: groupEntries.length,
+              itemCount: filteredEntries.length,
               itemBuilder: (_, i) {
-              final entry = groupEntries[i];
+              final entry = filteredEntries[i];
               final rows = entry.value;
               // loc rieng cac dong mua gas du cua khach nay tu cx.banHangGasDu (list rieng, khong nam trong rows)
               final gasDuRows = cx.banHangGasDu.where((g) => g.khachHangId == entry.key).toList();
               final khachTen = rows.first.tenKhachHang ?? '—';
-              final khachTotal  = rows.fold<double>(0, (s, b) => s + b.thanhTien);
               // tong tien lai xe da tra khach de mua lai gas du - so tien nay phai duoc TRU vao no
               final tongTienGasDu = gasDuRows.fold<double>(0, (s, g) => s + g.thanhTien);
               final soBinhBan   = rows.where((b) => b.soVoThu == 0 && b.soVoBan == 0).fold(0, (s, b) => s + b.soLuong);
               final soVoThu     = rows.fold(0, (s, b) => s + b.soVoThu);
-              final tienDaTra   = rows.fold(0.0, (s, b) => s + b.tienMat + b.tienCK);
-              final dieuChinhTien = rows.first.dieuChinhTien;
-              // no = tien hang ban - tien mua gas du (da tra khach) + dieu chinh - tien da thu (mat + ck)
-              final tienNo      = (khachTotal - tongTienGasDu + dieuChinhTien - tienDaTra).clamp(0.0, double.infinity);
+              // thong tin thanh toan cua khach nay nam trong list rieng cx.banHangThanhToan
+              final thanhToanRows = cx.banHangThanhToan.where((t) => t.khachHangId == entry.key).toList();
+              final dieuChinhTien = thanhToanRows.isNotEmpty ? thanhToanRows.first.dieuChinhTien : 0.0;
+              final tienChenhLechVo = thanhToanRows.isNotEmpty ? thanhToanRows.first.tienChenhLechVo : 0.0;
+              // tong tien ban hang (chua tru gas du) - chi dung de tinh khachPhaiTra, khong hien thi truc tiep
+              final khachTotal  = rows.fold<double>(0, (s, b) => s + b.thanhTien) + tienChenhLechVo;
+              // tong tien khach THUC PHAI TRA = tien hang ban + chenh lech doi vo - tien mua gas du (da tra lai khach) + dieu chinh
+              final khachPhaiTra = khachTotal - tongTienGasDu + dieuChinhTien;
+              final tienDaTra   = thanhToanRows.fold(0.0, (s, t) => s + t.tienMat + t.tienCK);
+              final tienNo      = (khachPhaiTra - tienDaTra).clamp(0.0, double.infinity);
 
               return InkWell(
                 onTap: () => _openKhachHangDetail(cx, rows, gasDuRows),
@@ -1299,7 +1380,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                             ),
                           Text(
-                            '${fmt.format(khachTotal)}đ',
+                            '${fmt.format(khachPhaiTra)}đ',
                             style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13,
@@ -1830,10 +1911,10 @@ class _TabThuTien extends StatelessWidget {
   final ChuyenXeModel cx;
   const _TabThuTien({required this.cx});
 
-  /// Dựng số liệu tạm tính từ cx.banHang/cx.banHangGasDu khi kế toán chưa duyệt.
+  /// Dựng số liệu tạm tính từ cx.banHang/cx.banHangThanhToan/cx.banHangGasDu khi kế toán chưa duyệt.
   KetThucChuyenXeModel _ketThucTamTinh() {
-    final tienMat = cx.banHang.fold<double>(0, (s, b) => s + b.tienMat);
-    final tienCK = cx.banHang.fold<double>(0, (s, b) => s + b.tienCK);
+    final tienMat = cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.tienMat);
+    final tienCK = cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.tienCK);
     final tongTienNop = tienMat + tienCK;
     final soVoThu = cx.banHang.fold<int>(0, (s, b) => s + b.soVoThu);
     final tongTienTraGasDu =
@@ -2163,6 +2244,138 @@ class _TabAnh extends StatelessWidget {
               ),
             ),
           ],
+
+          const SizedBox(height: 28),
+          _SectionLabel('Ảnh xác nhận khách hàng'),
+          const SizedBox(height: 12),
+          _XacNhanKhachHangSection(cx: cx, baseUrl: baseUrl),
+        ],
+      ),
+    );
+  }
+}
+
+// Danh sách ảnh biên lai / chữ ký xác nhận, group theo khách hàng (bản mới nhất mỗi khách)
+class _XacNhanKhachHangSection extends StatelessWidget {
+  final ChuyenXeModel cx;
+  final String baseUrl;
+  const _XacNhanKhachHangSection({required this.cx, required this.baseUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    final xacNhanMap = <int, XacNhanKhachHangModel>{};
+    for (final xn in cx.xacNhan) {
+      final existing = xacNhanMap[xn.khachHangId];
+      if (existing == null || xn.id > existing.id) {
+        xacNhanMap[xn.khachHangId] = xn;
+      }
+    }
+    final entries = xacNhanMap.values.where((xn) => xn.coAnh || xn.coChuKy).toList()
+      ..sort((a, b) => (b.ngayXacNhan ?? DateTime(0)).compareTo(a.ngayXacNhan ?? DateTime(0)));
+
+    if (entries.isEmpty) {
+      return _EmptyState(
+          icon: Icons.assignment_turned_in_outlined,
+          label: 'Chưa có ảnh xác nhận nào từ khách hàng.');
+    }
+
+    return Column(
+      children: entries.map((xn) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.person_outline, size: 16, color: Colors.grey.shade600),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      xn.tenKhachHang ?? 'KH#${xn.khachHangId}',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    ),
+                  ),
+                  if (xn.ngayXacNhan != null)
+                    Text(
+                      _fmtDate.format(xn.ngayXacNhan!.toLocal()),
+                      style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  if (xn.coAnh)
+                    _thumb(context, xn.anhUrl!,
+                        label: 'Biên lai', icon: Icons.image_outlined),
+                  if (xn.coChuKy)
+                    _thumb(context, xn.chuKyUrl!,
+                        label: 'Chữ ký', icon: Icons.draw_outlined),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _thumb(BuildContext context, String relativeUrl,
+      {required String label, required IconData icon}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          GestureDetector(
+            onTap: () => showDialog<void>(
+              context: context,
+              barrierColor: Colors.black87,
+              builder: (_) => Dialog(
+                backgroundColor: Colors.transparent,
+                insetPadding: const EdgeInsets.all(16),
+                child: InteractiveViewer(
+                  child: Image.network('$baseUrl$relativeUrl', fit: BoxFit.contain),
+                ),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                width: 72,
+                height: 72,
+                color: Colors.grey.shade100,
+                child: Image.network(
+                  '$baseUrl$relativeUrl',
+                  fit: BoxFit.cover,
+                  loadingBuilder: (_, child, progress) => progress == null
+                      ? child
+                      : const Center(
+                          child: SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))),
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.broken_image_outlined, color: Colors.grey),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 3),
+          Row(
+            children: [
+              Icon(icon, size: 12, color: Colors.grey.shade600),
+              const SizedBox(width: 3),
+              Text(label, style: TextStyle(fontSize: 10, color: Colors.grey.shade600)),
+            ],
+          ),
         ],
       ),
     );
@@ -2565,13 +2778,8 @@ class _BanHangSummaryCard extends StatelessWidget {
 
     var tongBinhGas = 0;
     var tongTienPhai = 0.0;
-    var tongTienMat = 0.0;
-    var tongTienCK = 0.0;
 
     for (final rows in groups.values) {
-      tongTienMat += rows.first.tienMat;
-      tongTienCK += rows.first.tienCK;
-      tongTienPhai += rows.first.dieuChinhTien;
       for (final b in rows) {
         if (b.soVoThu == 0 && b.soVoBan == 0) {
           tongBinhGas += b.soLuong;
@@ -2579,15 +2787,24 @@ class _BanHangSummaryCard extends StatelessWidget {
         }
       }
     }
-    final tongConNo =
-        (tongTienPhai - tongTienMat - tongTienCK).clamp(0.0, double.infinity);
-
     // --- Vỏ / gas dư: dùng aggregate backend (đúng cho cả mobile-kết-thúc lẫn đã duyệt) ---
     final kt = cx.ketThuc;
     final tongGasDu     = cx.tongGasDuKg;      // kg gas dư (kt: KetThuc.GasDu; else: banHangGasDu)
-    final tongTienGasDu = cx.tienMuaGasDu;     // tiền mua gas dư
+    final tongTienGasDu = cx.tienMuaGasDu;     // tiền mua gas dư (lái xe trả lại khách — phải trừ khỏi tiền phải thu)
     final tongVoAggregate = cx.tongSoVo;       // tổng vỏ thu thực tế
     final tongNoDaTra   = kt?.tongThuNoCu ?? 0.0;
+
+    // Thông tin thanh toán nằm ở list riêng cx.banHangThanhToan — cộng dồn toàn chuyến
+    final tongTienMat = cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.tienMat);
+    final tongTienCK = cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.tienCK);
+    tongTienPhai += cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.dieuChinhTien);
+    // tien phai thu THUC TE = tien ban hang + dieu chinh - tien mua gas du (da tra lai khach)
+    tongTienPhai -= tongTienGasDu;
+    final tongConNo =
+        (tongTienPhai - tongTienMat - tongTienCK).clamp(0.0, double.infinity);
+    final tongChenhLechVo = cx.banHangThanhToan
+        .fold<double>(0, (s, t) => s + t.tienChenhLechVo);
+    final tongNoVo = cx.banHangNoVo.fold<int>(0, (s, n) => s + n.soLuong);
 
     if (cx.banHang.isEmpty && kt == null) return const SizedBox.shrink();
 
@@ -2615,6 +2832,25 @@ class _BanHangSummaryCard extends StatelessWidget {
                 'Tiền chuyển khoản', _fmtCurrency.format(tongTienCK)),
             _BanHangSummaryRow('Còn nợ', _fmtCurrency.format(tongConNo),
                 color: tongConNo > 0 ? Colors.red.shade700 : null),
+
+            // --- Chênh lệch đổi vỏ / Nợ vỏ (chỉ hiện khi khác 0) ---
+            if (tongChenhLechVo != 0) ...[
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              _BanHangSummaryRow(
+                  'Chênh lệch đổi vỏ', _fmtCurrency.format(tongChenhLechVo),
+                  color: tongChenhLechVo < 0
+                      ? Colors.red.shade700
+                      : Colors.green.shade700),
+            ],
+            if (tongNoVo > 0) ...[
+              const SizedBox(height: 8),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              _BanHangSummaryRow('Nợ vỏ', '$tongNoVo vỏ',
+                  color: Colors.orange.shade700),
+            ],
 
             // --- Gas dư (aggregate backend — hiện cho mọi trạng thái nếu có) ---
             if (tongGasDu > 0 || tongTienGasDu > 0) ...[

@@ -72,6 +72,26 @@ class _GasDuRow {
   double get donGia => soKg > 0 ? tongTien / soKg : 0;
 }
 
+class _NoVoRow {
+  final GlobalKey containerKey = GlobalKey();
+  int? matHangId;
+  String matHangLabel = '';
+  final matHangSearchCtrl = TextEditingController();
+  String? maMatHang;
+  String? tenMatHang;
+  String? maNhaCungCap;
+  String? tenNhaCungCap;
+
+  final soLuongCtrl = TextEditingController(text: '0');
+
+  void dispose() {
+    matHangSearchCtrl.dispose();
+    soLuongCtrl.dispose();
+  }
+
+  int get soLuong => int.tryParse(soLuongCtrl.text) ?? 0;
+}
+
 // ─── Screen ──────────────────────────────────────────────────────────────────
 
 class NhapBanHangScreen extends ConsumerStatefulWidget {
@@ -113,10 +133,14 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   // Gas dư
   final List<_GasDuRow> _gasDuRows = [];
 
+  // Nợ vỏ
+  final List<_NoVoRow> _noVoRows = [];
+
   // Thanh toán
   final _tienMatCtrl = TextEditingController(text: '');
   final _tienCKCtrl = TextEditingController(text: '');
   final _dieuChinhTienCtrl = TextEditingController(text: '');
+  final _tienChenhLechVoCtrl = TextEditingController(text: '');
   int? _selectedTaiKhoanId;
 
   // Ghi chú
@@ -143,9 +167,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   double get _tongTienGasDu => _gasDuRows.fold(0.0, (s, r) => s + r.thanhTien);
 
   // tong tien khach thuc phai tra = tien ban binh - tien mua gas du (lai xe tra lai khach)
-  //   + dieu chinh tien (duong = them, am = bot)
+  //   + dieu chinh tien (duong = them, am = bot) + chenh lech tien doi vo
   // truoc day cong nham _tongTienGasDu khien tong tien va no bi day len cao sai
-  double get _tongTien => _tongTienBanHang - _tongTienGasDu + _dieuChinhTien;
+  double get _tongTien =>
+      _tongTienBanHang - _tongTienGasDu + _dieuChinhTien + _tienChenhLechVo;
 
   double get _tienMat =>
       double.tryParse(
@@ -165,6 +190,12 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
       ) ??
       0;
 
+  double get _tienChenhLechVo =>
+      double.tryParse(
+        _tienChenhLechVoCtrl.text.replaceAll('.', '').replaceAll(',', ''),
+      ) ??
+      0;
+
   double get _conLai => _tongTien - _tienMat - _tienCK;
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
@@ -180,11 +211,15 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     _tienMatCtrl.dispose();
     _tienCKCtrl.dispose();
     _dieuChinhTienCtrl.dispose();
+    _tienChenhLechVoCtrl.dispose();
     _ghiChuCtrl.dispose();
     for (final r in _saleRows) {
       r.dispose();
     }
     for (final r in _gasDuRows) {
+      r.dispose();
+    }
+    for (final r in _noVoRows) {
       r.dispose();
     }
     super.dispose();
@@ -256,6 +291,17 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     });
   }
 
+  void _addNoVoRow() {
+    setState(() => _noVoRows.add(_NoVoRow()));
+  }
+
+  void _removeNoVoRow(int index) {
+    setState(() {
+      _noVoRows[index].dispose();
+      _noVoRows.removeAt(index);
+    });
+  }
+
   // ── Save ─────────────────────────────────────────────────────────────────
 
   Future<void> _save() async {
@@ -304,9 +350,14 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                 },
               )
               .toList(),
+          'noVo': _noVoRows
+              .where((r) => r.matHangId != null && r.soLuong > 0)
+              .map((r) => {'matHangId': r.matHangId, 'soLuong': r.soLuong})
+              .toList(),
           'tienMat': _tienMat,
           'tienCK': _tienCK,
           'dieuChinhTien': _dieuChinhTien,
+          'tienChenhLechVo': _tienChenhLechVo,
           if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
           if (widget.phuXeId != null) 'phuXeId': widget.phuXeId,
           'ghiChu': _ghiChuCtrl.text.trim().isEmpty
@@ -330,6 +381,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'tienMat': _tienMat,
               'tienCK': _tienCK,
               'dieuChinhTien': _dieuChinhTien,
+              'tienChenhLechVo': _tienChenhLechVo,
               'conLai': _conLai,
               'ghiChu': _ghiChuCtrl.text.trim().isEmpty
                   ? null
@@ -337,6 +389,22 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'tenTaiKhoan': selectedTk['ten_tai_khoan'] as String?,
               'soTaiKhoan': selectedTk['so_tai_khoan'] as String?,
               'tenNganHang': selectedTk['ngan_hang'] as String?,
+              'noVoList': _noVoRows
+                  .where((r) => r.matHangId != null && r.soLuong > 0)
+                  .map(
+                    (r) => BanHangNoVoModel(
+                      id: 0,
+                      khachHangId: khServerId,
+                      matHangId: r.matHangId!,
+                      maMatHang: r.maMatHang,
+                      tenMatHang: r.tenMatHang,
+                      maNhaCungCap: r.maNhaCungCap,
+                      tenNhaCungCap: r.tenNhaCungCap,
+                      soLuong: r.soLuong,
+                      createdAt: DateTime.now(),
+                    ),
+                  )
+                  .toList(),
               'banHangList': validRows
                   .map(
                     (r) => BanHangKhachHangModel(
@@ -382,6 +450,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'tien_mat': isFirstRow ? _tienMat : 0.0,
               'tien_ck': isFirstRow ? _tienCK : 0.0,
               'dieu_chinh_tien': isFirstRow ? _dieuChinhTien : 0.0,
+              'tien_chenh_lech_vo': isFirstRow ? _tienChenhLechVo : 0.0,
               'tai_khoan_ck_id': isFirstRow ? _selectedTaiKhoanId : null,
               'phu_xe_id': isFirstRow ? phuXeIdOffline : null,
               'ghi_chu': isFirstRow && _ghiChuCtrl.text.trim().isNotEmpty
@@ -404,6 +473,20 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               'so_kg': r.soKg,
               'don_gia': r.donGia,
               'thanh_tien': r.thanhTien,
+              'created_at': DateTime.now().toIso8601String(),
+              'is_synced': 0,
+            });
+          }
+          for (final r in _noVoRows.where(
+            (n) => n.matHangId != null && n.soLuong > 0,
+          )) {
+            await _db.insertBanHangNoVoLocal({
+              'chuyen_xe_server_id': widget.chuyenXeServerId,
+              'chuyen_xe_local_id': widget.chuyenXeLocalId,
+              'khach_hang_server_id': khServerId,
+              'khach_hang_local_id': khLocalId,
+              'mat_hang_id': r.matHangId,
+              'so_luong': r.soLuong,
               'created_at': DateTime.now().toIso8601String(),
               'is_synced': 0,
             });
@@ -488,6 +571,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
               // ── Mua gas dư ───────────────────────────────────────────────────
               _SectionCard(title: 'Mua gas dư', child: _buildGasDuSection()),
+              const SizedBox(height: 10),
+
+              // ── Nợ vỏ ────────────────────────────────────────────────────────
+              _SectionCard(title: 'Nợ vỏ', child: _buildNoVoSection()),
               const SizedBox(height: 10),
 
               // ── Thanh toán ───────────────────────────────────────────────────
@@ -1009,6 +1096,122 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     );
   }
 
+  Widget _buildNoVoSection() {
+    return Column(
+      children: [
+        for (int i = 0; i < _noVoRows.length; i++) _buildNoVoRow(i),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: _addNoVoRow,
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('Thêm nợ vỏ'),
+          ),
+        ),
+        if (_noVoRows.isEmpty)
+          const Text(
+            'Không có nợ vỏ',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildNoVoRow(int index) {
+    final row = _noVoRows[index];
+
+    return Container(
+      key: row.containerKey,
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        border: Border.all(color: Colors.amber.shade200),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: row.matHangSearchCtrl,
+                  readOnly: true,
+                  decoration: InputDecoration(
+                    labelText: 'Mặt hàng',
+                    hintText: 'Chạm để chọn mặt hàng...',
+                    prefixIcon: const Icon(Icons.search, size: 18),
+                    border: const OutlineInputBorder(),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    suffixIcon: row.matHangId != null
+                        ? IconButton(
+                            icon: const Icon(Icons.clear, size: 16),
+                            onPressed: () => setState(() {
+                              row.matHangId = null;
+                              row.matHangLabel = '';
+                              row.matHangSearchCtrl.clear();
+                            }),
+                          )
+                        : null,
+                  ),
+                  onTap: () async {
+                    _ensureVisible(row.containerKey);
+                    final selected = await context.push<Map<String, dynamic>>(
+                      AppRoutes.timKiemMatHang,
+                    );
+                    if (selected != null && mounted) {
+                      final label = _matHangLabel(selected);
+                      setState(() {
+                        row.matHangId = selected['server_id'] as int;
+                        row.matHangLabel = label;
+                        row.matHangSearchCtrl.text = label;
+                        row.maMatHang = selected['ma_mat_hang'] as String?;
+                        row.tenMatHang = selected['ten_mat_hang'] as String?;
+                        row.maNhaCungCap = selected['ma_ncc'] as String?;
+                        row.tenNhaCungCap = selected['ten_ncc'] as String?;
+                      });
+                    }
+                  },
+                ),
+              ),
+              IconButton(
+                icon: const Icon(
+                  Icons.delete_outline,
+                  color: Colors.red,
+                  size: 20,
+                ),
+                onPressed: () => _removeNoVoRow(index),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: row.soLuongCtrl,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            decoration: const InputDecoration(
+              labelText: 'Số lượng',
+              border: OutlineInputBorder(),
+              isDense: true,
+              suffixText: 'vỏ',
+              contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            ),
+            onTap: () => _ensureVisible(row.containerKey),
+            onChanged: (_) => setState(() {}),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildThanhToanSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1088,6 +1291,23 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           decoration: const InputDecoration(
             labelText: 'Điều chỉnh tiền (+/-)',
             hintText: 'VD: -20.000 để bớt, 20.000 để thêm',
+            border: OutlineInputBorder(),
+            isDense: true,
+            suffixText: 'đ',
+            contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          ),
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 8),
+        // Chênh lệch tiền khi đổi vỏ khác hãng/giá (+/-)
+        TextField(
+          controller: _tienChenhLechVoCtrl,
+          keyboardType: const TextInputType.numberWithOptions(signed: true),
+          inputFormatters: [_SignedThousandsFormatter()],
+          onTap: () => _ensureVisible(_thanhToanSectionKey),
+          decoration: const InputDecoration(
+            labelText: 'Chênh lệch đổi vỏ (+/-)',
+            hintText: 'vd: -20000 hoặc 20000',
             border: OutlineInputBorder(),
             isDense: true,
             suffixText: 'đ',

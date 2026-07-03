@@ -93,13 +93,7 @@ class BanHangKhachHangModel {
   final double thanhTien;
   final int soVoBan;
   final int soVoThu;
-  final double tienMat;
-  final double tienCK;
-  final double dieuChinhTien;   // dieu chinh tien (+/-): duong = them, am = bot; chi row dau moi lan nhap
-  final int? taiKhoanCKId;       // id tai khoan ngan hang nhan chuyen khoan
-  final String? tenTaiKhoanCK;   // ten tai khoan hien thi (tu nav TaiKhoanCK)
-  final int? xacNhanId;
-  final String? ghiChu;
+  final int thanhToanId; // FK tới BanHangThanhToanModel (nhóm các dòng cùng 1 lần bán)
   final DateTime createdAt;
 
   const BanHangKhachHangModel({
@@ -117,13 +111,7 @@ class BanHangKhachHangModel {
     required this.thanhTien,
     required this.soVoBan,
     required this.soVoThu,
-    this.tienMat = 0,
-    this.tienCK = 0,
-    this.dieuChinhTien = 0,
-    this.taiKhoanCKId,
-    this.tenTaiKhoanCK,
-    this.xacNhanId,
-    this.ghiChu,
+    this.thanhToanId = 0,
     required this.createdAt,
   });
 
@@ -143,14 +131,100 @@ class BanHangKhachHangModel {
         thanhTien:      (json['thanhTien'] as num).toDouble(),
         soVoBan:        json['soVoBan'] as int? ?? 0,
         soVoThu:        json['soVoThu'] as int? ?? 0,
-        tienMat:        (json['tienMat'] as num? ?? 0).toDouble(),
-        tienCK:         (json['tienCK']  as num? ?? 0).toDouble(),
-        dieuChinhTien:  (json['dieuChinhTien'] as num? ?? 0).toDouble(),
-        taiKhoanCKId:   json['taiKhoanCKId'] as int?,
-        tenTaiKhoanCK:  json['tenTaiKhoanCK'] as String?,
-        xacNhanId:      json['xacNhanId'] as int?,
-        ghiChu:         json['ghiChu'] as String?,
+        thanhToanId:    json['thanhToanId'] as int? ?? 0,
         createdAt:      DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+      );
+}
+
+// ---------- Thanh toán/xác nhận của 1 lần bán hàng cho khách (mobile) ----------
+
+class BanHangThanhToanModel {
+  final int id;
+  final int chuyenXeId;
+  final int khachHangId;
+  final String? tenKhachHang;
+  final double tienMat;
+  final double tienCK;
+  final int? taiKhoanCKId;
+  final String? tenTaiKhoanCK;
+  final double dieuChinhTien;   // dieu chinh tien (+/-): duong = them, am = bot
+  final double tienChenhLechVo; // +/- chenh lech tien doi vo khac hang/gia
+  final int? xacNhanId;
+  final String? ghiChu;
+  final DateTime createdAt;
+
+  const BanHangThanhToanModel({
+    required this.id,
+    required this.chuyenXeId,
+    required this.khachHangId,
+    this.tenKhachHang,
+    this.tienMat = 0,
+    this.tienCK = 0,
+    this.taiKhoanCKId,
+    this.tenTaiKhoanCK,
+    this.dieuChinhTien = 0,
+    this.tienChenhLechVo = 0,
+    this.xacNhanId,
+    this.ghiChu,
+    required this.createdAt,
+  });
+
+  factory BanHangThanhToanModel.fromJson(Map<String, dynamic> json) =>
+      BanHangThanhToanModel(
+        id:              json['id'] as int,
+        chuyenXeId:      json['chuyenXeId'] as int,
+        khachHangId:     json['khachHangId'] as int,
+        tenKhachHang:    json['tenKhachHang'] as String?,
+        tienMat:         (json['tienMat'] as num? ?? 0).toDouble(),
+        tienCK:          (json['tienCK'] as num? ?? 0).toDouble(),
+        taiKhoanCKId:    json['taiKhoanCKId'] as int?,
+        tenTaiKhoanCK:   json['tenTaiKhoanCK'] as String?,
+        dieuChinhTien:   (json['dieuChinhTien'] as num? ?? 0).toDouble(),
+        tienChenhLechVo: (json['tienChenhLechVo'] as num? ?? 0).toDouble(),
+        xacNhanId:       json['xacNhanId'] as int?,
+        ghiChu:          json['ghiChu'] as String?,
+        createdAt:       DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
+      );
+}
+
+// ---------- Nợ vỏ khách hàng (mobile) ----------
+
+class BanHangNoVoModel {
+  final int id;
+  final int khachHangId;
+  final String? tenKhachHang;
+  final int matHangId;
+  final String? maMatHang;
+  final String? tenMatHang;
+  final String? maNhaCungCap;
+  final String? tenNhaCungCap;
+  final int soLuong;
+  final DateTime createdAt;
+
+  const BanHangNoVoModel({
+    required this.id,
+    required this.khachHangId,
+    this.tenKhachHang,
+    required this.matHangId,
+    this.maMatHang,
+    this.tenMatHang,
+    this.maNhaCungCap,
+    this.tenNhaCungCap,
+    required this.soLuong,
+    required this.createdAt,
+  });
+
+  factory BanHangNoVoModel.fromJson(Map<String, dynamic> json) => BanHangNoVoModel(
+        id:            json['id'] as int,
+        khachHangId:   json['khachHangId'] as int,
+        tenKhachHang:  json['tenKhachHang'] as String?,
+        matHangId:     json['matHangId'] as int,
+        maMatHang:     json['maMatHang'] as String?,
+        tenMatHang:    json['tenMatHang'] as String?,
+        maNhaCungCap:  json['maNhaCungCap'] as String?,
+        tenNhaCungCap: json['tenNhaCungCap'] as String?,
+        soLuong:       json['soLuong'] as int,
+        createdAt:     DateTime.tryParse(json['createdAt'] as String? ?? '') ?? DateTime.now(),
       );
 }
 
@@ -443,6 +517,8 @@ class ChuyenXeModel {
   final List<AnhChuyenXeModel> anh;
   final List<BanHangKhachHangModel> banHang;
   final List<GasDuChiTietModel> banHangGasDu;
+  final List<BanHangNoVoModel> banHangNoVo;
+  final List<BanHangThanhToanModel> banHangThanhToan;
   final List<XacNhanKhachHangModel> xacNhan;
   final KetThucChuyenXeModel? ketThuc;
   // Aggregate fields cho card tổng quan (từ list API)
@@ -480,6 +556,8 @@ class ChuyenXeModel {
     required this.anh,
     this.banHang = const [],
     this.banHangGasDu = const [],
+    this.banHangNoVo = const [],
+    this.banHangThanhToan = const [],
     this.xacNhan = const [],
     this.ketThuc,
     this.tongTienMat = 0,
@@ -526,6 +604,12 @@ class ChuyenXeModel {
             .toList(),
         banHangGasDu: (json['banHangGasDu'] as List? ?? [])
             .map((e) => GasDuChiTietModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        banHangNoVo: (json['banHangNoVo'] as List? ?? [])
+            .map((e) => BanHangNoVoModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        banHangThanhToan: (json['banHangThanhToan'] as List? ?? [])
+            .map((e) => BanHangThanhToanModel.fromJson(e as Map<String, dynamic>))
             .toList(),
         xacNhan: (json['xacNhan'] as List? ?? [])
             .map((e) => XacNhanKhachHangModel.fromJson(e as Map<String, dynamic>))
