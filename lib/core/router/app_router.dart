@@ -49,6 +49,7 @@ import '../../features/khach_hang/presentation/screens/tao_khach_hang_screen.dar
 import '../../features/kiem_ke/presentation/screens/kiem_ke_list_screen.dart'; // danh sach kiem ke
 import '../../features/kiem_ke/presentation/screens/kiem_ke_nhap_screen.dart'; // nhap so lieu kiem ke
 import '../../features/kiem_ke/presentation/screens/kiem_ke_tao_chuyen_screen.dart'; // tao chuyen kiem ke moi
+import '../../features/kiem_ke/presentation/screens/kiem_ke_doi_chieu_screen.dart'; // doi chieu so mang ve
 import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart'; // provider so thong bao chua doc
 import '../providers/user_info_provider.dart'; // thong tin user dang nhap (lay userId)
 import '../database/local_database.dart'; // co so du lieu local (SQLite) cho offline
@@ -283,6 +284,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
           child: KiemKeNhapScreen(
+            chuyenXeId: int.parse(state.pathParameters['chuyenXeId']!),
+          ),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/kiem-ke/:chuyenXeId/doi-chieu', // route doi chieu so mang ve (ke toan vs lai xe)
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: KiemKeDoiChieuScreen(
             chuyenXeId: int.parse(state.pathParameters['chuyenXeId']!),
           ),
         ),

@@ -64,4 +64,5 @@ class AppRoutes {
   static const String kiemKeList         = '/kiem-ke';
   static const String kiemKeTaoChuyen    = '/kiem-ke/tao-moi';
   static String kiemKeNhap(int chuyenXeId) => '/kiem-ke/$chuyenXeId/nhap';
+  static String kiemKeDoiChieu(int chuyenXeId) => '/kiem-ke/$chuyenXeId/doi-chieu';
 }
