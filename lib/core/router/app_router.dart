@@ -135,10 +135,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: AppRoutes.taoKhachHang, // route tao moi khach hang nhanh (tu man hinh nhap ban hang)
-        pageBuilder: (_, state) => CupertinoPage(
-          key: state.pageKey,
-          child: const TaoKhachHangScreen(),
-        ),
+        pageBuilder: (_, state) {
+          // Callback nhan khach vua tao — gan truc tiep vao man cha, khong phu thuoc pop-result
+          final onCreated = (state.extra as Map?)?['onCreated']
+              as void Function(Map<String, dynamic>)?;
+          return CupertinoPage(
+            key: state.pageKey,
+            child: TaoKhachHangScreen(onCreated: onCreated),
+          );
+        },
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,

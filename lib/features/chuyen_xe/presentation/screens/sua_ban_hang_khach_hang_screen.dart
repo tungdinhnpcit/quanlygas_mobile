@@ -352,6 +352,29 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
       return;
     }
 
+    // Cảnh báo: lưu thay đổi sẽ xóa biên lai/chữ ký cũ và yêu cầu ký xác nhận lại
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Ký xác nhận lại?'),
+        content: const Text(
+          'Lưu thay đổi sẽ xóa ảnh biên lai và chữ ký xác nhận cũ (nếu có). '
+          'Bạn sẽ cần ký/chụp biên lai lại sau khi lưu.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huỷ'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Tiếp tục'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
     setState(() => _saving = true);
 
     try {
@@ -366,8 +389,9 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
         await _repo.deleteBanHangNoVo(widget.chuyenXeId, n.id);
       }
 
-      // 2. Re-create với dữ liệu mới
-      await _repo.nhapKhachHang(widget.chuyenXeId, {
+      // 2. Re-create với dữ liệu mới — trả về xacNhanId để ký/chụp biên lai lại.
+      //    Backend (nhap-khach-hang) đã tự xóa ảnh biên lai + chữ ký cũ khi gọi lại.
+      final xacNhanId = await _repo.nhapKhachHang(widget.chuyenXeId, {
         'khachHangId': widget.khachHangId,
         'chiTiet': validRows
             .map((r) => {
@@ -399,9 +423,66 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Đã lưu'), backgroundColor: Colors.green));
-        context.pop();
+        // Redirect sang màn ký xác nhận + chụp biên lai với dữ liệu MỚI (giống luồng nhập mới)
+        final selectedTk = _selectedTaiKhoanId != null
+            ? _taiKhoanList.firstWhere(
+                (tk) => tk['server_id'] == _selectedTaiKhoanId,
+                orElse: () => <String, dynamic>{},
+              )
+            : <String, dynamic>{};
+        final tenKH =
+            widget.rows.isNotEmpty ? widget.rows.first.tenKhachHang : null;
+        context.pushReplacement(
+          '/xac-nhan/$xacNhanId',
+          extra: {
+            'chuyenXeId': widget.chuyenXeId,
+            'tenKhachHang': tenKH,
+            'tienMat': _tienMat,
+            'tienCK': _tienCK,
+            'dieuChinhTien': _dieuChinhTien,
+            'tienChenhLechVo': _tienChenhLechVo,
+            'conLai': _conLai,
+            'ghiChu':
+                _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
+            'tenTaiKhoan': selectedTk['ten_tai_khoan'] as String?,
+            'soTaiKhoan': selectedTk['so_tai_khoan'] as String?,
+            'tenNganHang': selectedTk['ngan_hang'] as String?,
+            'noVoList': _noVoRows
+                .where((r) => r.matHangId != null && r.soLuong > 0)
+                .map(
+                  (r) => BanHangNoVoModel(
+                    id: 0,
+                    khachHangId: widget.khachHangId,
+                    tenKhachHang: tenKH,
+                    matHangId: r.matHangId!,
+                    maMatHang: r.maMatHang,
+                    tenMatHang: r.tenMatHang,
+                    maNhaCungCap: r.maNhaCungCap,
+                    tenNhaCungCap: r.tenNhaCungCap,
+                    soLuong: r.soLuong,
+                    createdAt: DateTime.now(),
+                  ),
+                )
+                .toList(),
+            'banHangList': validRows
+                .map(
+                  (r) => BanHangKhachHangModel(
+                    id: 0,
+                    khachHangId: widget.khachHangId,
+                    tenKhachHang: tenKH,
+                    matHangId: r.matHangId!,
+                    tenMatHang: r.matHangLabel,
+                    soLuong: r.soLuong,
+                    donGia: r.donGia,
+                    thanhTien: r.thanhTien,
+                    soVoBan: r.soVoBan,
+                    soVoThu: r.soVoThu,
+                    createdAt: DateTime.now(),
+                  ),
+                )
+                .toList(),
+          },
+        );
       }
     } catch (e) {
       if (mounted) _showError('Lỗi: $e');

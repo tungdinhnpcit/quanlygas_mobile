@@ -10,7 +10,11 @@ import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart'
 /// Hiển thị 3 tab: Trang chủ / Thông báo / Cài đặt, giống _MainShell.
 /// Không highlight tab nào (indicatorColor transparent) vì đây là sub-screens.
 class AppBottomNavBar extends ConsumerWidget {
-  const AppBottomNavBar({super.key});
+  /// Guard tùy chọn — gọi trước khi điều hướng khỏi màn hiện tại.
+  /// Trả về false để hủy điều hướng (ví dụ user chọn "Ở lại" khi có dữ liệu chưa lưu).
+  final Future<bool> Function()? confirmBeforeLeave;
+
+  const AppBottomNavBar({super.key, this.confirmBeforeLeave});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -18,7 +22,9 @@ class AppBottomNavBar extends ConsumerWidget {
     return NavigationBar(
       selectedIndex: 0,
       indicatorColor: Colors.transparent,
-      onDestinationSelected: (i) {
+      onDestinationSelected: (i) async {
+        if (confirmBeforeLeave != null && !await confirmBeforeLeave!()) return;
+        if (!context.mounted) return;
         switch (i) {
           case 0:
             context.go(AppRoutes.home);

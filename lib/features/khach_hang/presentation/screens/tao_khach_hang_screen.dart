@@ -11,7 +11,12 @@ import '../../../../core/services/connectivity_service.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
 
 class TaoKhachHangScreen extends ConsumerStatefulWidget {
-  const TaoKhachHangScreen({super.key});
+  /// Callback tuy chon — goi voi Map khach hang vua tao truoc khi pop.
+  /// Dung de man goi (vd NhapBanHangScreen) gan khach truc tiep, khong phu
+  /// thuoc gia tri tra ve cua context.push (bi loi khi co PopScope canPop:false).
+  final void Function(Map<String, dynamic>)? onCreated;
+
+  const TaoKhachHangScreen({super.key, this.onCreated});
 
   @override
   ConsumerState<TaoKhachHangScreen> createState() =>
@@ -133,10 +138,24 @@ class _TaoKhachHangScreenState extends ConsumerState<TaoKhachHangScreen> {
             content: Text('Đã tạo khách hàng'),
             backgroundColor: Colors.green,
           ));
-          context.pop();
+          // Trả về khách vừa tạo (cùng bộ key với màn tìm kiếm) để màn gọi tự chọn.
+          // Ưu tiên callback (không phụ thuộc pop-result vốn bị lỗi với PopScope);
+          // vẫn giữ pop kèm giá trị để tương thích các màn gọi cũ dùng return value.
+          final khMap = <String, dynamic>{
+            'server_id':      serverId,
+            'local_id':       null,
+            'ten_khach_hang': data['tenKhachHang'],
+            'dia_chi':        data['diaChi'],
+            'so_dien_thoai':  data['soDienThoai'],
+            'email':          data['email'],
+            'latitude':       _latitude,
+            'longitude':      _longitude,
+          };
+          widget.onCreated?.call(khMap);
+          context.pop(khMap);
         }
       } else {
-        await LocalDatabase.instance.insertKhachHangOffline({
+        final localId = await LocalDatabase.instance.insertKhachHangOffline({
           'ten_khach_hang':   data['tenKhachHang'],
           'dia_chi':          data['diaChi'],
           'so_dien_thoai':    data['soDienThoai'],
@@ -152,7 +171,19 @@ class _TaoKhachHangScreenState extends ConsumerState<TaoKhachHangScreen> {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Đã lưu offline. Sẽ đồng bộ khi có mạng.'),
           ));
-          context.pop();
+          // Trả về khách vừa tạo offline (server_id null, dùng local_id) để màn gọi tự chọn
+          final khMap = <String, dynamic>{
+            'server_id':      null,
+            'local_id':       localId,
+            'ten_khach_hang': data['tenKhachHang'],
+            'dia_chi':        data['diaChi'],
+            'so_dien_thoai':  data['soDienThoai'],
+            'email':          data['email'],
+            'latitude':       _latitude,
+            'longitude':      _longitude,
+          };
+          widget.onCreated?.call(khMap);
+          context.pop(khMap);
         }
       }
     } catch (e) {

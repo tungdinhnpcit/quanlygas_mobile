@@ -534,16 +534,78 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
   }
 
+  // ── Chặn rời màn khi có dữ liệu chưa lưu ───────────────────────────────────
+
+  /// True nếu user đã nhập bất kỳ dữ liệu bán hàng nào mà chưa lưu.
+  bool get _hasUnsavedData {
+    if (_selectedKhachHang != null) return true;
+    if (_gasDuRows.isNotEmpty || _noVoRows.isNotEmpty) return true;
+    if (_saleRows.any((r) =>
+        r.matHangId != null ||
+        r.soLuongCtrl.text.trim() != '1' ||
+        r.donGiaCtrl.text.trim().isNotEmpty)) {
+      return true;
+    }
+    if (_tienMatCtrl.text.trim().isNotEmpty ||
+        _tienCKCtrl.text.trim().isNotEmpty ||
+        _dieuChinhTienCtrl.text.trim().isNotEmpty ||
+        _tienChenhLechVoCtrl.text.trim().isNotEmpty) {
+      return true;
+    }
+    if (_ghiChuCtrl.text.trim().isNotEmpty) return true;
+    return false;
+  }
+
+  /// Hỏi xác nhận trước khi rời màn — chỉ hỏi khi có dữ liệu chưa lưu.
+  Future<bool> _confirmLeave() async {
+    if (!_hasUnsavedData) return true;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Rời màn hình?'),
+        content: const Text(
+          'Dữ liệu bán hàng chưa lưu sẽ bị mất. Bạn có chắc muốn rời đi?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Ở lại'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Rời đi'),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      // canPop:false → chặn back vật lý + swipe-back, mọi lối rời đi qua _confirmLeave
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmLeave() && mounted) context.pop();
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('Nhập bán hàng'),
-        leading: BackButton(onPressed: () => context.pop()),
+        leading: BackButton(
+          onPressed: () async {
+            if (await _confirmLeave() && mounted) context.pop();
+          },
+        ),
       ),
-      bottomNavigationBar: const AppBottomNavBar(),
+      bottomNavigationBar: AppBottomNavBar(confirmBeforeLeave: _confirmLeave),
       body: GestureDetector(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(12),
@@ -627,6 +689,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           ),
         ),
       ),
+      ),
     );
   }
 
@@ -709,10 +772,19 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            // Button tạo khách hàng mới
+            // Button tạo khách hàng mới → nhận lại khách vừa tạo và tự chọn vào form
             OutlinedButton.icon(
               onPressed: () async {
-                await context.push(AppRoutes.taoKhachHang);
+                // Gan khach qua callback (khong phu thuoc pop-result vi man nay co
+                // PopScope canPop:false lam go_router 14.x mat gia tri tra ve)
+                await context.push(
+                  AppRoutes.taoKhachHang,
+                  extra: {
+                    'onCreated': (Map<String, dynamic> kh) {
+                      if (mounted) setState(() => _selectedKhachHang = kh);
+                    },
+                  },
+                );
                 if (mounted) _loadCaches();
               },
               icon: const Icon(Icons.add, size: 16),
