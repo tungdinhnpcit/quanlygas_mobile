@@ -214,7 +214,9 @@ class _KhachHangItemState extends State<_KhachHangItem> {
     }
 
     try {
-      final res = await Dio().get(
+      final res = await Dio(BaseOptions(
+        connectTimeout: const Duration(seconds: 8),
+      )).get(
         'https://nominatim.openstreetmap.org/reverse',
         queryParameters: {
           'lat': lat,

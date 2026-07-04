@@ -37,6 +37,10 @@ class ApiClient {
   late final Dio _dio;
   final _storage = const FlutterSecureStorage();
 
+  // Single-flight lock: nhiều request 401 đồng thời chỉ trigger 1 lần refresh duy nhất,
+  // tránh nhiều request cùng ghi đè jwt_token/refresh_token vào secure storage không đồng bộ.
+  Future<bool>? _refreshingFuture;
+
   // Callback được set bởi app_router khi cần navigate về login
   static void Function(String route)? _navigateToLogin;
   static void setNavigateToLogin(void Function(String) cb) => _navigateToLogin = cb;
@@ -97,7 +101,11 @@ class ApiClient {
         }
 
         if (error.response?.statusCode == 401) {
-          final refreshed = await _tryRefresh();
+          // Dùng chung 1 Future refresh cho mọi request 401 đến đồng thời — tránh nhiều
+          // request cùng gọi /api/auth/refresh và ghi đè lẫn nhau vào secure storage.
+          final refreshed = await (_refreshingFuture ??= _tryRefresh().whenComplete(() {
+            _refreshingFuture = null;
+          }));
           if (refreshed) {
             // Retry với token mới
             final token = await _storage.read(key: 'jwt_token');
@@ -126,8 +134,12 @@ class ApiClient {
     final refreshToken = await _storage.read(key: 'refresh_token');
     if (refreshToken == null) return false;
     try {
-      final resp = await Dio(BaseOptions(baseUrl: AppConstants.resolvedApiUrl))
-          .post('/api/auth/refresh', data: {'refreshToken': refreshToken});
+      final resp = await Dio(BaseOptions(
+        baseUrl: AppConstants.resolvedApiUrl,
+        connectTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+      )).post('/api/auth/refresh', data: {'refreshToken': refreshToken});
       final data = resp.data as Map<String, dynamic>;
       await _storage.write(key: 'jwt_token',     value: data['accessToken'] as String);
       await _storage.write(key: 'refresh_token', value: data['refreshToken'] as String);

@@ -8,7 +8,7 @@ import '../../../chuyen_xe/data/models/chuyen_xe_model.dart';
 import '../../../chuyen_xe/data/models/kiem_ke_model.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 
-/// Một dòng nhập kiểm kê: Nhà cung cấp (cascade) → Mặt hàng → Số bình/vỏ xuất.
+/// Một dòng nhập kiểm kê: Mặt hàng (đã gồm sẵn hãng SX) → Số bình/vỏ xuất.
 class _KiemKeRow {
   int nhaCungCapId;
   int matHangId;
@@ -43,7 +43,6 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
   String? _error;
 
   ChuyenXeModel? _chuyenXe;
-  List<Map<String, dynamic>> _nhaCCList = [];
   List<Map<String, dynamic>> _matHangList = [];
   final List<_KiemKeRow> _rows = [];
   final _ghiChuCtrl = TextEditingController();
@@ -68,20 +67,17 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
     try {
       final results = await Future.wait([
         _repo.getById(widget.chuyenXeId),
-        _db.getNhaCungCapList(),
         _db.getMatHangList(),
         _repo.getKiemKe(widget.chuyenXeId),
       ]);
 
       final cx       = results[0] as ChuyenXeModel;
-      final nccList  = results[1] as List<Map<String, dynamic>>;
-      final mhList   = results[2] as List<Map<String, dynamic>>;
-      final kiemKe   = results[3] as KiemKeChuyenXeModel?;
+      final mhList   = results[1] as List<Map<String, dynamic>>;
+      final kiemKe   = results[2] as KiemKeChuyenXeModel?;
 
       if (!mounted) return;
       setState(() {
         _chuyenXe    = cx;
-        _nhaCCList   = nccList;
         _matHangList = mhList;
         _rows.clear();
         if (kiemKe != null && kiemKe.chiTiet.isNotEmpty) {
@@ -287,7 +283,6 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
         ..._rows.asMap().entries.map((e) => _RowEditor(
               key: ValueKey(e.key),
               row: e.value,
-              nhaCCList: _nhaCCList,
               matHangList: _matHangList,
               onChanged: () => setState(() {}),
               onRemove: _rows.length > 1 ? () => _removeRow(e.key) : null,
@@ -362,10 +357,9 @@ class _InfoLine extends StatelessWidget {
   }
 }
 
-/// Editor cho 1 dòng kiểm kê: dropdown NCC (cascade) → dropdown Mặt hàng → 2 ô số.
+/// Editor cho 1 dòng kiểm kê: dropdown Mặt hàng (đã gồm sẵn hãng SX) → 2 ô số.
 class _RowEditor extends StatelessWidget {
   final _KiemKeRow row;
-  final List<Map<String, dynamic>> nhaCCList;
   final List<Map<String, dynamic>> matHangList;
   final VoidCallback onChanged;
   final VoidCallback? onRemove;
@@ -373,44 +367,37 @@ class _RowEditor extends StatelessWidget {
   const _RowEditor({
     super.key,
     required this.row,
-    required this.nhaCCList,
     required this.matHangList,
     required this.onChanged,
     this.onRemove,
   });
 
-  /// Tra cứu "mã - tên" của Hãng SX/Mặt hàng đang chọn để hiển thị trên field.
-  String? _labelFor(List<Map<String, dynamic>> list, int id, String maKey, String tenKey) {
-    if (id <= 0) return null;
-    final item = list.firstWhere((e) => e['server_id'] == id, orElse: () => {});
+  /// Tra cứu "mã - tên (hãng)" của Mặt hàng đang chọn để hiển thị trên field.
+  /// Tên hãng lấy trực tiếp từ cache_mat_hang.ten_nha_cc (đã join sẵn từ backend).
+  String? _matHangLabel(int matHangId) {
+    if (matHangId <= 0) return null;
+    final item = matHangList.firstWhere((e) => e['server_id'] == matHangId, orElse: () => {});
     if (item.isEmpty) return null;
-    return '${item[maKey] ?? ''} - ${item[tenKey] ?? ''}';
-  }
-
-  Future<void> _pickNhaCungCap(BuildContext context) async {
-    final ncc = await context.push<Map<String, dynamic>>(AppRoutes.timKiemNhaCungCap);
-    if (ncc != null) {
-      row.nhaCungCapId = ncc['server_id'] as int;
-      row.matHangId = 0; // reset cascade — mặt hàng phải chọn lại theo hãng mới
-      onChanged();
-    }
+    final ma = item['ma_mat_hang'] ?? '';
+    final ten = item['ten_mat_hang'] ?? '';
+    final tenNcc = item['ten_nha_cc'] as String?;
+    final base = '$ma - $ten';
+    return (tenNcc != null && tenNcc.isNotEmpty) ? '$base ($tenNcc)' : base;
   }
 
   Future<void> _pickMatHang(BuildContext context) async {
-    final mh = await context.push<Map<String, dynamic>>(
-      AppRoutes.timKiemMatHang,
-      extra: row.nhaCungCapId > 0 ? {'nhaCungCapId': row.nhaCungCapId} : null,
-    );
+    final mh = await context.push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
     if (mh != null) {
       row.matHangId = mh['server_id'] as int;
+      // Suy ra hãng SX trực tiếp từ mặt hàng đã chọn — không cần chọn hãng riêng.
+      row.nhaCungCapId = mh['nha_cung_cap_id'] as int? ?? 0;
       onChanged();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final nhaCCLabel = _labelFor(nhaCCList, row.nhaCungCapId, 'ma_ncc', 'ten_ncc');
-    final matHangLabel = _labelFor(matHangList, row.matHangId, 'ma_mat_hang', 'ten_mat_hang');
+    final matHangLabel = _matHangLabel(row.matHangId);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
@@ -420,37 +407,15 @@ class _RowEditor extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: InkWell(
-                    onTap: () => _pickNhaCungCap(context),
-                    child: InputDecorator(
-                      decoration: const InputDecoration(
-                        labelText: 'Hãng SX',
-                        border: OutlineInputBorder(),
-                        isDense: true,
-                        suffixIcon: Icon(Icons.search, size: 18),
-                      ),
-                      child: Text(
-                        nhaCCLabel ?? 'Chọn hãng SX',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: nhaCCLabel == null ? Colors.grey : null,
-                        ),
-                      ),
-                    ),
-                  ),
+            if (onRemove != null)
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: onRemove,
+                  tooltip: 'Xoá dòng',
                 ),
-                if (onRemove != null)
-                  IconButton(
-                    icon: const Icon(Icons.delete_outline, color: Colors.red),
-                    onPressed: onRemove,
-                    tooltip: 'Xoá dòng',
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
+              ),
             InkWell(
               onTap: () => _pickMatHang(context),
               child: InputDecorator(
