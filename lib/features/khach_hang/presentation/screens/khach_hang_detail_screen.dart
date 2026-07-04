@@ -36,6 +36,44 @@ class _KhachHangDetailScreenState
     return '$serverRoot$relativePath';
   }
 
+  // Mở dialog xem ảnh cửa hàng full màn hình, hỗ trợ zoom/pan
+  void _showAnhFull(String relativePath) {
+    showDialog<void>(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Center(
+                child: CachedNetworkImage(
+                  imageUrl: _buildImageUrl(relativePath),
+                  fit: BoxFit.contain,
+                  placeholder: (_, __) =>
+                      const Center(child: CircularProgressIndicator()),
+                  errorWidget: (_, __, ___) => const Center(
+                    child: Icon(Icons.broken_image, size: 64, color: Colors.grey),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 8,
+              right: 8,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // Xin quyền location, trả về true nếu được cấp
   Future<bool> _requestLocationPermission() async {
     final status = await Permission.location.request();
@@ -306,28 +344,60 @@ class _KhachHangDetailScreenState
             const Text('Ảnh cửa hàng',
                 style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: kh.anhCuaHang != null
-                  ? CachedNetworkImage(
-                      imageUrl: _buildImageUrl(kh.anhCuaHang!),
-                      height: 200,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (_, __) => Container(
-                        height: 200,
-                        color: Colors.grey.shade200,
-                        child: const Center(child: CircularProgressIndicator()),
-                      ),
-                      errorWidget: (_, __, ___) => Container(
-                        height: 200,
-                        color: Colors.grey.shade100,
-                        child: const Center(
-                          child: Icon(Icons.broken_image, size: 48, color: Colors.grey),
+            kh.anhCuaHang != null
+                ? GestureDetector(
+                    onTap: () => _showAnhFull(kh.anhCuaHang!),
+                    child: Stack(
+                      alignment: Alignment.bottomRight,
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: CachedNetworkImage(
+                            imageUrl: _buildImageUrl(kh.anhCuaHang!),
+                            height: 80,
+                            width: 80,
+                            fit: BoxFit.cover,
+                            placeholder: (_, __) => Container(
+                              height: 80,
+                              width: 80,
+                              color: Colors.grey.shade200,
+                              child: const Center(
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              ),
+                            ),
+                            errorWidget: (_, __, ___) => Container(
+                              height: 80,
+                              width: 80,
+                              color: Colors.grey.shade100,
+                              child: const Center(
+                                child: Icon(Icons.broken_image,
+                                    size: 28, color: Colors.grey),
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
-                    )
-                  : Container(
+                        Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: const BorderRadius.only(
+                              topLeft: Radius.circular(6),
+                              bottomRight: Radius.circular(10),
+                            ),
+                          ),
+                          child: const Icon(Icons.zoom_out_map,
+                              size: 14, color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  )
+                : ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
                       height: 160,
                       width: double.infinity,
                       decoration: BoxDecoration(
@@ -345,7 +415,7 @@ class _KhachHangDetailScreenState
                         ],
                       ),
                     ),
-            ),
+                  ),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,

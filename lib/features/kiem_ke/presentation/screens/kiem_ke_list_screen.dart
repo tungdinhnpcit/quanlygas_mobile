@@ -145,6 +145,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
                         item: cx,
                         daLap: _daLapMap[cx.id],
                         onTap: () => context.push(AppRoutes.kiemKeNhap(cx.id)).then((_) => _load()),
+                        onDoiChieu: () => context.push(AppRoutes.kiemKeDoiChieu(cx.id)),
                       );
                     },
                   ),
@@ -159,8 +160,14 @@ class _KiemKeListItem extends StatelessWidget {
   final ChuyenXeModel item;
   final bool? daLap; // null = đang tải trạng thái
   final VoidCallback onTap;
+  final VoidCallback onDoiChieu;
 
-  const _KiemKeListItem({required this.item, required this.daLap, required this.onTap});
+  const _KiemKeListItem({
+    required this.item,
+    required this.daLap,
+    required this.onTap,
+    required this.onDoiChieu,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -234,7 +241,34 @@ class _KiemKeListItem extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              _DaLapBadge(daLap: daLap),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _DaLapBadge(daLap: daLap),
+                  if (daLap == true) ...[
+                    const SizedBox(height: 6),
+                    InkWell(
+                      onTap: onDoiChieu,
+                      borderRadius: BorderRadius.circular(20),
+                      child: const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.compare_arrows, size: 14, color: Color(0xFF00897B)),
+                            SizedBox(width: 3),
+                            Text('Đối chiếu',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: Color(0xFF00897B),
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ],
           ),
         ),

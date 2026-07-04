@@ -11,6 +11,7 @@ import '../../../../core/constants/app_constants.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/chuyen_xe_model.dart';
 import '../models/kiem_ke_model.dart';
+import '../models/kiem_ke_doi_chieu_model.dart';
 
 class ChuyenXeRepository {
   /// Lấy danh sách phụ xe
@@ -326,6 +327,18 @@ class ChuyenXeRepository {
       final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$chuyenXeId/kiem-ke');
       if (res.statusCode == 204 || res.data == null) return null;
       return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 204) return null;
+      rethrow;
+    }
+  }
+
+  /// Đối chiếu số bình/vỏ mang về (kế toán nhập vs suy ra từ bán hàng lái xe). Null nếu chưa lập kiểm kê.
+  Future<KiemKeDoiChieuModel?> getKiemKeDoiChieu(int chuyenXeId) async {
+    try {
+      final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$chuyenXeId/kiem-ke/doi-chieu');
+      if (res.statusCode == 204 || res.data == null) return null;
+      return KiemKeDoiChieuModel.fromJson(res.data as Map<String, dynamic>);
     } on DioException catch (e) {
       if (e.response?.statusCode == 204) return null;
       rethrow;

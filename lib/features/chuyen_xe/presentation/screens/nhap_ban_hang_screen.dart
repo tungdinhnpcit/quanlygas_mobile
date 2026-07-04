@@ -1,4 +1,5 @@
 // lib/features/chuyen_xe/presentation/screens/nhap_ban_hang_screen.dart
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -502,6 +503,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
         }
       }
     } catch (e) {
+      if (e is DioException) {
+        debugPrint('[NHAP_KH] status: ${e.response?.statusCode}');
+        debugPrint('[NHAP_KH] resp: ${e.response?.data}');
+      }
       if (mounted) _showError('Lỗi: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
