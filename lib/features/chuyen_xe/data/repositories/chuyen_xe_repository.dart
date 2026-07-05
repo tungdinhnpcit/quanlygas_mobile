@@ -90,6 +90,8 @@ class ChuyenXeRepository {
   /// màn hình kế toán lập kiểm kê (không truyền nhanVienId, backend trả tất cả).
   Future<List<ChuyenXeModel>> getListByTrangThai({
     required String trangThai,
+    DateTime? tuNgay,
+    DateTime? denNgay,
     int page = 1,
     int pageSize = 100,
   }) async {
@@ -98,6 +100,8 @@ class ChuyenXeRepository {
         '/api/chuyen-xe',
         queryParameters: {
           'trangThai': trangThai,
+          if (tuNgay  != null) 'tuNgay':  tuNgay.toIso8601String(),
+          if (denNgay != null) 'denNgay': denNgay.toIso8601String(),
           'page': page,
           'pageSize': pageSize,
         },
@@ -248,6 +252,43 @@ class ChuyenXeRepository {
   Future<void> deleteBanHangThanhToan(int chuyenXeId, int thanhToanId) async {
     await ApiClient.instance.dio
         .post('/api/chuyen-xe/$chuyenXeId/ban-hang-thanh-toan/$thanhToanId/delete');
+  }
+
+  /// Thêm 1 dòng mua gas dư (dùng khi admin sửa giữ nguyên chữ ký xác nhận).
+  Future<int> createGasDu(int chuyenXeId, Map<String, dynamic> data) async {
+    final res = await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/ban-hang-gas-du', data: data);
+    return res.data['id'] as int;
+  }
+
+  /// Sửa 1 dòng mua gas dư (dùng khi admin sửa giữ nguyên chữ ký xác nhận).
+  Future<void> updateGasDu(
+      int chuyenXeId, int gasDuId, Map<String, dynamic> data) async {
+    await ApiClient.instance.dio
+        .put('/api/chuyen-xe/$chuyenXeId/ban-hang-gas-du/$gasDuId', data: data);
+  }
+
+  /// Thêm 1 dòng nợ vỏ (dùng khi admin sửa giữ nguyên chữ ký xác nhận).
+  Future<int> createNoVo(int chuyenXeId, Map<String, dynamic> data) async {
+    final res = await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/ban-hang-no-vo', data: data);
+    return res.data['id'] as int;
+  }
+
+  /// Sửa 1 dòng nợ vỏ (dùng khi admin sửa giữ nguyên chữ ký xác nhận).
+  Future<void> updateNoVo(
+      int chuyenXeId, int noVoId, Map<String, dynamic> data) async {
+    await ApiClient.instance.dio
+        .put('/api/chuyen-xe/$chuyenXeId/ban-hang-no-vo/$noVoId', data: data);
+  }
+
+  /// Sửa thông tin thanh toán tại chỗ, KHÔNG đụng chữ ký xác nhận
+  /// (dùng khi admin sửa giữ nguyên ảnh & chữ ký xác nhận).
+  Future<void> updateThanhToan(
+      int chuyenXeId, int thanhToanId, Map<String, dynamic> data) async {
+    await ApiClient.instance.dio.put(
+        '/api/chuyen-xe/$chuyenXeId/ban-hang-thanh-toan/$thanhToanId',
+        data: data);
   }
 
   /// Xóa chuyến xe (chỉ dùng khi chuyến chưa kết thúc / kỳ chưa chốt).

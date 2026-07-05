@@ -358,7 +358,7 @@ class _InfoLine extends StatelessWidget {
 }
 
 /// Editor cho 1 dòng kiểm kê: dropdown Mặt hàng (đã gồm sẵn hãng SX) → 2 ô số.
-class _RowEditor extends StatelessWidget {
+class _RowEditor extends StatefulWidget {
   final _KiemKeRow row;
   final List<Map<String, dynamic>> matHangList;
   final VoidCallback onChanged;
@@ -372,11 +372,30 @@ class _RowEditor extends StatelessWidget {
     this.onRemove,
   });
 
+  @override
+  State<_RowEditor> createState() => _RowEditorState();
+}
+
+class _RowEditorState extends State<_RowEditor> {
+  late final FocusNode _soBinhFocusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _soBinhFocusNode = FocusNode();
+  }
+
+  @override
+  void dispose() {
+    _soBinhFocusNode.dispose();
+    super.dispose();
+  }
+
   /// Tra cứu "mã - tên (hãng)" của Mặt hàng đang chọn để hiển thị trên field.
   /// Tên hãng lấy trực tiếp từ cache_mat_hang.ten_nha_cc (đã join sẵn từ backend).
   String? _matHangLabel(int matHangId) {
     if (matHangId <= 0) return null;
-    final item = matHangList.firstWhere((e) => e['server_id'] == matHangId, orElse: () => {});
+    final item = widget.matHangList.firstWhere((e) => e['server_id'] == matHangId, orElse: () => {});
     if (item.isEmpty) return null;
     final ma = item['ma_mat_hang'] ?? '';
     final ten = item['ten_mat_hang'] ?? '';
@@ -388,15 +407,22 @@ class _RowEditor extends StatelessWidget {
   Future<void> _pickMatHang(BuildContext context) async {
     final mh = await context.push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
     if (mh != null) {
-      row.matHangId = mh['server_id'] as int;
+      widget.row.matHangId = mh['server_id'] as int;
       // Suy ra hãng SX trực tiếp từ mặt hàng đã chọn — không cần chọn hãng riêng.
-      row.nhaCungCapId = mh['nha_cung_cap_id'] as int? ?? 0;
-      onChanged();
+      widget.row.nhaCungCapId = mh['nha_cung_cap_id'] as int? ?? 0;
+      widget.onChanged();
+      // Đợi frame rebuild (do onChanged() trigger setState ở màn cha) rồi mới
+      // request focus, tránh focus bị request trên frame cũ.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) FocusScope.of(context).requestFocus(_soBinhFocusNode);
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final row = widget.row;
+    final onRemove = widget.onRemove;
     final matHangLabel = _matHangLabel(row.matHangId);
 
     return Card(
@@ -440,6 +466,7 @@ class _RowEditor extends StatelessWidget {
                 Expanded(
                   child: TextFormField(
                     initialValue: row.soBinhXuat,
+                    focusNode: _soBinhFocusNode,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
                       labelText: 'Số bình xuất',
@@ -448,7 +475,7 @@ class _RowEditor extends StatelessWidget {
                     ),
                     onChanged: (v) {
                       row.soBinhXuat = v;
-                      onChanged();
+                      widget.onChanged();
                     },
                   ),
                 ),
@@ -464,7 +491,7 @@ class _RowEditor extends StatelessWidget {
                     ),
                     onChanged: (v) {
                       row.soVoXuat = v;
-                      onChanged();
+                      widget.onChanged();
                     },
                   ),
                 ),

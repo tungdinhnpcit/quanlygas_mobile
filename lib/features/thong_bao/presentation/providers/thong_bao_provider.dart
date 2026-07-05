@@ -112,8 +112,24 @@ class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
       _ref.invalidate(soChuaDocProvider);
       await BackgroundPollingService.updateLastKnownCount(0);
     } catch (_) {}
-    // Reset toàn bộ family để 3 tab đồng bộ
-    _ref.invalidate(thongBaoListProvider);
+    // Cập nhật state tại chỗ cho cả 3 tab — không invalidate vì tab đang hiển thị
+    // sẽ bị dispose/tạo lại với isLoading=true mà không có ai gọi loadFirst() lại,
+    // khiến loading treo vô thời hạn (autoDispose family không tự refetch).
+    for (final f in <bool?>[null, false, true]) {
+      _ref.read(thongBaoListProvider(f).notifier)._applyAllRead();
+    }
+  }
+
+  /// Áp dụng "đã đọc tất cả" lên state của instance này.
+  void _applyAllRead() {
+    if (_daDoc == false) {
+      // Tab "Chưa đọc": mọi item giờ đã đọc → không còn thuộc tab này
+      state = state.copyWith(items: const []);
+    } else {
+      state = state.copyWith(
+        items: state.items.map((t) => t.copyWith(daDoc: true)).toList(),
+      );
+    }
   }
 
   // Reset các instance family khác (giữ tab hiện tại đã cập nhật optimistic)

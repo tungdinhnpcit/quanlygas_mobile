@@ -20,9 +20,15 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
   final _repo = ChuyenXeRepository();
   bool _loading = true;
   String? _error;
-  List<ChuyenXeModel> _items = [];
+  // Chuyến do lái xe tự lập trên mobile (trạng thái hoàn thành)
+  List<ChuyenXeModel> _itemsLaiXe = [];
+  // Chuyến do kế toán tạo qua màn "Tạo chuyến xe" (chờ xuất/đang giao)
+  List<ChuyenXeModel> _itemsKeToan = [];
   // chuyenXeId -> đã lập kiểm kê hay chưa
   final Map<int, bool> _daLapMap = {};
+
+  DateTime _denNgay = DateTime.now();
+  late DateTime _tuNgay = _denNgay.subtract(const Duration(days: 30));
 
   @override
   void initState() {
@@ -37,20 +43,24 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
     });
     try {
       final results = await Future.wait([
-        _repo.getListByTrangThai(trangThai: 'cho-xuat'),
-        _repo.getListByTrangThai(trangThai: 'dang-giao'),
+        _repo.getListByTrangThai(trangThai: 'cho-xuat', tuNgay: _tuNgay, denNgay: _denNgay),
+        _repo.getListByTrangThai(trangThai: 'dang-giao', tuNgay: _tuNgay, denNgay: _denNgay),
+        _repo.getListByTrangThai(trangThai: 'hoan-thanh', tuNgay: _tuNgay, denNgay: _denNgay),
       ]);
-      final items = [...results[0], ...results[1]]
+      final itemsKeToan = [...results[0], ...results[1]]
+        ..sort((a, b) => b.ngayXuat.compareTo(a.ngayXuat));
+      final itemsLaiXe = [...results[2]]
         ..sort((a, b) => b.ngayXuat.compareTo(a.ngayXuat));
 
       if (!mounted) return;
       setState(() {
-        _items = items;
+        _itemsKeToan = itemsKeToan;
+        _itemsLaiXe = itemsLaiXe;
         _loading = false;
       });
 
       // N+1: kiểm tra trạng thái lập kiểm kê cho từng chuyến — danh sách thường ngắn.
-      for (final cx in items) {
+      for (final cx in [...itemsKeToan, ...itemsLaiXe]) {
         _repo.getKiemKe(cx.id).then((kk) {
           if (!mounted) return;
           setState(() => _daLapMap[cx.id] = kk != null && kk.chiTiet.isNotEmpty);
@@ -66,6 +76,26 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
         _loading = false;
       });
     }
+  }
+
+  Future<void> _pickDate({required bool isTuNgay}) async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: isTuNgay ? _tuNgay : _denNgay,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked == null) return;
+    setState(() {
+      if (isTuNgay) {
+        _tuNgay = picked;
+        if (_tuNgay.isAfter(_denNgay)) _denNgay = _tuNgay;
+      } else {
+        _denNgay = picked;
+        if (_denNgay.isBefore(_tuNgay)) _tuNgay = _denNgay;
+      }
+    });
+    _load();
   }
 
   @override
@@ -100,8 +130,47 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
       );
     }
 
+    final fmt = DateFormat('dd/MM/yyyy');
+    final isEmpty = _itemsLaiXe.isEmpty && _itemsKeToan.isEmpty;
+
+    // Danh sách phẳng: String = header section, ChuyenXeModel = item chuyến xe.
+    final rows = <Object>[
+      if (_itemsLaiXe.isNotEmpty) ...[
+        'Chuyến do lái xe lập',
+        ..._itemsLaiXe,
+      ],
+      if (_itemsKeToan.isNotEmpty) ...[
+        'Chuyến kế toán tạo',
+        ..._itemsKeToan,
+      ],
+    ];
+
     return Column(
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: _DateButton(
+                  label: 'Từ ngày',
+                  date: _tuNgay,
+                  fmt: fmt,
+                  onTap: () => _pickDate(isTuNgay: true),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DateButton(
+                  label: 'Đến ngày',
+                  date: _denNgay,
+                  fmt: fmt,
+                  onTap: () => _pickDate(isTuNgay: false),
+                ),
+              ),
+            ],
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: SizedBox(
@@ -119,7 +188,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _load,
-            child: _items.isEmpty
+            child: isEmpty
                 ? ListView(
                     children: const [
                       SizedBox(height: 100),
@@ -137,10 +206,19 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    itemCount: _items.length,
+                    itemCount: rows.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, i) {
-                      final cx = _items[i];
+                      final row = rows[i];
+                      if (row is String) {
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 4, bottom: 2),
+                          child: Text(row,
+                              style: const TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey)),
+                        );
+                      }
+                      final cx = row as ChuyenXeModel;
                       return _KiemKeListItem(
                         item: cx,
                         daLap: _daLapMap[cx.id],
@@ -152,6 +230,49 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _DateButton extends StatelessWidget {
+  final String label;
+  final DateTime date;
+  final DateFormat fmt;
+  final VoidCallback onTap;
+
+  const _DateButton({
+    required this.label,
+    required this.date,
+    required this.fmt,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_today, size: 14, color: Color(0xFF00897B)),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Text(
+                fmt.format(date),
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

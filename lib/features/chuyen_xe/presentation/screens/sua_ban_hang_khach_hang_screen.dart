@@ -1,4 +1,5 @@
 // lib/features/chuyen_xe/presentation/screens/sua_ban_hang_khach_hang_screen.dart
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/database/local_database.dart';
+import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
@@ -15,6 +17,7 @@ import '../../data/models/chuyen_xe_model.dart';
 
 class _SaleRow {
   final GlobalKey containerKey = GlobalKey();
+  final int? originalId; // null = dòng mới thêm; != null = dòng đã có trên server
   int? matHangId;
   String matHangLabel = '';
   final matHangSearchCtrl = TextEditingController();
@@ -23,6 +26,8 @@ class _SaleRow {
   String loaiVo = 'thu'; // 'thu' hoặc 'ban'
   final soLuongCtrl = TextEditingController(text: '1');
   final donGiaCtrl = TextEditingController();
+
+  _SaleRow({this.originalId});
 
   void dispose() {
     matHangSearchCtrl.dispose();
@@ -40,12 +45,15 @@ class _SaleRow {
 
 class _GasDuRow {
   final GlobalKey containerKey = GlobalKey();
+  final int? originalId;
   int? matHangId;
   String matHangLabel = '';
   final matHangSearchCtrl = TextEditingController();
 
   final soKgCtrl = TextEditingController(text: '0');
   final tongTienCtrl = TextEditingController();
+
+  _GasDuRow({this.originalId});
 
   void dispose() {
     matHangSearchCtrl.dispose();
@@ -63,6 +71,7 @@ class _GasDuRow {
 
 class _NoVoRow {
   final GlobalKey containerKey = GlobalKey();
+  final int? originalId;
   int? matHangId;
   String matHangLabel = '';
   final matHangSearchCtrl = TextEditingController();
@@ -72,6 +81,8 @@ class _NoVoRow {
   String? tenNhaCungCap;
 
   final soLuongCtrl = TextEditingController(text: '0');
+
+  _NoVoRow({this.originalId});
 
   void dispose() {
     matHangSearchCtrl.dispose();
@@ -135,6 +146,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
   final _tienChenhLechVoCtrl = TextEditingController();
 
   bool _saving = false;
+  bool _giuKy = false; // admin: giữ nguyên ảnh & chữ ký xác nhận khi lưu
 
   // ── Computed ─────────────────────────────────────────────────────────────
 
@@ -192,7 +204,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
   void _initializeFromRows() {
     _saleRows = [];
     for (final b in widget.rows) {
-      final row = _SaleRow();
+      final row = _SaleRow(originalId: b.id);
       row.matHangId = b.matHangId;
       row.matHangLabel =
           '${b.maMatHang ?? ""} - ${b.tenMatHang ?? ""} ${b.maNhaCungCap != null ? "(${b.maNhaCungCap})" : ""}';
@@ -218,7 +230,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
 
     // Khởi tạo các dòng mua gas dư từ dữ liệu hiện có
     for (final g in widget.gasDuRows) {
-      final row = _GasDuRow();
+      final row = _GasDuRow(originalId: g.id);
       row.matHangId = g.matHangId;
       row.matHangLabel = g.tenMatHang ?? '';
       row.matHangSearchCtrl.text = row.matHangLabel;
@@ -229,7 +241,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
 
     // Khởi tạo các dòng nợ vỏ từ dữ liệu hiện có
     for (final n in widget.noVoRows) {
-      final row = _NoVoRow();
+      final row = _NoVoRow(originalId: n.id);
       row.matHangId = n.matHangId;
       row.matHangLabel =
           '${n.maMatHang ?? ""} - ${n.tenMatHang ?? ""} ${n.maNhaCungCap != null ? "(${n.maNhaCungCap})" : ""}';
@@ -352,6 +364,16 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
       return;
     }
 
+    if (_giuKy) {
+      await _saveGiuKy(validRows);
+      return;
+    }
+    await _saveResetXacNhan(validRows);
+  }
+
+  /// Lưu theo luồng mặc định: xóa hết dữ liệu cũ rồi nhập lại — backend tự xóa
+  /// ảnh biên lai + chữ ký cũ, bắt buộc ký/chụp xác nhận lại.
+  Future<void> _saveResetXacNhan(List<_SaleRow> validRows) async {
     // Cảnh báo: lưu thay đổi sẽ xóa biên lai/chữ ký cũ và yêu cầu ký xác nhận lại
     final ok = await showDialog<bool>(
       context: context,
@@ -485,10 +507,159 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
         );
       }
     } catch (e) {
-      if (mounted) _showError('Lỗi: $e');
+      if (mounted) _showError(_extractErrorMessage(e));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  /// Lưu theo luồng "giữ ký" (chỉ admin): sửa/thêm/xóa từng dòng qua các endpoint
+  /// riêng lẻ, KHÔNG gọi nhap-khach-hang — nhờ đó ảnh biên lai + chữ ký xác nhận
+  /// cũ được giữ nguyên. Admin tự chịu trách nhiệm khi bật tùy chọn này.
+  Future<void> _saveGiuKy(List<_SaleRow> validRows) async {
+    if (widget.thanhToan == null) {
+      _showError(
+          'Không thể giữ chữ ký: chưa có dữ liệu thanh toán gốc để cập nhật.');
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Lưu và giữ nguyên chữ ký?'),
+        content: const Text(
+          'Thay đổi sẽ được lưu, ảnh biên lai và chữ ký xác nhận đã ký sẽ được GIỮ NGUYÊN. '
+          'Chỉ dùng khi chắc chắn số liệu vẫn khớp với những gì khách đã ký.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Huỷ'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Lưu, giữ chữ ký'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _saving = true);
+    try {
+      final thanhToanId = widget.thanhToan!.id;
+
+      // ── Chi tiết bán hàng: sửa dòng có sẵn, xóa dòng bị bỏ, thêm dòng mới ──
+      final validIds = validRows
+          .where((r) => r.originalId != null)
+          .map((r) => r.originalId!)
+          .toSet();
+      for (final b in widget.rows) {
+        if (!validIds.contains(b.id)) {
+          await _repo.deleteBanHang(widget.chuyenXeId, b.id);
+        }
+      }
+      for (final r in validRows) {
+        final data = {
+          'khachHangId': widget.khachHangId,
+          'matHangId': r.matHangId,
+          'soLuong': r.soLuong,
+          'donGia': r.donGia,
+          'soVoBan': r.soVoBan,
+          'soVoThu': r.soVoThu,
+        };
+        if (r.originalId != null) {
+          await _repo.updateBanHang(widget.chuyenXeId, r.originalId!, data);
+        } else {
+          await _repo.createBanHang(widget.chuyenXeId,
+              {...data, 'thanhToanId': thanhToanId});
+        }
+      }
+
+      // ── Gas dư: sửa dòng có sẵn, xóa dòng bị bỏ, thêm dòng mới ──
+      final validGasDu = _gasDuRows
+          .where((r) => r.matHangId != null && r.soKg > 0 && r.tongTien > 0)
+          .toList();
+      final validGasDuIds = validGasDu
+          .where((r) => r.originalId != null)
+          .map((r) => r.originalId!)
+          .toSet();
+      for (final g in widget.gasDuRows) {
+        if (!validGasDuIds.contains(g.id)) {
+          await _repo.deleteBanHangGasDu(widget.chuyenXeId, g.id);
+        }
+      }
+      for (final r in validGasDu) {
+        final data = {
+          'khachHangId': widget.khachHangId,
+          'matHangId': r.matHangId,
+          'soKg': r.soKg,
+          'donGia': r.donGia,
+        };
+        if (r.originalId != null) {
+          await _repo.updateGasDu(widget.chuyenXeId, r.originalId!, data);
+        } else {
+          await _repo.createGasDu(widget.chuyenXeId, data);
+        }
+      }
+
+      // ── Nợ vỏ: sửa dòng có sẵn, xóa dòng bị bỏ, thêm dòng mới ──
+      final validNoVo =
+          _noVoRows.where((r) => r.matHangId != null && r.soLuong > 0).toList();
+      final validNoVoIds = validNoVo
+          .where((r) => r.originalId != null)
+          .map((r) => r.originalId!)
+          .toSet();
+      for (final n in widget.noVoRows) {
+        if (!validNoVoIds.contains(n.id)) {
+          await _repo.deleteBanHangNoVo(widget.chuyenXeId, n.id);
+        }
+      }
+      for (final r in validNoVo) {
+        final data = {
+          'khachHangId': widget.khachHangId,
+          'matHangId': r.matHangId,
+          'soLuong': r.soLuong,
+        };
+        if (r.originalId != null) {
+          await _repo.updateNoVo(widget.chuyenXeId, r.originalId!, data);
+        } else {
+          await _repo.createNoVo(widget.chuyenXeId, data);
+        }
+      }
+
+      // ── Thanh toán: luôn sửa tại chỗ, KHÔNG đụng XacNhanId ──
+      await _repo.updateThanhToan(widget.chuyenXeId, thanhToanId, {
+        'tienMat': _tienMat,
+        'tienCK': _tienCK,
+        'dieuChinhTien': _dieuChinhTien,
+        'tienChenhLechVo': _tienChenhLechVo,
+        if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
+        'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Đã lưu, giữ nguyên chữ ký xác nhận'),
+          backgroundColor: Color(0xFF00897B),
+        ));
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) _showError(_extractErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String _extractErrorMessage(Object e) {
+    if (e is DioException) {
+      final data = e.response?.data;
+      if (data is Map && data['message'] is String) {
+        return data['message'] as String;
+      }
+    }
+    return 'Lỗi: $e';
   }
 
   void _showError(String msg) {
@@ -565,7 +736,33 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
                     textAlign: TextAlign.center,
                   ),
                 )
-              else
+              else ...[
+                if (ref.watch(userInfoProvider).value?.roleCode.toLowerCase() ==
+                    'admin')
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: CheckboxListTile(
+                      value: _giuKy,
+                      onChanged: (v) => setState(() => _giuKy = v ?? false),
+                      controlAffinity: ListTileControlAffinity.leading,
+                      dense: true,
+                      title: const Text(
+                        'Giữ nguyên ảnh & chữ ký xác nhận',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13),
+                      ),
+                      subtitle: const Text(
+                        'Chỉ admin. Nếu bật, ảnh biên lai và chữ ký khách đã ký '
+                        'sẽ KHÔNG bị xóa khi lưu — tự chịu trách nhiệm nếu số liệu thay đổi.',
+                        style: TextStyle(fontSize: 11),
+                      ),
+                    ),
+                  ),
                 ElevatedButton.icon(
                   onPressed: _saving ? null : _save,
                   icon: _saving
@@ -583,6 +780,7 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
                         borderRadius: BorderRadius.circular(8)),
                   ),
                 ),
+              ],
               const SizedBox(height: 16),
             ],
           ),
