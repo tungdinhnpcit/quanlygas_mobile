@@ -61,29 +61,46 @@ class KiemKeChiTietModel {
 
 class KiemKeChuyenXeModel {
   final int id;
-  final int chuyenXeId;
+  final int? chuyenXeId;
+  final String? maChuyenXe;
   final DateTime? ngayLap;
   final String? nguoiLap;
   final String? ghiChu;
+  final DateTime? chotAt;
+  final String? nguoiChot;
+  final bool daGanChuyen;
+  final bool daChot;
   final List<KiemKeChiTietModel> chiTiet;
 
   const KiemKeChuyenXeModel({
     required this.id,
-    required this.chuyenXeId,
+    this.chuyenXeId,
+    this.maChuyenXe,
     this.ngayLap,
     this.nguoiLap,
     this.ghiChu,
+    this.chotAt,
+    this.nguoiChot,
+    this.daGanChuyen = false,
+    this.daChot = false,
     required this.chiTiet,
   });
 
   factory KiemKeChuyenXeModel.fromJson(Map<String, dynamic> json) => KiemKeChuyenXeModel(
         id:         json['id'] as int? ?? 0,
-        chuyenXeId: json['chuyenXeId'] as int? ?? 0,
+        chuyenXeId: json['chuyenXeId'] as int?,
+        maChuyenXe: json['maChuyenXe'] as String?,
         ngayLap:    json['ngayLap'] != null
             ? DateTime.tryParse(json['ngayLap'] as String)
             : null,
         nguoiLap: json['nguoiLap'] as String?,
         ghiChu:   json['ghiChu'] as String?,
+        chotAt:   json['chotAt'] != null
+            ? DateTime.tryParse(json['chotAt'] as String)
+            : null,
+        nguoiChot:   json['nguoiChot'] as String?,
+        daGanChuyen: json['daGanChuyen'] as bool? ?? (json['chuyenXeId'] != null),
+        daChot:      json['daChot'] as bool? ?? (json['chotAt'] != null),
         chiTiet: (json['chiTiet'] as List? ?? [])
             .map((e) => KiemKeChiTietModel.fromJson(e as Map<String, dynamic>))
             .toList(),

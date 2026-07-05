@@ -60,9 +60,13 @@ class AppRoutes {
   static const String chonNoCu           = '/chon-no-cu';
   static const String dongBo             = '/cai-dat/dong-bo';
 
-  // Kế toán — kiểm kê xuất hàng
+  // Kế toán — kiểm kê xuất hàng (Luồng B: phiếu độc lập → chọn chuyến → đối chiếu)
   static const String kiemKeList         = '/kiem-ke';
-  static const String kiemKeTaoChuyen    = '/kiem-ke/tao-moi';
-  static String kiemKeNhap(int chuyenXeId) => '/kiem-ke/$chuyenXeId/nhap';
+  static const String kiemKeDocLapNhap   = '/kiem-ke/nhap';
+  static String kiemKeChonChuyen(int kiemKeId) => '/kiem-ke/$kiemKeId/chon-chuyen';
   static String kiemKeDoiChieu(int chuyenXeId) => '/kiem-ke/$chuyenXeId/doi-chieu';
+
+  // Luồng A cũ (kiểm kê gắn sẵn theo chuyến) — không còn lối vào từ menu, giữ lại nội bộ.
+  static const String kiemKeTaoChuyen    = '/kiem-ke/tao-moi';
+  static String kiemKeNhap(int chuyenXeId) => '/kiem-ke/$chuyenXeId/nhap-cu';
 }

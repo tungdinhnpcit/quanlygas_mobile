@@ -4,11 +4,12 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/router/app_routes.dart';
-import '../../../chuyen_xe/data/models/chuyen_xe_model.dart';
+import '../../../chuyen_xe/data/models/kiem_ke_model.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 
-/// Màn hình kế toán: danh sách chuyến xe trạng thái "Chờ xuất"/"Đang giao" để
-/// lập (hoặc sửa) kiểm kê xuất hàng. Mỗi item hiện badge "Đã lập"/"Chưa lập".
+/// Màn hình kế toán: danh sách phiếu kiểm kê độc lập (Luồng B) lọc theo ngày
+/// lập, mặc định hôm nay. Bấm phiếu chưa gắn chuyến → chọn chuyến để liên kết;
+/// bấm phiếu đã gắn chuyến → vào thẳng màn đối chiếu.
 class KiemKeListScreen extends StatefulWidget {
   const KiemKeListScreen({super.key});
 
@@ -20,15 +21,10 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
   final _repo = ChuyenXeRepository();
   bool _loading = true;
   String? _error;
-  // Chuyến do lái xe tự lập trên mobile (trạng thái hoàn thành)
-  List<ChuyenXeModel> _itemsLaiXe = [];
-  // Chuyến do kế toán tạo qua màn "Tạo chuyến xe" (chờ xuất/đang giao)
-  List<ChuyenXeModel> _itemsKeToan = [];
-  // chuyenXeId -> đã lập kiểm kê hay chưa
-  final Map<int, bool> _daLapMap = {};
+  List<KiemKeChuyenXeModel> _items = [];
 
   DateTime _denNgay = DateTime.now();
-  late DateTime _tuNgay = _denNgay.subtract(const Duration(days: 30));
+  late DateTime _tuNgay = _denNgay;
 
   @override
   void initState() {
@@ -42,33 +38,12 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        _repo.getListByTrangThai(trangThai: 'cho-xuat', tuNgay: _tuNgay, denNgay: _denNgay),
-        _repo.getListByTrangThai(trangThai: 'dang-giao', tuNgay: _tuNgay, denNgay: _denNgay),
-        _repo.getListByTrangThai(trangThai: 'hoan-thanh', tuNgay: _tuNgay, denNgay: _denNgay),
-      ]);
-      final itemsKeToan = [...results[0], ...results[1]]
-        ..sort((a, b) => b.ngayXuat.compareTo(a.ngayXuat));
-      final itemsLaiXe = [...results[2]]
-        ..sort((a, b) => b.ngayXuat.compareTo(a.ngayXuat));
-
+      final items = await _repo.getPhieuKiemKeList(tuNgay: _tuNgay, denNgay: _denNgay);
       if (!mounted) return;
       setState(() {
-        _itemsKeToan = itemsKeToan;
-        _itemsLaiXe = itemsLaiXe;
+        _items = items;
         _loading = false;
       });
-
-      // N+1: kiểm tra trạng thái lập kiểm kê cho từng chuyến — danh sách thường ngắn.
-      for (final cx in [...itemsKeToan, ...itemsLaiXe]) {
-        _repo.getKiemKe(cx.id).then((kk) {
-          if (!mounted) return;
-          setState(() => _daLapMap[cx.id] = kk != null && kk.chiTiet.isNotEmpty);
-        }).catchError((_) {
-          if (!mounted) return;
-          setState(() => _daLapMap[cx.id] = false);
-        });
-      }
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -96,6 +71,15 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
       }
     });
     _load();
+  }
+
+  void _onTapPhieu(KiemKeChuyenXeModel kk) {
+    final chuyenXeId = kk.chuyenXeId;
+    if (chuyenXeId != null) {
+      context.push(AppRoutes.kiemKeDoiChieu(chuyenXeId));
+    } else {
+      context.push(AppRoutes.kiemKeChonChuyen(kk.id)).then((_) => _load());
+    }
   }
 
   @override
@@ -131,19 +115,6 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
     }
 
     final fmt = DateFormat('dd/MM/yyyy');
-    final isEmpty = _itemsLaiXe.isEmpty && _itemsKeToan.isEmpty;
-
-    // Danh sách phẳng: String = header section, ChuyenXeModel = item chuyến xe.
-    final rows = <Object>[
-      if (_itemsLaiXe.isNotEmpty) ...[
-        'Chuyến do lái xe lập',
-        ..._itemsLaiXe,
-      ],
-      if (_itemsKeToan.isNotEmpty) ...[
-        'Chuyến kế toán tạo',
-        ..._itemsKeToan,
-      ],
-    ];
 
     return Column(
       children: [
@@ -177,10 +148,10 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () => context
-                  .push(AppRoutes.kiemKeTaoChuyen)
+                  .push(AppRoutes.kiemKeDocLapNhap)
                   .then((_) => _load()),
               icon: const Icon(Icons.add),
-              label: const Text('Tạo chuyến xe'),
+              label: const Text('Tạo phiếu kiểm kê'),
               style: FilledButton.styleFrom(backgroundColor: const Color(0xFF00897B)),
             ),
           ),
@@ -188,7 +159,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
         Expanded(
           child: RefreshIndicator(
             onRefresh: _load,
-            child: isEmpty
+            child: _items.isEmpty
                 ? ListView(
                     children: const [
                       SizedBox(height: 100),
@@ -197,7 +168,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
                           children: [
                             Icon(Icons.fact_check_outlined, size: 64, color: Colors.black26),
                             SizedBox(height: 16),
-                            Text('Không có chuyến xe nào cần lập kiểm kê',
+                            Text('Không có phiếu kiểm kê nào trong khoảng ngày này',
                                 style: TextStyle(color: Colors.black45, fontSize: 15)),
                           ],
                         ),
@@ -206,25 +177,11 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    itemCount: rows.length,
+                    itemCount: _items.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, i) {
-                      final row = rows[i];
-                      if (row is String) {
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 4, bottom: 2),
-                          child: Text(row,
-                              style: const TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w700, color: Colors.grey)),
-                        );
-                      }
-                      final cx = row as ChuyenXeModel;
-                      return _KiemKeListItem(
-                        item: cx,
-                        daLap: _daLapMap[cx.id],
-                        onTap: () => context.push(AppRoutes.kiemKeNhap(cx.id)).then((_) => _load()),
-                        onDoiChieu: () => context.push(AppRoutes.kiemKeDoiChieu(cx.id)),
-                      );
+                      final kk = _items[i];
+                      return _KiemKePhieuItem(item: kk, fmt: fmt, onTap: () => _onTapPhieu(kk));
                     },
                   ),
           ),
@@ -277,23 +234,15 @@ class _DateButton extends StatelessWidget {
   }
 }
 
-class _KiemKeListItem extends StatelessWidget {
-  final ChuyenXeModel item;
-  final bool? daLap; // null = đang tải trạng thái
+class _KiemKePhieuItem extends StatelessWidget {
+  final KiemKeChuyenXeModel item;
+  final DateFormat fmt;
   final VoidCallback onTap;
-  final VoidCallback onDoiChieu;
 
-  const _KiemKeListItem({
-    required this.item,
-    required this.daLap,
-    required this.onTap,
-    required this.onDoiChieu,
-  });
+  const _KiemKePhieuItem({required this.item, required this.fmt, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('dd/MM/yyyy');
-
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
@@ -310,53 +259,37 @@ class _KiemKeListItem extends StatelessWidget {
                   color: const Color(0xFF00897B).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.local_shipping_rounded,
-                    color: Color(0xFF00897B), size: 22),
+                child: const Icon(Icons.fact_check_outlined, color: Color(0xFF00897B), size: 22),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(item.maChuyenXe,
+                    Text('Phiếu kiểm kê #${item.id}',
                         style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                     const SizedBox(height: 2),
-                    Text(fmt.format(item.ngayXuat.toLocal()),
-                        style: TextStyle(
-                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                            fontSize: 13)),
-                    if (item.bienSoXe != null) ...[
+                    if (item.ngayLap != null)
+                      Text(fmt.format(item.ngayLap!.toLocal()),
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                              fontSize: 13)),
+                    if (item.maChuyenXe != null) ...[
                       const SizedBox(height: 2),
                       Row(
                         children: [
-                          const Icon(Icons.directions_car_outlined, size: 14, color: Colors.grey),
+                          const Icon(Icons.local_shipping_outlined, size: 14, color: Colors.grey),
                           const SizedBox(width: 4),
-                          Text(item.bienSoXe!,
-                              style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text(item.maChuyenXe!, style: const TextStyle(fontSize: 12, color: Colors.grey)),
                         ],
                       ),
                     ],
-                    if (item.tenNhanVien != null) ...[
+                    if (item.ghiChu != null && item.ghiChu!.isNotEmpty) ...[
                       const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text(item.tenNhanVien!,
-                              style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                        ],
-                      ),
-                    ],
-                    if (item.tenPhuXe != null) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          const Icon(Icons.person_outline, size: 14, color: Colors.grey),
-                          const SizedBox(width: 4),
-                          Text('Phụ xe: ${item.tenPhuXe!}',
-                              style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                        ],
-                      ),
+                      Text(item.ghiChu!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: Colors.grey)),
                     ],
                   ],
                 ),
@@ -364,29 +297,15 @@ class _KiemKeListItem extends StatelessWidget {
               const SizedBox(width: 8),
               Column(
                 mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  _DaLapBadge(daLap: daLap),
-                  if (daLap == true) ...[
+                  _Badge(
+                    label: item.daGanChuyen ? 'Đã gắn chuyến' : 'Chưa gắn chuyến',
+                    color: item.daGanChuyen ? Colors.green : Colors.orange,
+                  ),
+                  if (item.daChot) ...[
                     const SizedBox(height: 6),
-                    InkWell(
-                      onTap: onDoiChieu,
-                      borderRadius: BorderRadius.circular(20),
-                      child: const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.compare_arrows, size: 14, color: Color(0xFF00897B)),
-                            SizedBox(width: 3),
-                            Text('Đối chiếu',
-                                style: TextStyle(
-                                    fontSize: 12,
-                                    color: Color(0xFF00897B),
-                                    fontWeight: FontWeight.w600)),
-                          ],
-                        ),
-                      ),
-                    ),
+                    const _Badge(label: 'Đã chốt', color: Colors.blue),
                   ],
                 ],
               ),
@@ -398,21 +317,13 @@ class _KiemKeListItem extends StatelessWidget {
   }
 }
 
-class _DaLapBadge extends StatelessWidget {
-  final bool? daLap;
-  const _DaLapBadge({required this.daLap});
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+  const _Badge({required this.label, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    if (daLap == null) {
-      return const SizedBox(
-        width: 16,
-        height: 16,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-    final color = daLap! ? Colors.green : Colors.orange;
-    final label = daLap! ? 'Đã lập' : 'Chưa lập';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(

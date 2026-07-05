@@ -23,12 +23,17 @@ class _KiemKeRow {
   });
 }
 
-/// Màn hình kế toán nhập kiểm kê xuất hàng cho 1 chuyến xe — route ở root
-/// navigator nên tự có Scaffold + AppBar riêng (theo mobile_screen_navigation.md).
+/// Màn hình kế toán nhập kiểm kê xuất hàng — route ở root navigator nên tự có
+/// Scaffold + AppBar riêng (theo mobile_screen_navigation.md).
+///
+/// `chuyenXeId == null` → chế độ "phiếu độc lập" (Luồng B): tạo phiếu kiểm kê
+/// trước, chưa gắn chuyến xe nào (POST /api/kiem-ke). `chuyenXeId != null` →
+/// chế độ cũ (Luồng A): kiểm kê gắn sẵn theo đúng chuyến đó (PUT
+/// /api/chuyen-xe/{id}/kiem-ke), vẫn giữ hoạt động dù không còn lối vào từ menu.
 class KiemKeNhapScreen extends StatefulWidget {
-  const KiemKeNhapScreen({super.key, required this.chuyenXeId});
+  const KiemKeNhapScreen({super.key, this.chuyenXeId});
 
-  final int chuyenXeId;
+  final int? chuyenXeId;
 
   @override
   State<KiemKeNhapScreen> createState() => _KiemKeNhapScreenState();
@@ -65,15 +70,18 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        _repo.getById(widget.chuyenXeId),
-        _db.getMatHangList(),
-        _repo.getKiemKe(widget.chuyenXeId),
-      ]);
-
-      final cx       = results[0] as ChuyenXeModel;
-      final mhList   = results[1] as List<Map<String, dynamic>>;
-      final kiemKe   = results[2] as KiemKeChuyenXeModel?;
+      final chuyenXeId = widget.chuyenXeId;
+      final mhList = await _db.getMatHangList();
+      ChuyenXeModel? cx;
+      KiemKeChuyenXeModel? kiemKe;
+      if (chuyenXeId != null) {
+        final results = await Future.wait([
+          _repo.getById(chuyenXeId),
+          _repo.getKiemKe(chuyenXeId),
+        ]);
+        cx     = results[0] as ChuyenXeModel;
+        kiemKe = results[1] as KiemKeChuyenXeModel?;
+      }
 
       if (!mounted) return;
       setState(() {
@@ -131,11 +139,13 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
 
     setState(() => _saving = true);
     try {
-      await _repo.upsertKiemKe(
-        widget.chuyenXeId,
-        ghiChu: _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
-        chiTiet: chiTiet,
-      );
+      final ghiChu = _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim();
+      final chuyenXeId = widget.chuyenXeId;
+      if (chuyenXeId != null) {
+        await _repo.upsertKiemKe(chuyenXeId, ghiChu: ghiChu, chiTiet: chiTiet);
+      } else {
+        await _repo.createPhieuKiemKe(ghiChu: ghiChu, chiTiet: chiTiet);
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Lưu kiểm kê thành công'), backgroundColor: Colors.green),
@@ -168,9 +178,11 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
       ),
     );
     if (confirm != true || !mounted) return;
+    final chuyenXeId = widget.chuyenXeId;
+    if (chuyenXeId == null) return;
     setState(() => _saving = true);
     try {
-      await _repo.deleteKiemKe(widget.chuyenXeId);
+      await _repo.deleteKiemKe(chuyenXeId);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã xóa kiểm kê'), backgroundColor: Colors.orange),
@@ -190,7 +202,7 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kiểm kê xuất hàng'),
+        title: Text(widget.chuyenXeId != null ? 'Kiểm kê xuất hàng' : 'Tạo phiếu kiểm kê'),
         leading: BackButton(onPressed: () {
           if (context.canPop()) {
             context.pop();
@@ -200,11 +212,12 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
         }),
         actions: [
           if (!_loading && _error == null) ...[
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'Xóa kiểm kê',
-              onPressed: _saving ? null : _deleteKiemKe,
-            ),
+            if (widget.chuyenXeId != null)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Xóa kiểm kê',
+                onPressed: _saving ? null : _deleteKiemKe,
+              ),
             TextButton(
               onPressed: _saving ? null : _save,
               child: _saving
@@ -249,32 +262,34 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
       );
     }
 
-    final cx = _chuyenXe!;
+    final cx = _chuyenXe;
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
       children: [
-        // Header thông tin chuyến — readonly
-        Card(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(cx.maChuyenXe,
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
-                const SizedBox(height: 8),
-                if (cx.bienSoXe != null)
-                  _InfoLine(icon: Icons.directions_car, label: 'Biển số xe', value: cx.bienSoXe!),
-                if (cx.tenNhanVien != null)
-                  _InfoLine(icon: Icons.person_outline, label: 'Lái xe', value: cx.tenNhanVien!),
-                if (cx.tenPhuXe != null)
-                  _InfoLine(icon: Icons.person_outline, label: 'Phụ xe', value: cx.tenPhuXe!),
-              ],
+        // Header thông tin chuyến — readonly, chỉ hiện khi kiểm kê đã gắn sẵn 1 chuyến (Luồng A).
+        if (cx != null) ...[
+          Card(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(cx.maChuyenXe,
+                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                  const SizedBox(height: 8),
+                  if (cx.bienSoXe != null)
+                    _InfoLine(icon: Icons.directions_car, label: 'Biển số xe', value: cx.bienSoXe!),
+                  if (cx.tenNhanVien != null)
+                    _InfoLine(icon: Icons.person_outline, label: 'Lái xe', value: cx.tenNhanVien!),
+                  if (cx.tenPhuXe != null)
+                    _InfoLine(icon: Icons.person_outline, label: 'Phụ xe', value: cx.tenPhuXe!),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
+        ],
 
         const Text('Chi tiết xuất hàng',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),

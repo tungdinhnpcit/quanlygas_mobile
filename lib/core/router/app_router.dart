@@ -48,7 +48,8 @@ import '../../features/chuyen_xe/data/models/chuyen_xe_model.dart'; // model du 
 import '../../features/khach_hang/presentation/screens/tao_khach_hang_screen.dart'; // tao moi khach hang nhanh
 import '../../features/kiem_ke/presentation/screens/kiem_ke_list_screen.dart'; // danh sach kiem ke
 import '../../features/kiem_ke/presentation/screens/kiem_ke_nhap_screen.dart'; // nhap so lieu kiem ke
-import '../../features/kiem_ke/presentation/screens/kiem_ke_tao_chuyen_screen.dart'; // tao chuyen kiem ke moi
+import '../../features/kiem_ke/presentation/screens/kiem_ke_tao_chuyen_screen.dart'; // tao chuyen kiem ke moi (Luong A cu)
+import '../../features/kiem_ke/presentation/screens/kiem_ke_chon_chuyen_screen.dart'; // chon chuyen de lien ket vao phieu kiem ke
 import '../../features/kiem_ke/presentation/screens/kiem_ke_doi_chieu_screen.dart'; // doi chieu so mang ve
 import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart'; // provider so thong bao chua doc
 import '../providers/user_info_provider.dart'; // thong tin user dang nhap (lay userId)
@@ -277,19 +278,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
-        path: AppRoutes.kiemKeTaoChuyen, // route tao chuyen kiem ke moi
+        path: AppRoutes.kiemKeDocLapNhap, // route tao phieu kiem ke doc lap (Luong B)
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
-          child: const KiemKeTaoChuyenScreen(),
+          child: const KiemKeNhapScreen(),
         ),
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
-        path: '/kiem-ke/:chuyenXeId/nhap', // route nhap so lieu kiem ke cho chuyen cu the
+        path: '/kiem-ke/:kiemKeId/chon-chuyen', // route chon chuyen de lien ket vao phieu kiem ke
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
-          child: KiemKeNhapScreen(
-            chuyenXeId: int.parse(state.pathParameters['chuyenXeId']!),
+          child: KiemKeChonChuyenScreen(
+            kiemKeId: int.parse(state.pathParameters['kiemKeId']!),
           ),
         ),
       ),
@@ -299,6 +300,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
           child: KiemKeDoiChieuScreen(
+            chuyenXeId: int.parse(state.pathParameters['chuyenXeId']!),
+          ),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.kiemKeTaoChuyen, // Luong A cu: tao chuyen roi kiem ke gan san (khong con loi vao tu menu)
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: const KiemKeTaoChuyenScreen(),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/kiem-ke/:chuyenXeId/nhap-cu', // Luong A cu: nhap so lieu kiem ke gan san cho 1 chuyen
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: KiemKeNhapScreen(
             chuyenXeId: int.parse(state.pathParameters['chuyenXeId']!),
           ),
         ),
@@ -635,7 +654,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
     AppRoutes.thongTinTaiKhoan: 'Thông tin tài khoản',
     AppRoutes.doiMatKhau:       'Đổi mật khẩu',
     AppRoutes.dongBo:           'Đồng bộ dữ liệu',
-    AppRoutes.kiemKeList:       'Kiểm kê chuyến xe',
+    AppRoutes.kiemKeList:       'Kiểm kê',
   };
 
   // tra ve tieu de AppBar tuong ung voi route hien tai

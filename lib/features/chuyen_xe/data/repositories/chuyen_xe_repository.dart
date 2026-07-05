@@ -402,6 +402,52 @@ class ChuyenXeRepository {
     return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
   }
 
+  // ── Kiểm kê độc lập → liên kết muộn → chốt đối chiếu ───────────────────────
+
+  /// Danh sách phiếu kiểm kê độc lập, lọc theo đã/chưa gắn chuyến và khoảng ngày lập.
+  Future<List<KiemKeChuyenXeModel>> getPhieuKiemKeList({
+    bool? daGanChuyen,
+    DateTime? tuNgay,
+    DateTime? denNgay,
+  }) async {
+    final res = await ApiClient.instance.dio.get(
+      '/api/kiem-ke',
+      queryParameters: {
+        if (daGanChuyen != null) 'daGanChuyen': daGanChuyen,
+        if (tuNgay      != null) 'tuNgay':      tuNgay.toIso8601String(),
+        if (denNgay     != null) 'denNgay':     denNgay.toIso8601String(),
+      },
+    );
+    final list = res.data as List? ?? [];
+    return list
+        .map((e) => KiemKeChuyenXeModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Tạo phiếu kiểm kê độc lập (chưa gắn chuyến) — kế toán nhập số bình/vỏ xuất trước.
+  Future<KiemKeChuyenXeModel> createPhieuKiemKe({
+    String? ghiChu,
+    required List<Map<String, dynamic>> chiTiet,
+  }) async {
+    final res = await ApiClient.instance.dio.post(
+      '/api/kiem-ke',
+      data: {
+        'ghiChu': ghiChu,
+        'chiTiet': chiTiet,
+      },
+    );
+    return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Gán 1 chuyến xe đã hoàn thành vào phiếu kiểm kê độc lập.
+  Future<KiemKeChuyenXeModel> lienKetChuyen(int kiemKeId, int chuyenXeId) async {
+    final res = await ApiClient.instance.dio.put(
+      '/api/kiem-ke/$kiemKeId/lien-ket-chuyen',
+      data: {'chuyenXeId': chuyenXeId},
+    );
+    return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
   /// Xóa toàn bộ biên bản kiểm kê xuất hàng của chuyến xe (kế toán lập sai, muốn làm lại).
   Future<void> deleteKiemKe(int chuyenXeId) async {
     await ApiClient.instance.dio.post('/api/chuyen-xe/$chuyenXeId/kiem-ke/delete');
