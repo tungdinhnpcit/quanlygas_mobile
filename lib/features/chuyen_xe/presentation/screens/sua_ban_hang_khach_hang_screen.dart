@@ -440,6 +440,8 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
         'tienCK': _tienCK,
         'dieuChinhTien': _dieuChinhTien,
         'tienChenhLechVo': _tienChenhLechVo,
+        // Thời gian bán lấy từ điện thoại (giờ VN) để lưu đúng mốc thời gian vào DB
+        'thoiGianBan': DateTime.now().toIso8601String(),
         if (_selectedTaiKhoanId != null) 'taiKhoanCKId': _selectedTaiKhoanId,
         'ghiChu': _ghiChuCtrl.text.trim().isEmpty ? null : _ghiChuCtrl.text.trim(),
       });
