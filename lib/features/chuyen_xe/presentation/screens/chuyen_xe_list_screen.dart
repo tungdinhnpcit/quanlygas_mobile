@@ -333,16 +333,27 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
                 onRefresh: () =>
                     ref.read(chuyenXeListProvider.notifier).load(),
                 child: listAsync.when(
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => _ErrorView(
-                    message: e.toString(),
-                    onRetry: () =>
-                        ref.read(chuyenXeListProvider.notifier).load(),
+                  loading: () => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: const [
+                      SizedBox(height: 200),
+                      Center(child: CircularProgressIndicator()),
+                    ],
+                  ),
+                  error: (e, _) => ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    children: [
+                      _ErrorView(
+                        message: e.toString(),
+                        onRetry: () =>
+                            ref.read(chuyenXeListProvider.notifier).load(),
+                      ),
+                    ],
                   ),
                   data: (list) {
                     if (list.isEmpty) {
                       return ListView(
+                        physics: const AlwaysScrollableScrollPhysics(),
                         children: [
                           const SizedBox(height: 100),
                           Center(
@@ -367,6 +378,7 @@ class _ChuyenXeListScreenState extends ConsumerState<ChuyenXeListScreen> {
                       );
                     }
                     return ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 12),
                       itemCount: list.length,
@@ -503,6 +515,39 @@ class _ChuyenXeCard extends StatelessWidget {
                   _StatusBadge(label: item.trangThaiLabel, color: statusColor),
                 ],
               ),
+              // Badge cảnh báo bán hàng đã bị sửa (audit log)
+              if (item.soLanSuaBanHang > 0) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.orange.withValues(alpha: 0.4)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.edit_note_rounded,
+                              size: 14, color: Colors.orange),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Đã sửa (${item.soLanSuaBanHang})',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.deepOrange,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               const Divider(height: 1),
               const SizedBox(height: 10),

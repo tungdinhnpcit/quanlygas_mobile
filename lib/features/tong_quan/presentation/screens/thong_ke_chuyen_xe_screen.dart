@@ -42,50 +42,73 @@ class ThongKeChuyenXeScreen extends ConsumerWidget {
           },
         ),
       ),
-      body: dataAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-              const SizedBox(height: 12),
-              Text(
-                '$e',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.redAccent, fontSize: 12),
-              ),
-              const SizedBox(height: 8),
-              TextButton(
-                onPressed: () => ref.refresh(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay))),
-                child: const Text('Thử lại'),
-              ),
+      body: RefreshIndicator(
+        // Kéo từ trên xuống để tải lại danh sách thống kê chuyến xe.
+        onRefresh: () async {
+          ref.invalidate(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay)));
+          await ref.read(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay)).future);
+        },
+        child: dataAsync.when(
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              SizedBox(height: 200),
+              Center(child: CircularProgressIndicator()),
             ],
           ),
-        ),
-        data: (items) {
-          if (items.isEmpty) {
-            return const Center(
-              child: Column(
+          error: (e, _) => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: [
+              const SizedBox(height: 120),
+              Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.local_shipping_outlined, size: 56, color: Colors.grey),
-                  SizedBox(height: 12),
+                  const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
+                  const SizedBox(height: 12),
                   Text(
-                    'Không có chuyến xe trong khoảng thời gian này',
-                    style: TextStyle(color: Colors.grey),
+                    '$e',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                  ),
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () => ref.refresh(thongKeChuyenXeProvider((effectiveTuNgay, effectiveDenNgay))),
+                    child: const Text('Thử lại'),
                   ),
                 ],
               ),
+            ],
+          ),
+          data: (items) {
+            if (items.isEmpty) {
+              return ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  SizedBox(height: 160),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.local_shipping_outlined, size: 56, color: Colors.grey),
+                      SizedBox(height: 12),
+                      Text(
+                        'Không có chuyến xe trong khoảng thời gian này',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ],
+              );
+            }
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(12),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _ChuyenXeStatCard(item: items[i]),
             );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(12),
-            itemCount: items.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) => _ChuyenXeStatCard(item: items[i]),
-          );
-        },
+          },
+        ),
       ),
     );
   }

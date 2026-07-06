@@ -31,9 +31,11 @@ class _KiemKeRow {
 /// chế độ cũ (Luồng A): kiểm kê gắn sẵn theo đúng chuyến đó (PUT
 /// /api/chuyen-xe/{id}/kiem-ke), vẫn giữ hoạt động dù không còn lối vào từ menu.
 class KiemKeNhapScreen extends StatefulWidget {
-  const KiemKeNhapScreen({super.key, this.chuyenXeId});
+  const KiemKeNhapScreen({super.key, this.chuyenXeId, this.ngayLap});
 
   final int? chuyenXeId;
+  // Ngày lập phiếu độc lập = ngày đang lọc ở danh sách (null → backend dùng giờ VN)
+  final DateTime? ngayLap;
 
   @override
   State<KiemKeNhapScreen> createState() => _KiemKeNhapScreenState();
@@ -144,7 +146,7 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
       if (chuyenXeId != null) {
         await _repo.upsertKiemKe(chuyenXeId, ghiChu: ghiChu, chiTiet: chiTiet);
       } else {
-        await _repo.createPhieuKiemKe(ghiChu: ghiChu, chiTiet: chiTiet);
+        await _repo.createPhieuKiemKe(ghiChu: ghiChu, chiTiet: chiTiet, ngayLap: widget.ngayLap);
       }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

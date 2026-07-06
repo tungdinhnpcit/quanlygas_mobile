@@ -204,6 +204,14 @@ class ChuyenXeRepository {
     return ChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
   }
 
+  /// Cập nhật phụ xe cho chuyến (null = bỏ phụ xe). Lưu ngay khi chọn ở màn chi tiết.
+  Future<void> capNhatPhuXe(int chuyenXeId, int? phuXeId) async {
+    await ApiClient.instance.dio.post(
+      '/api/chuyen-xe/$chuyenXeId/phu-xe',
+      data: {'phuXeId': phuXeId},
+    );
+  }
+
   /// Lấy danh sách bán hàng lái xe đã nhập cho chuyến xe.
   Future<List<BanHangKhachHangModel>> getBanHang(int chuyenXeId) async {
     final res = await ApiClient.instance.dio
@@ -428,13 +436,30 @@ class ChuyenXeRepository {
   Future<KiemKeChuyenXeModel> createPhieuKiemKe({
     String? ghiChu,
     required List<Map<String, dynamic>> chiTiet,
+    DateTime? ngayLap, // ngày lập = ngày đang lọc ở danh sách; null → backend dùng giờ VN
   }) async {
     final res = await ApiClient.instance.dio.post(
       '/api/kiem-ke',
       data: {
         'ghiChu': ghiChu,
         'chiTiet': chiTiet,
+        if (ngayLap != null) 'ngayLap': ngayLap.toIso8601String(),
       },
+    );
+    return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Lấy 1 phiếu kiểm kê theo định danh (kèm chi tiết) — dùng cho màn nhập số mang về.
+  Future<KiemKeChuyenXeModel> getPhieuKiemKeById(int kiemKeId) async {
+    final res = await ApiClient.instance.dio.get('/api/kiem-ke/$kiemKeId');
+    return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
+  /// Kế toán nhập số bình còn lại / vỏ mang về cho phiếu (theo kiemKeId, trước khi gắn chuyến).
+  Future<KiemKeChuyenXeModel> updateSoMangVe(int kiemKeId, List<Map<String, dynamic>> chiTiet) async {
+    final res = await ApiClient.instance.dio.put(
+      '/api/kiem-ke/$kiemKeId/so-mang-ve',
+      data: {'chiTiet': chiTiet},
     );
     return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
   }

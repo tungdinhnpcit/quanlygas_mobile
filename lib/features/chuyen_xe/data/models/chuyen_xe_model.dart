@@ -527,6 +527,7 @@ class ChuyenXeModel {
   final int soKhachDaXacNhan;
   final int soKhachChuaXacNhan;
   final int tongSoKhachHang;
+  final int soLanSuaBanHang; // số lần sửa bán hàng (audit) → badge "Đã sửa (N)"
 
   const ChuyenXeModel({
     required this.id,
@@ -565,6 +566,7 @@ class ChuyenXeModel {
     this.soKhachDaXacNhan = 0,
     this.soKhachChuaXacNhan = 0,
     this.tongSoKhachHang = 0,
+    this.soLanSuaBanHang = 0,
   });
 
   factory ChuyenXeModel.fromJson(Map<String, dynamic> json) => ChuyenXeModel(
@@ -624,6 +626,7 @@ class ChuyenXeModel {
         soKhachDaXacNhan:     json['soKhachDaXacNhan'] as int? ?? 0,
         soKhachChuaXacNhan:   json['soKhachChuaXacNhan'] as int? ?? 0,
         tongSoKhachHang:      json['tongSoKhachHang'] as int? ?? 0,
+        soLanSuaBanHang:      json['soLanSuaBanHang'] as int? ?? 0,
       );
 
   /// Nhãn trạng thái hiển thị tiếng Việt.

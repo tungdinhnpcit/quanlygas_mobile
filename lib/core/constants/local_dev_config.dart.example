@@ -1,10 +1,35 @@
 // lib/core/constants/local_dev_config.dart.example
-// Copy file này thành "local_dev_config.dart" (bỏ đuôi .example) rồi sửa IP
+// Copy file này thành "local_dev_config.dart" (bỏ đuôi .example) rồi sửa IP/target
 // cho đúng với máy dev + mạng WiFi hiện tại của bạn.
 // File "local_dev_config.dart" đã được thêm vào .gitignore — mỗi máy tự giữ IP riêng.
-class LocalDevConfig {
-  static const String devApiUrl = 'http://192.168.1.9:5001';
+//
+// Công tắc chọn BE khi chạy DEBUG mode (release luôn dùng prod, bỏ qua file này).
+// Đổi `target` rồi HOT RESTART app (không phải hot reload) để áp dụng.
 
-  /// true = debug mode gọi API production qua internet (bỏ qua LAN/emulator)
-  static const bool useInternetInDebug = false;
+/// Đích kết nối API khi debug:
+/// - usb      : BE local qua cáp USB (cần chạy `adb reverse tcp:5000 tcp:5000`)
+/// - lan      : BE local qua mạng LAN (điện thoại và máy dev cùng WiFi)
+/// - internet : API production qua internet (giống bản release)
+enum DevApiTarget { usb, lan, internet }
+
+class LocalDevConfig {
+  /// >>> ĐỔI Ở ĐÂY để chuyển đích kết nối <<<
+  static const DevApiTarget target = DevApiTarget.usb;
+
+  // ----- URL cho từng đích (chỉnh port/IP nếu BE local chạy khác) -----
+
+  /// USB: `adb reverse` map localhost điện thoại → localhost máy dev.
+  static const String usbApiUrl = 'http://localhost:5000';
+
+  /// LAN: IP máy dev trong mạng nội bộ (đổi cho khớp IP hiện tại của máy dev).
+  static const String lanApiUrl = 'http://192.168.1.9:5001';
+
+  // ----- Các giá trị dẫn xuất (không cần sửa) -----
+
+  /// URL local (usb/lan) mà DeviceConfig dùng cho real device / iOS khi debug.
+  static String get devApiUrl =>
+      target == DevApiTarget.lan ? lanApiUrl : usbApiUrl;
+
+  /// true = debug mode gọi thẳng API production (bỏ qua usb/lan/emulator).
+  static bool get useInternetInDebug => target == DevApiTarget.internet;
 }

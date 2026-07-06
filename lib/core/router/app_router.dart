@@ -50,6 +50,7 @@ import '../../features/kiem_ke/presentation/screens/kiem_ke_list_screen.dart'; /
 import '../../features/kiem_ke/presentation/screens/kiem_ke_nhap_screen.dart'; // nhap so lieu kiem ke
 import '../../features/kiem_ke/presentation/screens/kiem_ke_tao_chuyen_screen.dart'; // tao chuyen kiem ke moi (Luong A cu)
 import '../../features/kiem_ke/presentation/screens/kiem_ke_chon_chuyen_screen.dart'; // chon chuyen de lien ket vao phieu kiem ke
+import '../../features/kiem_ke/presentation/screens/kiem_ke_nhap_so_mang_ve_screen.dart'; // ke toan nhap so mang ve truoc khi chon chuyen
 import '../../features/kiem_ke/presentation/screens/kiem_ke_doi_chieu_screen.dart'; // doi chieu so mang ve
 import '../../features/thong_bao/presentation/providers/thong_bao_provider.dart'; // provider so thong bao chua doc
 import '../providers/user_info_provider.dart'; // thong tin user dang nhap (lay userId)
@@ -281,7 +282,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.kiemKeDocLapNhap, // route tao phieu kiem ke doc lap (Luong B)
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
-          child: const KiemKeNhapScreen(),
+          child: KiemKeNhapScreen(
+            ngayLap: state.extra is DateTime ? state.extra as DateTime : null,
+          ),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/kiem-ke/:kiemKeId/nhap-so-mang-ve', // ke toan nhap so mang ve truoc khi chon chuyen
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: KiemKeNhapSoMangVeScreen(
+            kiemKeId: int.parse(state.pathParameters['kiemKeId']!),
+            ngay: state.extra is DateTime ? state.extra as DateTime : null,
+          ),
         ),
       ),
       GoRoute(
@@ -291,6 +305,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: KiemKeChonChuyenScreen(
             kiemKeId: int.parse(state.pathParameters['kiemKeId']!),
+            ngayMacDinh: state.extra is DateTime ? state.extra as DateTime : null,
           ),
         ),
       ),
@@ -687,10 +702,18 @@ class _MainShellState extends ConsumerState<_MainShell> {
       }
     }
 
+    // Vuot phai de quay lai -- chi bat khi vuot bat dau tu mep trai man hinh (< 40px),
+    // tranh nuot gesture keo doc cua ListView (vd: pull-to-refresh).
+    double dragStartX = 0;
     return GestureDetector(
-      // Vuot phai de quay lai -- chi hoat dong tren man hinh chuc nang (khong phai tab chinh)
+      // Chi cham gesture ngang; khong dung behavior de khong nuot cham cua child.
+      onHorizontalDragStart: (details) {
+        dragStartX = details.globalPosition.dx;
+      },
       onHorizontalDragEnd: (details) {
-        if (!isTabRoute && (details.primaryVelocity ?? 0) > 300) { // vuot nhanh tu trai sang phai
+        if (!isTabRoute &&
+            dragStartX < 40 && // chi vuot back khi bat dau tu mep trai
+            (details.primaryVelocity ?? 0) > 300) { // vuot nhanh tu trai sang phai
           goBack();
         }
       },

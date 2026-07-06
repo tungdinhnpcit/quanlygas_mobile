@@ -9,7 +9,6 @@ import 'dart:async';
 import '../../../../core/database/local_database.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/services/connectivity_service.dart';
-import '../../../../core/widgets/app_bottom_nav_bar.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 import '../../data/models/chuyen_xe_model.dart';
 
@@ -154,6 +153,9 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   bool _saving = false;
 
+  // true khi lái xe tự gõ ô Tiền mặt → ngừng auto-fill để không ghi đè giá trị họ nhập
+  bool _tienMatManual = false;
+
   // ── Computed ─────────────────────────────────────────────────────────────
 
   int get _tongBinhBan =>
@@ -198,6 +200,16 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
       0;
 
   double get _conLai => _tongTien - _tienMat - _tienCK;
+
+  // Tự điền Tiền mặt = tổng phải thu, chừng nào lái xe chưa sửa tay ô này.
+  void _autoFillTienMat() {
+    if (_tienMatManual) return;
+    final tong = _tongTien;
+    _tienMatCtrl.text = tong > 0 ? _fmtMoney.format(tong.round()) : '';
+  }
+
+  // Rebuild + auto-fill Tiền mặt — dùng cho mọi onChanged ảnh hưởng tổng tiền.
+  void _onSaleChanged() => setState(_autoFillTienMat);
 
   // ── Lifecycle ────────────────────────────────────────────────────────────
 
@@ -278,6 +290,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     setState(() {
       _saleRows[index].dispose();
       _saleRows.removeAt(index);
+      _autoFillTienMat();
     });
   }
 
@@ -289,6 +302,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
     setState(() {
       _gasDuRows[index].dispose();
       _gasDuRows.removeAt(index);
+      _autoFillTienMat();
     });
   }
 
@@ -612,7 +626,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
           },
         ),
       ),
-      bottomNavigationBar: AppBottomNavBar(confirmBeforeLeave: _confirmLeave),
+      // Bỏ bottom nav (trang chủ / thông báo / cài đặt) để tránh ấn nhầm thoát khi đang nhập bán hàng
       body: GestureDetector(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(12),
@@ -891,6 +905,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                               row.matHangSearchCtrl.clear();
                               row.isVo = false;
                               row.donGiaCtrl.clear();
+                              _autoFillTienMat();
                             }),
                           )
                         : null,
@@ -920,6 +935,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                         if (!isVo && dg > 0) {
                           row.donGiaCtrl.text = _fmtMoney.format(dg.toInt());
                         }
+                        _autoFillTienMat();
                       });
                     }
                   },
@@ -1003,7 +1019,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     ),
                   ),
                   onTap: () => _ensureVisible(row.containerKey),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => _onSaleChanged(),
                 ),
                 const SizedBox(height: 8),
                 TextField(
@@ -1021,7 +1037,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     ),
                   ),
                   onTap: () => _ensureVisible(row.containerKey),
-                  onChanged: (_) => setState(() {}),
+                  onChanged: (_) => _onSaleChanged(),
                 ),
                 const SizedBox(height: 8),
                 Row(
@@ -1153,7 +1169,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
             onTap: () => _ensureVisible(row.containerKey),
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => _onSaleChanged(),
           ),
           const SizedBox(height: 8),
           TextField(
@@ -1168,7 +1184,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
               contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
             ),
             onTap: () => _ensureVisible(row.containerKey),
-            onChanged: (_) => setState(() {}),
+            onChanged: (_) => _onSaleChanged(),
           ),
         ],
       ),
@@ -1308,7 +1324,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             suffixText: 'đ',
             contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => setState(() => _tienMatManual = true),
         ),
         const SizedBox(height: 8),
         // Chuyển khoản
@@ -1375,7 +1391,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             suffixText: 'đ',
             contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => _onSaleChanged(),
         ),
         const SizedBox(height: 8),
         // Chênh lệch tiền khi đổi vỏ khác hãng/giá (+/-)
@@ -1392,7 +1408,7 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
             suffixText: 'đ',
             contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           ),
-          onChanged: (_) => setState(() {}),
+          onChanged: (_) => _onSaleChanged(),
         ),
         const SizedBox(height: 8),
         Row(

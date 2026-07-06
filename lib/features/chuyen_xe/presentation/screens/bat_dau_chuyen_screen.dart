@@ -195,7 +195,7 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
         }),
       ),
       bottomNavigationBar: const AppBottomNavBar(),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -351,7 +351,7 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
               ),
             ),
 
-            const Spacer(),
+            const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: _loading ? null : _xemChuyenXe,
               icon: _loading

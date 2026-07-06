@@ -63,6 +63,7 @@ class AppRoutes {
   // Kế toán — kiểm kê xuất hàng (Luồng B: phiếu độc lập → chọn chuyến → đối chiếu)
   static const String kiemKeList         = '/kiem-ke';
   static const String kiemKeDocLapNhap   = '/kiem-ke/nhap';
+  static String kiemKeNhapSoMangVe(int kiemKeId) => '/kiem-ke/$kiemKeId/nhap-so-mang-ve';
   static String kiemKeChonChuyen(int kiemKeId) => '/kiem-ke/$kiemKeId/chon-chuyen';
   static String kiemKeDoiChieu(int chuyenXeId) => '/kiem-ke/$chuyenXeId/doi-chieu';
 

@@ -902,6 +902,20 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
   }
 
   /// Mở lại màn xác nhận khách hàng (dùng get-or-create endpoint)
+  /// Lưu phụ xe ngay khi chọn/xóa ở màn chi tiết (không cần nhập bán hàng) → quay lại vẫn hiển thị.
+  Future<void> _luuPhuXe(int? phuXeId) async {
+    try {
+      await _repo.capNhatPhuXe(widget.cx.id, phuXeId);
+      if (!mounted) return;
+      ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi lưu phụ xe: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   Future<void> _openXacNhanAgain(int khachHangId) async {
     try {
       final xacNhanId = await _repo.getOrCreateXacNhan(widget.cx.id, khachHangId);
@@ -1159,8 +1173,10 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                         _selectedPhuXe!['hoTen'] as String? ?? '',
                         style: const TextStyle(fontSize: 12),
                       ),
-                      onDeleted: () =>
-                          setState(() => _selectedPhuXe = null),
+                      onDeleted: () {
+                        setState(() => _selectedPhuXe = null);
+                        _luuPhuXe(null);
+                      },
                     )
                   else
                     Expanded(
@@ -1172,6 +1188,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                           );
                           if (selected != null && mounted) {
                             setState(() => _selectedPhuXe = selected);
+                            _luuPhuXe(selected['id'] as int?);
                           }
                         },
                         icon: const Icon(Icons.search, size: 16),

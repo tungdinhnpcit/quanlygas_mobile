@@ -60,12 +60,14 @@ class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
     state = const ThongBaoPageState(isLoading: true);
     try {
       final res = await _repo.getListPaged(_userId, page: _page, pageSize: _pageSize, daDoc: _daDoc);
+      if (!mounted) return;
       state = ThongBaoPageState(
         items: res.items,
         isLoading: false,
         hasMore: res.items.length < res.total,
       );
     } catch (e) {
+      if (!mounted) return;
       state = ThongBaoPageState(isLoading: false, hasMore: false, error: e);
     }
   }
@@ -79,6 +81,7 @@ class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
     _page += 1;
     try {
       final res = await _repo.getListPaged(_userId, page: _page, pageSize: _pageSize, daDoc: _daDoc);
+      if (!mounted) return;
       final merged = [...state.items, ...res.items];
       state = state.copyWith(
         items: merged,
@@ -87,6 +90,7 @@ class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
       );
     } catch (_) {
       _page -= 1; // rollback để thử lại lần sau
+      if (!mounted) return;
       state = state.copyWith(isLoadingMore: false);
     }
   }
@@ -101,6 +105,7 @@ class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
     try {
       await _repo.markAsRead(id);
     } catch (_) {}
+    if (!mounted) return;
     _ref.invalidate(soChuaDocProvider);
     _invalidateOtherTabs();
   }
@@ -109,9 +114,11 @@ class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
   Future<void> markAllAsRead(int userId) async {
     try {
       await _repo.markAllAsRead(userId);
+      if (!mounted) return;
       _ref.invalidate(soChuaDocProvider);
       await BackgroundPollingService.updateLastKnownCount(0);
     } catch (_) {}
+    if (!mounted) return;
     // Cập nhật state tại chỗ cho cả 3 tab — không invalidate vì tab đang hiển thị
     // sẽ bị dispose/tạo lại với isLoading=true mà không có ai gọi loadFirst() lại,
     // khiến loading treo vô thời hạn (autoDispose family không tự refetch).
@@ -122,6 +129,7 @@ class ThongBaoListNotifier extends StateNotifier<ThongBaoPageState> {
 
   /// Áp dụng "đã đọc tất cả" lên state của instance này.
   void _applyAllRead() {
+    if (!mounted) return;
     if (_daDoc == false) {
       // Tab "Chưa đọc": mọi item giờ đã đọc → không còn thuộc tab này
       state = state.copyWith(items: const []);

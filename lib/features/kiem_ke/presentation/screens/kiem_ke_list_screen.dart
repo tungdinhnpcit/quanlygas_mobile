@@ -23,8 +23,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
   String? _error;
   List<KiemKeChuyenXeModel> _items = [];
 
-  DateTime _denNgay = DateTime.now();
-  late DateTime _tuNgay = _denNgay;
+  DateTime _ngay = DateTime.now();
 
   @override
   void initState() {
@@ -38,7 +37,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
       _error = null;
     });
     try {
-      final items = await _repo.getPhieuKiemKeList(tuNgay: _tuNgay, denNgay: _denNgay);
+      final items = await _repo.getPhieuKiemKeList(tuNgay: _ngay, denNgay: _ngay);
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -53,24 +52,51 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
     }
   }
 
-  Future<void> _pickDate({required bool isTuNgay}) async {
-    final picked = await showDatePicker(
+  /// Chọn ngày qua bottom sheet — chọn xong nhận luôn, không cần nhấn OK.
+  Future<void> _pickDate() async {
+    await showModalBottomSheet<void>(
       context: context,
-      initialDate: isTuNgay ? _tuNgay : _denNgay,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: Row(
+                  children: [
+                    const Text('Chọn ngày',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: CalendarDatePicker(
+                    initialDate: _ngay,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                    onDateChanged: (picked) {
+                      setState(() => _ngay = picked);
+                      Navigator.pop(ctx);
+                      _load();
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (picked == null) return;
-    setState(() {
-      if (isTuNgay) {
-        _tuNgay = picked;
-        if (_tuNgay.isAfter(_denNgay)) _denNgay = _tuNgay;
-      } else {
-        _denNgay = picked;
-        if (_denNgay.isBefore(_tuNgay)) _tuNgay = _denNgay;
-      }
-    });
-    _load();
   }
 
   void _onTapPhieu(KiemKeChuyenXeModel kk) {
@@ -78,7 +104,10 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
     if (chuyenXeId != null) {
       context.push(AppRoutes.kiemKeDoiChieu(chuyenXeId));
     } else {
-      context.push(AppRoutes.kiemKeChonChuyen(kk.id)).then((_) => _load());
+      // Phiếu chưa gắn: kế toán nhập số mang về trước → rồi chọn chuyến để đối chiếu
+      context
+          .push(AppRoutes.kiemKeNhapSoMangVe(kk.id), extra: kk.ngayLap)
+          .then((_) => _load());
     }
   }
 
@@ -120,26 +149,11 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
       children: [
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: Row(
-            children: [
-              Expanded(
-                child: _DateButton(
-                  label: 'Từ ngày',
-                  date: _tuNgay,
-                  fmt: fmt,
-                  onTap: () => _pickDate(isTuNgay: true),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _DateButton(
-                  label: 'Đến ngày',
-                  date: _denNgay,
-                  fmt: fmt,
-                  onTap: () => _pickDate(isTuNgay: false),
-                ),
-              ),
-            ],
+          child: _DateButton(
+            label: 'Ngày',
+            date: _ngay,
+            fmt: fmt,
+            onTap: _pickDate,
           ),
         ),
         Padding(
@@ -148,7 +162,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
             width: double.infinity,
             child: FilledButton.icon(
               onPressed: () => context
-                  .push(AppRoutes.kiemKeDocLapNhap)
+                  .push(AppRoutes.kiemKeDocLapNhap, extra: _ngay)
                   .then((_) => _load()),
               icon: const Icon(Icons.add),
               label: const Text('Tạo phiếu kiểm kê'),
@@ -168,7 +182,7 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
                           children: [
                             Icon(Icons.fact_check_outlined, size: 64, color: Colors.black26),
                             SizedBox(height: 16),
-                            Text('Không có phiếu kiểm kê nào trong khoảng ngày này',
+                            Text('Không có phiếu kiểm kê nào trong ngày này',
                                 style: TextStyle(color: Colors.black45, fontSize: 15)),
                           ],
                         ),

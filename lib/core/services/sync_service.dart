@@ -305,6 +305,8 @@ class SyncService {
           'soVoBan': bh['so_vo_ban'],
           'soVoThu': bh['so_vo_thu'],
           'ghiChu': bh['ghi_chu'],
+          // Giờ điện thoại lúc bán (lưu offline) → gửi lên để BE không dùng giờ hệ thống
+          if (bh['created_at'] != null) 'thoiGianBan': bh['created_at'],
         });
         await _db.markBanHangSynced(bh['local_id'] as int);
         bhCount++;

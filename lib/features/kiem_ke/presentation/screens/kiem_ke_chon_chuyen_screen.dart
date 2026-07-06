@@ -1,19 +1,23 @@
 // lib/features/kiem_ke/presentation/screens/kiem_ke_chon_chuyen_screen.dart
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../chuyen_xe/data/models/chuyen_xe_model.dart';
+import '../../../chuyen_xe/data/models/kiem_ke_model.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 
 /// Màn hình kế toán: chọn 1 chuyến xe đã hoàn thành (do lái xe lập trên mobile)
 /// để liên kết vào phiếu kiểm kê độc lập đã tạo — route ở root navigator nên
 /// tự có Scaffold + AppBar riêng (theo mobile_screen_navigation.md).
 class KiemKeChonChuyenScreen extends StatefulWidget {
-  const KiemKeChonChuyenScreen({super.key, required this.kiemKeId});
+  const KiemKeChonChuyenScreen({super.key, required this.kiemKeId, this.ngayMacDinh});
 
   final int kiemKeId;
+  // Ngày mặc định của bộ lọc = ngày lập phiếu kiểm kê (null → hôm nay)
+  final DateTime? ngayMacDinh;
 
   @override
   State<KiemKeChonChuyenScreen> createState() => _KiemKeChonChuyenScreenState();
@@ -27,8 +31,7 @@ class _KiemKeChonChuyenScreenState extends State<KiemKeChonChuyenScreen> {
   String? _error;
   List<ChuyenXeModel> _items = [];
 
-  DateTime _denNgay = DateTime.now();
-  late DateTime _tuNgay = _denNgay;
+  late DateTime _ngay = widget.ngayMacDinh ?? DateTime.now();
 
   @override
   void initState() {
@@ -42,12 +45,21 @@ class _KiemKeChonChuyenScreenState extends State<KiemKeChonChuyenScreen> {
       _error = null;
     });
     try {
-      final items = await _repo.getListByTrangThai(
-        trangThai: 'hoan-thanh',
-        tuNgay: _tuNgay,
-        denNgay: _denNgay,
-      );
-      items.sort((a, b) => b.ngayXuat.compareTo(a.ngayXuat));
+      // Lấy song song: chuyến hoàn thành + danh sách kiểm kê đã gắn chuyến (để loại chuyến đã gắn)
+      final results = await Future.wait([
+        _repo.getListByTrangThai(
+          trangThai: 'hoan-thanh',
+          tuNgay: _ngay,
+          denNgay: _ngay,
+        ),
+        _repo.getPhieuKiemKeList(daGanChuyen: true),
+      ]);
+      final chuyenList = results[0] as List<ChuyenXeModel>;
+      final daGan = results[1] as List<KiemKeChuyenXeModel>;
+      final ganIds = daGan.map((k) => k.chuyenXeId).whereType<int>().toSet();
+
+      final items = chuyenList.where((cx) => !ganIds.contains(cx.id)).toList()
+        ..sort((a, b) => b.ngayXuat.compareTo(a.ngayXuat));
       if (!mounted) return;
       setState(() {
         _items = items;
@@ -62,24 +74,51 @@ class _KiemKeChonChuyenScreenState extends State<KiemKeChonChuyenScreen> {
     }
   }
 
-  Future<void> _pickDate({required bool isTuNgay}) async {
-    final picked = await showDatePicker(
+  /// Chọn ngày qua bottom sheet — chọn xong nhận luôn, không cần nhấn OK.
+  Future<void> _pickDate() async {
+    await showModalBottomSheet<void>(
       context: context,
-      initialDate: isTuNgay ? _tuNgay : _denNgay,
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 0),
+                child: Row(
+                  children: [
+                    const Text('Chọn ngày',
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.pop(ctx),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  child: CalendarDatePicker(
+                    initialDate: _ngay,
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                    onDateChanged: (picked) {
+                      setState(() => _ngay = picked);
+                      Navigator.pop(ctx);
+                      _load();
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
-    if (picked == null) return;
-    setState(() {
-      if (isTuNgay) {
-        _tuNgay = picked;
-        if (_tuNgay.isAfter(_denNgay)) _denNgay = _tuNgay;
-      } else {
-        _denNgay = picked;
-        if (_denNgay.isBefore(_tuNgay)) _tuNgay = _denNgay;
-      }
-    });
-    _load();
   }
 
   Future<void> _chonChuyen(ChuyenXeModel cx) async {
@@ -90,8 +129,14 @@ class _KiemKeChonChuyenScreenState extends State<KiemKeChonChuyenScreen> {
       context.pushReplacement(AppRoutes.kiemKeDoiChieu(cx.id));
     } catch (e) {
       if (!mounted) return;
+      // Ưu tiên message backend trả về (VD 400: "Chuyến xe đã được kiểm kê khác liên kết.")
+      final msg = e is DioException
+          ? (e.response?.data is Map ? e.response?.data['message'] as String? : null) ??
+              e.message ??
+              e.toString()
+          : e.toString();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi liên kết: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(msg), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => _linking = false);
@@ -117,26 +162,11 @@ class _KiemKeChonChuyenScreenState extends State<KiemKeChonChuyenScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _DateButton(
-                    label: 'Từ ngày',
-                    date: _tuNgay,
-                    fmt: fmt,
-                    onTap: () => _pickDate(isTuNgay: true),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _DateButton(
-                    label: 'Đến ngày',
-                    date: _denNgay,
-                    fmt: fmt,
-                    onTap: () => _pickDate(isTuNgay: false),
-                  ),
-                ),
-              ],
+            child: _DateButton(
+              label: 'Ngày',
+              date: _ngay,
+              fmt: fmt,
+              onTap: _pickDate,
             ),
           ),
           Expanded(child: _buildList(fmt)),
