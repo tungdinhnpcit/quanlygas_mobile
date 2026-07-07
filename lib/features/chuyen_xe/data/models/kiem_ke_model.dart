@@ -14,6 +14,7 @@ class KiemKeChiTietModel {
   final int soVoXuat;
   final int? soBinhConLai;
   final int? soVoMangVe;
+  final int soKgGasDu;
 
   const KiemKeChiTietModel({
     required this.id,
@@ -27,6 +28,7 @@ class KiemKeChiTietModel {
     required this.soVoXuat,
     this.soBinhConLai,
     this.soVoMangVe,
+    this.soKgGasDu = 0,
   });
 
   factory KiemKeChiTietModel.fromJson(Map<String, dynamic> json) => KiemKeChiTietModel(
@@ -41,6 +43,7 @@ class KiemKeChiTietModel {
         soVoXuat:      json['soVoXuat'] as int? ?? 0,
         soBinhConLai:  json['soBinhConLai'] as int?,
         soVoMangVe:    json['soVoMangVe'] as int?,
+        soKgGasDu:     json['soKgGasDu'] as int? ?? 0,
       );
 
   Map<String, dynamic> toJson() => {

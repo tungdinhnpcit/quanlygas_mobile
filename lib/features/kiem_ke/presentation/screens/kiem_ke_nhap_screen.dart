@@ -1,6 +1,7 @@
 // lib/features/kiem_ke/presentation/screens/kiem_ke_nhap_screen.dart
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../../core/database/local_database.dart';
 import '../../../../core/router/app_routes.dart';
@@ -31,11 +32,13 @@ class _KiemKeRow {
 /// chế độ cũ (Luồng A): kiểm kê gắn sẵn theo đúng chuyến đó (PUT
 /// /api/chuyen-xe/{id}/kiem-ke), vẫn giữ hoạt động dù không còn lối vào từ menu.
 class KiemKeNhapScreen extends StatefulWidget {
-  const KiemKeNhapScreen({super.key, this.chuyenXeId, this.ngayLap});
+  const KiemKeNhapScreen({super.key, this.chuyenXeId, this.ngayLap, this.kiemKeId});
 
   final int? chuyenXeId;
   // Ngày lập phiếu độc lập = ngày đang lọc ở danh sách (null → backend dùng giờ VN)
   final DateTime? ngayLap;
+  // Khac null => che do SUA phieu doc lap da co (PUT /api/kiem-ke/{id})
+  final int? kiemKeId;
 
   @override
   State<KiemKeNhapScreen> createState() => _KiemKeNhapScreenState();
@@ -53,6 +56,8 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
   List<Map<String, dynamic>> _matHangList = [];
   final List<_KiemKeRow> _rows = [];
   final _ghiChuCtrl = TextEditingController();
+  // Ngay lap phieu o che do SUA (cho phep chinh lai); null neu khong phai che do sua
+  DateTime? _ngayLap;
 
   @override
   void initState() {
@@ -77,12 +82,16 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
       ChuyenXeModel? cx;
       KiemKeChuyenXeModel? kiemKe;
       if (chuyenXeId != null) {
+        // Luong A: kiem ke gan san theo chuyen
         final results = await Future.wait([
           _repo.getById(chuyenXeId),
           _repo.getKiemKe(chuyenXeId),
         ]);
         cx     = results[0] as ChuyenXeModel;
         kiemKe = results[1] as KiemKeChuyenXeModel?;
+      } else if (widget.kiemKeId != null) {
+        // Che do SUA: load phieu doc lap da co de prefill
+        kiemKe = await _repo.getPhieuKiemKeById(widget.kiemKeId!);
       }
 
       if (!mounted) return;
@@ -90,6 +99,10 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
         _chuyenXe    = cx;
         _matHangList = mhList;
         _rows.clear();
+        // Che do SUA: nap ngay lap hien tai de cho phep chinh lai
+        if (widget.kiemKeId != null) {
+          _ngayLap = kiemKe?.ngayLap?.toLocal();
+        }
         if (kiemKe != null && kiemKe.chiTiet.isNotEmpty) {
           _ghiChuCtrl.text = kiemKe.ghiChu ?? '';
           for (final ct in kiemKe.chiTiet) {
@@ -118,6 +131,17 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
 
   void _removeRow(int index) => setState(() => _rows.removeAt(index));
 
+  /// Chon lai ngay lap phieu (chi o che do SUA).
+  Future<void> _pickNgayLap() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _ngayLap ?? DateTime.now(),
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null) setState(() => _ngayLap = picked);
+  }
+
   Future<void> _save() async {
     final chiTiet = <Map<String, dynamic>>[];
     for (final r in _rows) {
@@ -145,6 +169,9 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
       final chuyenXeId = widget.chuyenXeId;
       if (chuyenXeId != null) {
         await _repo.upsertKiemKe(chuyenXeId, ghiChu: ghiChu, chiTiet: chiTiet);
+      } else if (widget.kiemKeId != null) {
+        // Che do SUA: replace ghiChu + chiTiet, cap nhat lai ngay lap neu co chinh
+        await _repo.updatePhieuKiemKe(widget.kiemKeId!, ghiChu: ghiChu, chiTiet: chiTiet, ngayLap: _ngayLap);
       } else {
         await _repo.createPhieuKiemKe(ghiChu: ghiChu, chiTiet: chiTiet, ngayLap: widget.ngayLap);
       }
@@ -204,7 +231,11 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.chuyenXeId != null ? 'Kiểm kê xuất hàng' : 'Tạo phiếu kiểm kê'),
+        title: Text(widget.chuyenXeId != null
+            ? 'Kiểm kê xuất hàng'
+            : widget.kiemKeId != null
+                ? 'Sửa phiếu kiểm kê'
+                : 'Tạo phiếu kiểm kê'),
         leading: BackButton(onPressed: () {
           if (context.canPop()) {
             context.pop();
@@ -220,15 +251,24 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
                 tooltip: 'Xóa kiểm kê',
                 onPressed: _saving ? null : _deleteKiemKe,
               ),
-            TextButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('Lưu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+            // Nut Luu dang FilledButton nen teal de noi bat, tranh chim vao mau AppBar sang
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(
+                  backgroundColor: const Color(0xFF00897B),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                child: _saving
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Text('Lưu', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
             ),
           ],
         ],
@@ -287,6 +327,31 @@ class _KiemKeNhapScreenState extends State<KiemKeNhapScreen> {
                   if (cx.tenPhuXe != null)
                     _InfoLine(icon: Icons.person_outline, label: 'Phụ xe', value: cx.tenPhuXe!),
                 ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
+
+        // Che do SUA: cho phep chinh lai ngay lap phieu
+        if (widget.kiemKeId != null) ...[
+          const Text('Ngày lập phiếu',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 8),
+          InkWell(
+            onTap: _pickNgayLap,
+            borderRadius: BorderRadius.circular(8),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                isDense: true,
+                suffixIcon: Icon(Icons.calendar_today, size: 18),
+              ),
+              child: Text(
+                _ngayLap != null
+                    ? DateFormat('dd/MM/yyyy').format(_ngayLap!)
+                    : 'Chọn ngày',
+                style: TextStyle(color: _ngayLap == null ? Colors.grey : null),
               ),
             ),
           ),

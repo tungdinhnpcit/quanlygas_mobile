@@ -99,6 +99,39 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
     );
   }
 
+  /// Xoa phieu kiem ke (chua chot) sau khi nguoi dung xac nhan.
+  Future<void> _deletePhieu(KiemKeChuyenXeModel kk) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      // Dung context cua dialog (ctx) de pop dung dialog, tranh pop nham route shell
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa phiếu kiểm kê?'),
+        content: Text('Xóa phiếu kiểm kê #${kk.id}? Không thể hoàn tác.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm != true || !mounted) return;
+    try {
+      await _repo.deletePhieuKiemKe(kk.id);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã xóa phiếu kiểm kê'), backgroundColor: Colors.orange),
+      );
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
   void _onTapPhieu(KiemKeChuyenXeModel kk) {
     final chuyenXeId = kk.chuyenXeId;
     if (chuyenXeId != null) {
@@ -195,7 +228,18 @@ class _KiemKeListScreenState extends State<KiemKeListScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 10),
                     itemBuilder: (context, i) {
                       final kk = _items[i];
-                      return _KiemKePhieuItem(item: kk, fmt: fmt, onTap: () => _onTapPhieu(kk));
+                      return _KiemKePhieuItem(
+                        item: kk,
+                        fmt: fmt,
+                        onTap: () => _onTapPhieu(kk),
+                        // Chi cho sua/xoa khi phieu chua chot; sua xong tu reload danh sach
+                        onEdit: kk.daChot
+                            ? null
+                            : () => context
+                                .push(AppRoutes.kiemKeDocLapSua(kk.id))
+                                .then((_) => _load()),
+                        onDelete: kk.daChot ? null : () => _deletePhieu(kk),
+                      );
                     },
                   ),
           ),
@@ -252,8 +296,17 @@ class _KiemKePhieuItem extends StatelessWidget {
   final KiemKeChuyenXeModel item;
   final DateFormat fmt;
   final VoidCallback onTap;
+  // null => an nut sua/xoa (phieu da chot)
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
 
-  const _KiemKePhieuItem({required this.item, required this.fmt, required this.onTap});
+  const _KiemKePhieuItem({
+    required this.item,
+    required this.fmt,
+    required this.onTap,
+    this.onEdit,
+    this.onDelete,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -320,6 +373,33 @@ class _KiemKePhieuItem extends StatelessWidget {
                   if (item.daChot) ...[
                     const SizedBox(height: 6),
                     const _Badge(label: 'Đã chốt', color: Colors.blue),
+                  ],
+                  // Nut sua/xoa chi hien khi phieu chua chot, xep ngang canh nhau
+                  if (onEdit != null || onDelete != null) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (onEdit != null)
+                          InkWell(
+                            onTap: onEdit,
+                            borderRadius: BorderRadius.circular(8),
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(Icons.edit_outlined, size: 20, color: Color(0xFF00897B)),
+                            ),
+                          ),
+                        if (onDelete != null)
+                          InkWell(
+                            onTap: onDelete,
+                            borderRadius: BorderRadius.circular(8),
+                            child: const Padding(
+                              padding: EdgeInsets.all(6),
+                              child: Icon(Icons.delete_outline, size: 20, color: Colors.red),
+                            ),
+                          ),
+                      ],
+                    ),
                   ],
                 ],
               ),

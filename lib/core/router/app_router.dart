@@ -289,6 +289,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
+        path: '/kiem-ke/:kiemKeId/sua', // sua phieu kiem ke doc lap (Luong B)
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: KiemKeNhapScreen(
+            kiemKeId: int.parse(state.pathParameters['kiemKeId']!),
+          ),
+        ),
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
         path: '/kiem-ke/:kiemKeId/nhap-so-mang-ve', // ke toan nhap so mang ve truoc khi chon chuyen
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,

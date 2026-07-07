@@ -22,21 +22,58 @@ class KiemKeNhapSoMangVeScreen extends StatefulWidget {
   State<KiemKeNhapSoMangVeScreen> createState() => _KiemKeNhapSoMangVeScreenState();
 }
 
-/// Một dòng nhập: chi tiết mặt hàng + 2 controller số mang về.
+/// Mot dong nhap: chi tiet mat hang + 3 controller (so binh con lai, so vo mang ve, kg gas du).
+/// Dong co san dua vao [ct]; dong moi (them mat hang khi mang ve) co ct=null va tu luu thong tin mat hang.
 class _Row {
-  final KiemKeChiTietModel ct;
+  final KiemKeChiTietModel? ct; // null = dong moi them tay
   final TextEditingController binhCtrl;
   final TextEditingController voCtrl;
+  final TextEditingController gasDuCtrl;
 
-  _Row(this.ct)
-      : binhCtrl = TextEditingController(
-            text: ct.soBinhConLai != null ? '${ct.soBinhConLai}' : ''),
+  // Thong tin cho dong moi (khi ct == null)
+  final int? matHangId;
+  final int? nhaCungCapId;
+  final String? matHangLabel;
+  final String? tenNhaCungCap;
+
+  _Row.existing(KiemKeChiTietModel c)
+      : ct = c,
+        matHangId = null,
+        nhaCungCapId = null,
+        matHangLabel = null,
+        tenNhaCungCap = null,
+        binhCtrl = TextEditingController(
+            text: c.soBinhConLai != null ? '${c.soBinhConLai}' : ''),
         voCtrl = TextEditingController(
-            text: ct.soVoMangVe != null ? '${ct.soVoMangVe}' : '');
+            text: c.soVoMangVe != null ? '${c.soVoMangVe}' : ''),
+        gasDuCtrl = TextEditingController(
+            text: c.soKgGasDu > 0 ? '${c.soKgGasDu}' : '');
+
+  _Row.moi({
+    required this.matHangId,
+    required this.nhaCungCapId,
+    required this.matHangLabel,
+    required this.tenNhaCungCap,
+  })  : ct = null,
+        binhCtrl = TextEditingController(),
+        voCtrl = TextEditingController(),
+        gasDuCtrl = TextEditingController();
+
+  // Nhan hien thi + hang de nhom (dung chung cho ca 2 loai dong)
+  int get theMatHangId => ct?.matHangId ?? matHangId ?? 0;
+  int? get theNhaCungCapId => ct?.nhaCungCapId ?? nhaCungCapId;
+  String get theLabel =>
+      ct != null ? (ct!.matHangLabel.isEmpty ? 'Mặt hàng #${ct!.matHangId}' : ct!.matHangLabel) : (matHangLabel ?? 'Mặt hàng');
+  String get theHang =>
+      (ct?.tenNhaCungCap ?? tenNhaCungCap)?.trim().isNotEmpty == true
+          ? (ct?.tenNhaCungCap ?? tenNhaCungCap)!
+          : 'Không xác định hãng';
+  bool get isNew => ct == null;
 
   void dispose() {
     binhCtrl.dispose();
     voCtrl.dispose();
+    gasDuCtrl.dispose();
   }
 }
 
@@ -76,7 +113,7 @@ class _KiemKeNhapSoMangVeScreenState extends State<KiemKeNhapSoMangVeScreen> {
         r.dispose();
       }
       setState(() {
-        _rows = phieu.chiTiet.map((ct) => _Row(ct)).toList();
+        _rows = phieu.chiTiet.map((ct) => _Row.existing(ct)).toList();
         _loading = false;
       });
     } catch (e) {
@@ -90,9 +127,13 @@ class _KiemKeNhapSoMangVeScreenState extends State<KiemKeNhapSoMangVeScreen> {
 
   List<Map<String, dynamic>> _buildChiTiet() => _rows
       .map((r) => {
-            'id': r.ct.id,
+            // Dong cu gui id; dong moi gui id=0 + matHangId/nhaCungCapId de backend them dong
+            'id': r.ct?.id ?? 0,
+            if (r.isNew) 'matHangId': r.matHangId,
+            if (r.isNew) 'nhaCungCapId': r.nhaCungCapId,
             'soBinhConLai': int.tryParse(r.binhCtrl.text.trim()) ?? 0,
             'soVoMangVe': int.tryParse(r.voCtrl.text.trim()) ?? 0,
+            'soKgGasDu': int.tryParse(r.gasDuCtrl.text.trim()) ?? 0,
           })
       .toList();
 
@@ -182,13 +223,10 @@ class _KiemKeNhapSoMangVeScreenState extends State<KiemKeNhapSoMangVeScreen> {
       );
     }
 
-    // Nhóm dòng theo hãng (tenNhaCungCap), giữ thứ tự xuất hiện
+    // Nhom dong theo hang, giu thu tu xuat hien
     final groups = <String, List<_Row>>{};
     for (final r in _rows) {
-      final hang = r.ct.tenNhaCungCap?.trim().isNotEmpty == true
-          ? r.ct.tenNhaCungCap!
-          : 'Không xác định hãng';
-      groups.putIfAbsent(hang, () => []).add(r);
+      groups.putIfAbsent(r.theHang, () => []).add(r);
     }
 
     return ListView(
@@ -211,12 +249,21 @@ class _KiemKeNhapSoMangVeScreenState extends State<KiemKeNhapSoMangVeScreen> {
           ...entry.value.map(_rowCard),
           const SizedBox(height: 8),
         ],
+        const SizedBox(height: 4),
+        OutlinedButton.icon(
+          onPressed: _themMatHang,
+          icon: const Icon(Icons.add),
+          label: const Text('Thêm mặt hàng'),
+          style: OutlinedButton.styleFrom(
+            minimumSize: const Size.fromHeight(46),
+            foregroundColor: _teal,
+          ),
+        ),
       ],
     );
   }
 
   Widget _rowCard(_Row r) {
-    final ct = r.ct;
     return Card(
       elevation: 1,
       margin: const EdgeInsets.only(bottom: 10),
@@ -226,11 +273,29 @@ class _KiemKeNhapSoMangVeScreenState extends State<KiemKeNhapSoMangVeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(ct.matHangLabel.isEmpty ? 'Mặt hàng #${ct.matHangId}' : ct.matHangLabel,
-                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(r.theLabel,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                ),
+                if (r.isNew)
+                  InkWell(
+                    onTap: () => _xoaDong(r),
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(Icons.close, size: 18, color: Colors.redAccent),
+                    ),
+                  ),
+              ],
+            ),
             const SizedBox(height: 2),
-            Text('Xuất: ${ct.soBinhXuat} bình • ${ct.soVoXuat} vỏ',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(
+              r.isNew
+                  ? 'Mặt hàng thêm khi mang về'
+                  : 'Xuất: ${r.ct!.soBinhXuat} bình • ${r.ct!.soVoXuat} vỏ',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
@@ -239,10 +304,39 @@ class _KiemKeNhapSoMangVeScreenState extends State<KiemKeNhapSoMangVeScreen> {
                 Expanded(child: _numField('Số vỏ mang về', r.voCtrl)),
               ],
             ),
+            const SizedBox(height: 10),
+            _numField('Kg gas dư', r.gasDuCtrl),
           ],
         ),
       ),
     );
+  }
+
+  /// Them mat hang moi (vo/gas du mat hang khac mang ve) - dung route tim kiem mat hang chung.
+  Future<void> _themMatHang() async {
+    final mh = await context.push<Map<String, dynamic>>(AppRoutes.timKiemMatHang);
+    if (mh == null || !mounted) return;
+    final serverId = mh['server_id'] as int?;
+    if (serverId == null) return;
+    final ma = mh['ma_mat_hang'] ?? '';
+    final ten = mh['ten_mat_hang'] ?? '';
+    final tenNcc = mh['ten_nha_cc'] as String?;
+    final base = '$ma - $ten';
+    setState(() {
+      _rows.add(_Row.moi(
+        matHangId: serverId,
+        nhaCungCapId: mh['nha_cung_cap_id'] as int?,
+        matHangLabel: (tenNcc != null && tenNcc.isNotEmpty) ? '$base ($tenNcc)' : base,
+        tenNhaCungCap: tenNcc,
+      ));
+    });
+  }
+
+  void _xoaDong(_Row r) {
+    setState(() {
+      _rows.remove(r);
+      r.dispose();
+    });
   }
 
   Widget _numField(String label, TextEditingController ctrl) {
