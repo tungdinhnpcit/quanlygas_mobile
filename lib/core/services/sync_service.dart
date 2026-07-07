@@ -101,6 +101,17 @@ class SyncService {
     } catch (e) { debugPrint('[SYNC] LỖI mat-hang: $e'); }
 
     try {
+      // Mapping bình → vỏ (để tự thêm dòng vỏ khi bán bình)
+      final voRes = await _dio.get('/api/mat-hang/vo-mapping/all');
+      final voItems = (voRes.data as List?)?.cast<Map<String, dynamic>>() ?? [];
+      debugPrint('[SYNC] vo-mapping: ${voItems.length} items');
+      await _db.upsertMatHangVoList(voItems.map((e) => {
+        'binh_server_id': e['binhMatHangId'],
+        'vo_server_id': e['voMatHangId'],
+      }).toList());
+    } catch (e) { debugPrint('[SYNC] LỖI vo-mapping: $e'); }
+
+    try {
       // Nhà cung cấp
       final nccRes = await _dio.get('/api/nha-cung-cap/all');
       debugPrint('[SYNC] nha-cung-cap: ${(nccRes.data as List?)?.length ?? 0} items');

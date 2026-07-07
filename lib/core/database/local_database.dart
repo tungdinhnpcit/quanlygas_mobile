@@ -17,7 +17,7 @@ class LocalDatabase {
     final dir = await getDatabasesPath();
     return openDatabase(
       join(dir, 'gasmanager.db'),
-      version: 6,
+      version: 7,
       onCreate: _create,
       onUpgrade: _onUpgrade,
     );
@@ -94,6 +94,14 @@ class LocalDatabase {
         )
       ''');
     }
+    if (oldVersion < 7) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS cache_mat_hang_vo (
+          binh_server_id INTEGER PRIMARY KEY,
+          vo_server_id   INTEGER NOT NULL
+        )
+      ''');
+    }
   }
 
   Future<void> _create(Database db, int version) async {
@@ -122,6 +130,12 @@ class LocalDatabase {
         ten_nha_cc      TEXT,
         don_gia         REAL DEFAULT 0,
         is_active       INTEGER DEFAULT 1
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE cache_mat_hang_vo (
+        binh_server_id INTEGER PRIMARY KEY,
+        vo_server_id   INTEGER NOT NULL
       )
     ''');
     await db.execute('''
@@ -286,6 +300,27 @@ class LocalDatabase {
   Future<List<Map<String, dynamic>>> getMatHangList() async {
     final d = await db;
     return d.query('cache_mat_hang', where: 'is_active = 1');
+  }
+
+  // ── Cache mapping bình → vỏ ──────────────────────────────────────────────
+
+  Future<void> upsertMatHangVoList(List<Map<String, dynamic>> items) async {
+    final d = await db;
+    final batch = d.batch();
+    for (final item in items) {
+      batch.insert('cache_mat_hang_vo', item,
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  Future<Map<int, int>> getBinhToVoMap() async {
+    final d = await db;
+    final rows = await d.query('cache_mat_hang_vo');
+    return {
+      for (final r in rows)
+        (r['binh_server_id'] as int): (r['vo_server_id'] as int),
+    };
   }
 
   // ── Cache nhà cung cấp ───────────────────────────────────────────────────

@@ -123,6 +123,8 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   // Cache
   List<Map<String, dynamic>> _nhaCCList = [];
   List<Map<String, dynamic>> _taiKhoanList = [];
+  List<Map<String, dynamic>> _matHangList = [];
+  Map<int, int> _binhToVo = {}; // binh server_id → vo server_id
 
   // Khách hàng
   Map<String, dynamic>? _selectedKhachHang;
@@ -241,10 +243,14 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   Future<void> _loadCaches() async {
     final ncc = await _db.getNhaCungCapList();
     final tk = await _db.getTaiKhoanList();
+    final mh = await _db.getMatHangList();
+    final binhToVo = await _db.getBinhToVoMap();
     if (mounted) {
       setState(() {
         _nhaCCList = ncc;
         _taiKhoanList = tk;
+        _matHangList = mh;
+        _binhToVo = binhToVo;
       });
     }
   }
@@ -283,6 +289,45 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
 
   void _addSaleRow() {
     setState(() => _saleRows.add(_SaleRow()));
+  }
+
+  /// Khi chọn mặt hàng bình có mapping vỏ → tự thêm 1 dòng vỏ (thu) với số
+  /// lượng bằng số bình hiện tại. Đặt 1 lần, người dùng vẫn sửa/xóa được.
+  void _autoAddVoRow(_SaleRow binhRow) {
+    final binhId = binhRow.matHangId;
+    if (binhId == null) return;
+    final voId = _binhToVo[binhId];
+    if (voId == null) return;
+    // Tránh trùng: đã có dòng vỏ này rồi thì thôi.
+    if (_saleRows.any((r) => r.matHangId == voId)) return;
+
+    final vo = _matHangList.firstWhere(
+      (m) => m['server_id'] == voId,
+      orElse: () => const {},
+    );
+    if (vo.isEmpty) return;
+
+    final voRow = _SaleRow()
+      ..matHangId = voId
+      ..maMatHang = vo['ma_mat_hang'] as String?
+      ..tenMatHang = vo['ten_mat_hang'] as String?
+      ..donViTinh = vo['don_vi_tinh'] as String?
+      ..isVo = true
+      ..loaiVo = 'thu';
+    final label = _matHangLabel(vo);
+    voRow.matHangLabel = label;
+    voRow.matHangSearchCtrl.text = label;
+    voRow.soLuongCtrl.text = binhRow.soLuong.toString();
+
+    setState(() => _saleRows.add(voRow));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã tự thêm dòng vỏ tương ứng (thu vỏ)'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   void _removeSaleRow(int index) {
@@ -937,6 +982,8 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                         }
                         _autoFillTienMat();
                       });
+                      // Bán bình → tự thêm dòng vỏ tương ứng (thu vỏ cùng số lượng)
+                      if (!isVo) _autoAddVoRow(row);
                     }
                   },
                 ),
