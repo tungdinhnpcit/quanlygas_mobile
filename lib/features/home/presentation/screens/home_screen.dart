@@ -59,39 +59,57 @@ class _HeaderSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final topPad = MediaQuery.of(context).padding.top;
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF00695C), Color(0xFF26A69A)],
+    return Stack(
+      children: [
+        // Ảnh nền nhà máy gas — phủ kín header
+        Positioned.fill(
+          child: Image.asset(
+            'assets/images/bg-login.jpg',
+            fit: BoxFit.cover,
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Space cho status bar + transparent AppBar
-          SizedBox(height: topPad + kToolbarHeight),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 26),
-            child: userAsync.when(
-              loading: () => const SizedBox(height: 64),
-              error: (_, __) => _UserRow(
-                context: context,
-                info: null,
-                greeting: _greeting(),
-                soChuaDoc: soChuaDoc,
-              ),
-              data: (info) => _UserRow(
-                context: context,
-                info: info,
-                greeting: _greeting(),
-                soChuaDoc: soChuaDoc,
+        // Overlay tối (đậm dần xuống dưới) để chữ trắng đọc rõ
+        Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF00695C).withValues(alpha: 0.55),
+                  const Color(0xFF004D40).withValues(alpha: 0.75),
+                ],
               ),
             ),
           ),
-        ],
-      ),
+        ),
+        // Nội dung header
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Space cho status bar + transparent AppBar
+            SizedBox(height: topPad + kToolbarHeight),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 26),
+              child: userAsync.when(
+                loading: () => const SizedBox(height: 64),
+                error: (_, __) => _UserRow(
+                  context: context,
+                  info: null,
+                  greeting: _greeting(),
+                  soChuaDoc: soChuaDoc,
+                ),
+                data: (info) => _UserRow(
+                  context: context,
+                  info: info,
+                  greeting: _greeting(),
+                  soChuaDoc: soChuaDoc,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

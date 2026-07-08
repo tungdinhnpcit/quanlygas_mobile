@@ -502,6 +502,14 @@ class ChuyenXeRepository {
     await ApiClient.instance.dio.post('/api/chuyen-xe/$chuyenXeId/kiem-ke/delete');
   }
 
+  /// Kế toán chốt đối chiếu kiểm kê của chuyến → ghi bút toán điều chỉnh tồn kho (idempotent).
+  /// Backend tự validate chuyến đã hoàn thành; có chênh lệch vẫn cho chốt.
+  Future<KiemKeChuyenXeModel> chotDoiChieuKiemKe(int chuyenXeId) async {
+    final res = await ApiClient.instance.dio
+        .post('/api/chuyen-xe/$chuyenXeId/kiem-ke/chot');
+    return KiemKeChuyenXeModel.fromJson(res.data as Map<String, dynamic>);
+  }
+
   /// Upload xác nhận khách hàng (ảnh biên lai ký tay hoặc chữ ký trên app)
   Future<String> uploadXacNhan(
     int xacNhanId, {

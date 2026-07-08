@@ -21,6 +21,12 @@ class AppRoutes {
   static const String khachHangList        = '/khach-hang';
   static String khachHangDetail(int id)    => '/khach-hang/$id';
 
+  /// Chi tiết khách hàng kèm ngày mua cuối (dùng từ danh sách "lâu chưa mua").
+  /// Truyền ngayMua qua query param để màn chi tiết hiển thị "Mua cuối".
+  static String khachHangChiTietChuaMua(int id, DateTime? ngayMua) => ngayMua != null
+      ? '/khach-hang/$id?ngayMua=${Uri.encodeComponent(ngayMua.toIso8601String())}'
+      : '/khach-hang/$id';
+
   static const String tongQuan             = '/tong-quan';
   static String thongKeChuyenXe({DateTime? tuNgay, DateTime? denNgay}) {
     final q = <String, String>{};

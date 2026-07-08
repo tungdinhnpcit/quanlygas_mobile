@@ -357,7 +357,7 @@ class _KpiCard extends StatelessWidget {
 
 // ── Doanh thu theo đại lý ────────────────────────────────────────────────────
 
-class _DaiLySection extends StatelessWidget {
+class _DaiLySection extends StatefulWidget {
   final List<DaiLyItem> items;
   final DateTime? tuNgay;
   final DateTime? denNgay;
@@ -368,7 +368,17 @@ class _DaiLySection extends StatelessWidget {
   });
 
   @override
+  State<_DaiLySection> createState() => _DaiLySectionState();
+}
+
+class _DaiLySectionState extends State<_DaiLySection> {
+  // Mặc định chỉ hiện 5 khách; bấm "Xem thêm" để hiện toàn bộ.
+  bool _expanded = false;
+  static const _limit = 5;
+
+  @override
   Widget build(BuildContext context) {
+    final items = widget.items;
     if (items.isEmpty) {
       return _Section(
         title: 'Doanh thu theo đại lý',
@@ -381,17 +391,29 @@ class _DaiLySection extends StatelessWidget {
         ),
       );
     }
+    final visible = _expanded ? items : items.take(_limit).toList();
     return _Section(
       title: 'Doanh thu theo đại lý',
       icon: Icons.store_outlined,
       child: Column(
-        children: items
-            .map((item) => _DaiLyRow(
-                  item: item,
-                  tuNgay: tuNgay,
-                  denNgay: denNgay,
-                ))
-            .toList(),
+        children: [
+          ...visible.map((item) => _DaiLyRow(
+                item: item,
+                tuNgay: widget.tuNgay,
+                denNgay: widget.denNgay,
+              )),
+          if (items.length > _limit)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => setState(() => _expanded = !_expanded),
+                child: Text(
+                  _expanded ? 'Thu gọn' : 'Xem thêm (${items.length})',
+                  style: const TextStyle(color: Color(0xFF00897B)),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -615,52 +637,68 @@ class _ChuaMuaRow extends StatelessWidget {
                 ? const Color(0xFFF57C00)
                 : const Color(0xFF00897B);
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  item.tenKhachHang,
-                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              if (days != null) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: dayColor.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: dayColor.withValues(alpha: 0.4)),
-                  ),
+    return InkWell(
+      // Bấm mở chi tiết khách hàng kèm ngày mua cuối
+      onTap: () => context.push(
+        AppRoutes.khachHangChiTietChuaMua(item.khachHangId, item.ngayMuaCuoiCung),
+      ),
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
                   child: Text(
-                    '$days ngày',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: dayColor,
-                        fontWeight: FontWeight.w700),
+                    item.tenKhachHang,
+                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
+                if (days != null) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: dayColor.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: dayColor.withValues(alpha: 0.4)),
+                    ),
+                    child: Text(
+                      '$days ngày',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: dayColor,
+                          fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
               ],
-            ],
-          ),
-          if (item.diaChi != null && item.diaChi!.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                item.diaChi!,
-                style: const TextStyle(fontSize: 11, color: Colors.grey),
-                overflow: TextOverflow.ellipsis,
-                maxLines: 1,
-              ),
             ),
-          const Divider(height: 14, thickness: 0.5),
-        ],
+            // Sublabel: số ngày chưa mua hàng
+            if (days != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  'Chưa mua $days ngày',
+                  style: TextStyle(fontSize: 11, color: dayColor),
+                ),
+              ),
+            if (item.diaChi != null && item.diaChi!.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  item.diaChi!,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+              ),
+            const Divider(height: 14, thickness: 0.5),
+          ],
+        ),
       ),
     );
   }

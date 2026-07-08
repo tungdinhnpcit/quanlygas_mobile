@@ -6,6 +6,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -17,7 +18,9 @@ import '../providers/khach_hang_provider.dart';
 
 class KhachHangDetailScreen extends ConsumerStatefulWidget {
   final int id;
-  const KhachHangDetailScreen({super.key, required this.id});
+  /// Ngày mua cuối cùng (optional) — truyền vào từ danh sách "khách hàng lâu chưa mua".
+  final DateTime? ngayMuaCuoiCung;
+  const KhachHangDetailScreen({super.key, required this.id, this.ngayMuaCuoiCung});
 
   @override
   ConsumerState<KhachHangDetailScreen> createState() =>
@@ -320,6 +323,12 @@ class _KhachHangDetailScreenState
               ),
             ]),
             const Divider(height: 24),
+            if (widget.ngayMuaCuoiCung != null)
+              _InfoRow(
+                  icon: Icons.event_available_outlined,
+                  label: 'Mua cuối',
+                  value: DateFormat('dd/MM/yyyy')
+                      .format(widget.ngayMuaCuoiCung!.toLocal())),
             if (kh.diaChi != null)
               _InfoRow(icon: Icons.location_on_outlined, label: 'Địa chỉ', value: kh.diaChi!),
             if (kh.soDienThoai != null)

@@ -1,5 +1,12 @@
 // lib/features/auth/presentation/screens/login_screen.dart
+//
+// Giao diện đồng bộ với trang login web (frontend/app/(auth)/login):
+// ảnh nền bg-login.jpg + overlay tối, glass panel kính mờ, logo 🔥 GAS MANAGER,
+// input nền trong suốt viền sáng, nút gradient cyan→blue.
+// Giữ nguyên logic đăng nhập thật (username/password + vân tay).
+
 import 'dart:ui';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,25 +28,33 @@ class LoginScreen extends ConsumerStatefulWidget {
 }
 
 class _LoginScreenState extends ConsumerState<LoginScreen> {
-  final _formKey      = GlobalKey<FormState>();
+  // Bảng màu đồng bộ với web login (glass panel tông tối)
+  static const _bg = Color(0xFF0B1120); // nền tối
+  static const _cyan = Color(0xFF06B6D4); // accent + gradient nút
+  static const _blue = Color(0xFF3B82F6); // gradient nút
+  static const _cyanBright = Color(0xFF22D3EE); // chữ "MANAGER"
+  static const _textMuted = Color(0xFF94A3B8); // label/icon phụ
+  static const _textSub = Color(0xFFCBD5E1); // phụ đề
+
+  final _formKey = GlobalKey<FormState>();
   final _usernameCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
 
-  bool _obscure             = true;
-  bool _loading             = false;
-  bool _biometricAvailable  = false; // device hỗ trợ biometric (hiển thị button)
-  bool _biometricReady      = false; // đã enable + có session (login được ngay)
+  bool _obscure = true;
+  bool _loading = false;
+  bool _biometricAvailable = false;
+  bool _biometricReady = false;
   String? _error;
 
-  final _repo      = AuthRepository();
+  final _repo = AuthRepository();
   final _biometric = BiometricService();
 
   @override
   void initState() {
     super.initState();
     if (kDebugMode) {
-      _usernameCtrl.text = 'thuoclv';
-      _passwordCtrl.text = '123456';
+      _usernameCtrl.text = 'admin';
+      _passwordCtrl.text = 'diepSam@2026##';
     }
     _checkBiometric();
   }
@@ -48,11 +63,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final available = await _biometric.isAvailable();
     if (!available) return;
 
-    final enabled  = await _biometric.isBiometricEnabled();
+    final enabled = await _biometric.isBiometricEnabled();
     final hasToken = await _repo.isLoggedIn();
     setState(() {
       _biometricAvailable = true;
-      _biometricReady     = enabled && hasToken;
+      _biometricReady = enabled && hasToken;
     });
   }
 
@@ -65,7 +80,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final response = await _repo.login(
         _usernameCtrl.text.trim(),
@@ -74,10 +92,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (!mounted) return;
 
       final available = await _biometric.isAvailable();
-      final enabled   = await _biometric.isBiometricEnabled();
+      final enabled = await _biometric.isBiometricEnabled();
       if (available && !enabled) {
         await _showEnableBiometricSheet(response.username);
-      } else {    
+      } else {
         await _biometric.saveUsername(response.username);
       }
 
@@ -94,7 +112,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             e.type == DioExceptionType.receiveTimeout ||
             e.type == DioExceptionType.connectionError) {
           msg = 'Không kết nối được đến máy chủ (${e.requestOptions.baseUrl})';
-        } else if (e.response?.statusCode == 401 || e.response?.statusCode == 400) {
+        } else if (e.response?.statusCode == 401 ||
+            e.response?.statusCode == 400) {
           msg = 'Sai tên đăng nhập hoặc mật khẩu';
         } else {
           msg = 'Lỗi: ${e.message ?? e.type.name}';
@@ -110,22 +129,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   Future<void> _loginWithBiometric() async {
     if (!_biometricReady) {
-      setState(() => _error = 'Vui lòng đăng nhập bằng mật khẩu trước để kích hoạt vân tay');
+      setState(
+        () => _error =
+            'Vui lòng đăng nhập bằng mật khẩu trước để kích hoạt vân tay',
+      );
       return;
     }
 
-    setState(() { _loading = true; _error = null; });
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
     try {
       final ok = await _biometric.authenticate();
       if (!ok) {
-        setState(() { _error = 'Xác thực vân tay thất bại'; _loading = false; });
+        setState(() {
+          _error = 'Xác thực vân tay thất bại';
+          _loading = false;
+        });
         return;
       }
 
       final storage = await _repo.getStoredRefreshToken();
       if (storage == null) {
         await _biometric.disableBiometric();
-        setState(() { _biometricReady = false; _error = 'Phiên đăng nhập hết hạn, vui lòng nhập mật khẩu'; _loading = false; });
+        setState(() {
+          _biometricReady = false;
+          _error = 'Phiên đăng nhập hết hạn, vui lòng nhập mật khẩu';
+          _loading = false;
+        });
         return;
       }
 
@@ -151,7 +183,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     final enable = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: const Color(0xFF1A3A4A),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -160,17 +192,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.fingerprint, size: 56, color: Color(0xFF00897B)),
+            const Icon(Icons.fingerprint, size: 56, color: _cyan),
             const SizedBox(height: 12),
             const Text(
               'Bật đăng nhập bằng vân tay?',
-              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Color(0xFF1D2226),
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+              ),
             ),
             const SizedBox(height: 8),
             const Text(
               'Lần sau bạn có thể đăng nhập nhanh mà không cần nhập mật khẩu.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white60, fontSize: 14),
+              style: TextStyle(color: Color(0xFF8E8E93), fontSize: 14),
             ),
             const SizedBox(height: 24),
             Row(
@@ -179,8 +215,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(ctx, false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white60,
-                      side: const BorderSide(color: Colors.white24),
+                      foregroundColor: const Color(0xFF8E8E93),
+                      side: const BorderSide(color: Color(0xFFE5E5EA)),
                     ),
                     child: const Text('Để sau'),
                   ),
@@ -189,9 +225,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Expanded(
                   child: FilledButton(
                     onPressed: () => Navigator.pop(ctx, true),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF00897B),
-                    ),
+                    style: FilledButton.styleFrom(backgroundColor: _blue),
                     child: const Text('Bật'),
                   ),
                 ),
@@ -210,294 +244,379 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: _bg,
       body: Stack(
-        fit: StackFit.expand,
         children: [
-          _Background(),
-          SafeArea(
-            child: Center(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _Header(),
-                    const SizedBox(height: 36),
-                    _Card(
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            _UsernameField(controller: _usernameCtrl),
-                            const SizedBox(height: 16),
-                            _PasswordField(
-                              controller: _passwordCtrl,
-                              obscure: _obscure,
-                              onToggle: () => setState(() => _obscure = !_obscure),
-                              onSubmit: (_) => _submit(),
-                            ),
-                            if (_error != null) ...[
-                              const SizedBox(height: 10),
-                              _ErrorText(message: _error!),
-                            ],
-                            const SizedBox(height: 24),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _LoginButton(loading: _loading, onTap: _submit),
-                                ),
-                                if (_biometricAvailable) ...[
-                                  const SizedBox(width: 12),
-                                  _BiometricIconButton(
-                                    loading: _loading,
-                                    onTap: _loginWithBiometric,
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      'v1.0.0',
-                      style: TextStyle(color: Colors.white38, fontSize: 12),
-                    ),
+          // Lớp ảnh nền — phủ kín màn hình
+          Positioned.fill(
+            child: Image.asset(
+              'assets/images/bg-login.jpg',
+              fit: BoxFit.cover,
+            ),
+          ),
+          // Lớp overlay gradient tối (đậm bên phải, nhạt bên trái) — giống web
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.centerRight,
+                  end: Alignment.centerLeft,
+                  colors: [
+                    _bg.withValues(alpha: 0.95),
+                    _bg.withValues(alpha: 0.40),
+                    _bg.withValues(alpha: 0.10),
                   ],
+                  stops: const [0.0, 0.5, 1.0],
                 ),
               ),
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────
-//  Sub-widgets
-// ──────────────────────────────────────────────
-
-class _Background extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0D1B2A), Color(0xFF1A3A4A), Color(0xFF0D2233)],
-          stops: [0.0, 0.5, 1.0],
-        ),
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Image.asset(
-      'assets/images/logo.png',
-      width: 180,
-      height: 180,
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  final Widget child;
-  const _Card({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(20),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-class _UsernameField extends StatelessWidget {
-  final TextEditingController controller;
-  const _UsernameField({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      textInputAction: TextInputAction.next,
-      style: const TextStyle(color: Colors.white),
-      decoration: _inputDecoration(
-        label: 'Tên đăng nhập',
-        icon: Icons.person_outline_rounded,
-      ),
-      validator: (v) =>
-          (v == null || v.trim().isEmpty) ? 'Vui lòng nhập tên đăng nhập' : null,
-    );
-  }
-}
-
-class _PasswordField extends StatelessWidget {
-  final TextEditingController controller;
-  final bool obscure;
-  final VoidCallback onToggle;
-  final ValueChanged<String> onSubmit;
-
-  const _PasswordField({
-    required this.controller,
-    required this.obscure,
-    required this.onToggle,
-    required this.onSubmit,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      controller: controller,
-      obscureText: obscure,
-      textInputAction: TextInputAction.done,
-      onFieldSubmitted: onSubmit,
-      style: const TextStyle(color: Colors.white),
-      decoration: _inputDecoration(
-        label: 'Mật khẩu',
-        icon: Icons.lock_outline_rounded,
-      ).copyWith(
-        suffixIcon: IconButton(
-          icon: Icon(
-            obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-            color: Colors.white54,
-          ),
-          onPressed: onToggle,
-        ),
-      ),
-      validator: (v) =>
-          (v == null || v.isEmpty) ? 'Vui lòng nhập mật khẩu' : null,
-    );
-  }
-}
-
-class _LoginButton extends StatelessWidget {
-  final bool loading;
-  final VoidCallback onTap;
-  const _LoginButton({required this.loading, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
-      child: FilledButton(
-        onPressed: loading ? null : onTap,
-        style: FilledButton.styleFrom(
-          backgroundColor: const Color(0xFF00897B),
-          disabledBackgroundColor: const Color(0xFF00897B).withValues(alpha: 0.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-        child: loading
-            ? const SizedBox(
-                height: 22, width: 22,
-                child: CircularProgressIndicator(strokeWidth: 2.5, color: Colors.white),
-              )
-            : const Text(
-                'ĐĂNG NHẬP',
-                style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, letterSpacing: 1.5),
+          // Nội dung — glass panel căn giữa
+          SafeArea(
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+                child: _buildGlassPanel(),
               ),
-      ),
-    );
-  }
-}
-
-/// Nút vân tay hình vuông 50×50 đặt cạnh nút đăng nhập chính
-class _BiometricIconButton extends StatelessWidget {
-  final bool loading;
-  final VoidCallback onTap;
-  const _BiometricIconButton({required this.loading, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 50,
-      height: 50,
-      child: Tooltip(
-        message: 'Đăng nhập bằng vân tay',
-        child: OutlinedButton(
-          onPressed: loading ? null : onTap,
-          style: OutlinedButton.styleFrom(
-            padding: EdgeInsets.zero,
-            side: const BorderSide(color: Color(0xFF00BCD4), width: 1.5),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: const Icon(Icons.fingerprint, size: 26, color: Color(0xFF00BCD4)),
-        ),
-      ),
-    );
-  }
-}
-
-class _ErrorText extends StatelessWidget {
-  final String message;
-  const _ErrorText({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.red.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.red.withValues(alpha: 0.4)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(color: Colors.redAccent, fontSize: 13),
             ),
           ),
         ],
       ),
     );
   }
+
+  // Panel kính mờ chứa logo + form đăng nhập
+  Widget _buildGlassPanel() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 420),
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF101928).withValues(alpha: 0.40),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.10)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x80000000),
+                blurRadius: 50,
+                offset: Offset(0, 25),
+              ),
+            ],
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Logo ─────────────────────────────────────────────────
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text('🔥', style: TextStyle(fontSize: 32)),
+                        const SizedBox(width: 12),
+                        RichText(
+                          text: const TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'GAS ',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                              TextSpan(
+                                text: 'MANAGER',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w300,
+                                  color: _cyanBright,
+                                  letterSpacing: 1,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text(
+                      'Hệ thống Quản lý Khí đốt Thông minh',
+                      style: TextStyle(fontSize: 13, color: _textSub),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 32),
+
+                // ── Khối lỗi ─────────────────────────────────────────────
+                if (_error != null) ...[
+                  _ErrorBox(message: _error!),
+                  const SizedBox(height: 20),
+                ],
+
+                // ── Tên đăng nhập ────────────────────────────────────────
+                const _FieldLabel('TÊN ĐĂNG NHẬP'),
+                const SizedBox(height: 8),
+                _InputField(
+                  controller: _usernameCtrl,
+                  hint: 'Nhập tên tài khoản...',
+                  prefixIcon: Icons.person_outline,
+                  textInputAction: TextInputAction.next,
+                  validator: (v) => (v == null || v.trim().isEmpty)
+                      ? 'Vui lòng nhập tên đăng nhập'
+                      : null,
+                ),
+                const SizedBox(height: 20),
+
+                // ── Mật khẩu ─────────────────────────────────────────────
+                const _FieldLabel('MẬT KHẨU'),
+                const SizedBox(height: 8),
+                _InputField(
+                  controller: _passwordCtrl,
+                  hint: '••••••••',
+                  prefixIcon: Icons.lock_outline,
+                  obscure: _obscure,
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) => _submit(),
+                  validator: (v) => (v == null || v.isEmpty)
+                      ? 'Vui lòng nhập mật khẩu'
+                      : null,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscure
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                      size: 20,
+                      color: _obscure ? _textMuted : _cyan,
+                    ),
+                    onPressed: () => setState(() => _obscure = !_obscure),
+                  ),
+                ),
+
+                // ── Đăng nhập vân tay ────────────────────────────────────
+                if (_biometricAvailable) ...[
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: GestureDetector(
+                      onTap: _loading ? null : _loginWithBiometric,
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.fingerprint, size: 20, color: _cyan),
+                          SizedBox(width: 6),
+                          Text(
+                            'Đăng nhập bằng vân tay',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _cyan,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+
+                // ── Nút ĐĂNG NHẬP ────────────────────────────────────────
+                GestureDetector(
+                  onTap: _loading ? null : _submit,
+                  child: Container(
+                    height: 52,
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [_cyan, _blue],
+                      ),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(
+                          color: _cyan.withValues(alpha: 0.4),
+                          blurRadius: 16,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Center(
+                      child: _loading
+                          ? const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.5,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                SizedBox(width: 10),
+                                Text(
+                                  'ĐANG XÁC THỰC...',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : const Text(
+                              'ĐĂNG NHẬP VÀO HỆ THỐNG',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Footer ───────────────────────────────────────────────
+                const Text(
+                  '© 2026 Gas Manager Portal',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'v1.0.0',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
-InputDecoration _inputDecoration({required String label, required IconData icon}) {
-  return InputDecoration(
-    labelText: label,
-    labelStyle: const TextStyle(color: Colors.white54),
-    prefixIcon: Icon(icon, color: Colors.white54),
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Colors.white24),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Color(0xFF00897B), width: 1.5),
-    ),
-    errorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Colors.redAccent),
-    ),
-    focusedErrorBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: Colors.redAccent, width: 1.5),
-    ),
-    filled: true,
-    fillColor: Colors.white.withValues(alpha: 0.06),
-  );
+// Nhãn field dạng chữ hoa nhỏ (tông tối)
+class _FieldLabel extends StatelessWidget {
+  final String text;
+  const _FieldLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        color: Color(0xFF94A3B8),
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+}
+
+// Ô nhập liệu glass (nền trong suốt, viền sáng mờ, focus viền cyan)
+class _InputField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData prefixIcon;
+  final bool obscure;
+  final Widget? suffixIcon;
+  final TextInputAction? textInputAction;
+  final ValueChanged<String>? onSubmitted;
+  final String? Function(String?)? validator;
+
+  const _InputField({
+    required this.controller,
+    required this.hint,
+    required this.prefixIcon,
+    this.obscure = false,
+    this.suffixIcon,
+    this.textInputAction,
+    this.onSubmitted,
+    this.validator,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const cyan = Color(0xFF06B6D4);
+    const muted = Color(0xFF94A3B8);
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      textInputAction: textInputAction,
+      onFieldSubmitted: onSubmitted,
+      validator: validator,
+      style: const TextStyle(fontSize: 14, color: Colors.white),
+      cursorColor: cyan,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: const TextStyle(fontSize: 14, color: muted),
+        prefixIcon: Icon(prefixIcon, size: 18, color: muted),
+        suffixIcon: suffixIcon,
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.05),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.10)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: cyan, width: 1.5),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFEF4444)),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 1.5),
+        ),
+        errorStyle: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 12),
+      ),
+    );
+  }
+}
+
+// Khối hiển thị lỗi (nền đỏ mờ, tông tối)
+class _ErrorBox extends StatelessWidget {
+  final String message;
+  const _ErrorBox({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFEF4444).withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Text('⚠', style: TextStyle(fontSize: 14)),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(color: Color(0xFFFCA5A5), fontSize: 13),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

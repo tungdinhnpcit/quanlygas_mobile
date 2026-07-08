@@ -94,10 +94,67 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
   }
 
   /// Lái xe xác nhận kết thúc chuyến — đổi trangThai sang hoan-thanh.
+  /// Nếu chuyến chưa chọn phụ xe → nhắc chọn phụ xe (hoặc chọn "không có") trước.
   Future<void> _confirmKetThuc() async {
     final id = int.tryParse(widget.chuyenXeId);
     if (id == null) return;
 
+    final cx = ref.read(chuyenXeDetailProvider(id)).valueOrNull;
+    if (cx == null) return;
+
+    // Chưa có phụ xe → nhắc chọn phụ xe hoặc xác nhận không có phụ xe trước khi kết thúc.
+    if (cx.phuXeId == null) {
+      final choice = await showDialog<String>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Chưa chọn phụ xe'),
+          content: const Text(
+              'Chuyến này chưa có phụ xe. Vui lòng chọn phụ xe, hoặc xác nhận chuyến không có phụ xe để tiếp tục kết thúc.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, 'huy'),
+                child: const Text('Huỷ')),
+            TextButton(
+                onPressed: () => Navigator.pop(context, 'khong-co'),
+                child: const Text('Không có phụ xe')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, 'chon'),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF00897B)),
+              child: const Text('Chọn phụ xe'),
+            ),
+          ],
+        ),
+      );
+      if (choice == null || choice == 'huy' || !mounted) return;
+
+      try {
+        if (choice == 'khong-co') {
+          await _repo.capNhatPhuXe(id, null);
+        } else {
+          // 'chon' → mở màn tìm phụ xe
+          final selected =
+              await context.push<Map<String, dynamic>>(AppRoutes.timKiemPhuXe);
+          if (selected == null || !mounted) return; // user không chọn → huỷ kết thúc
+          await _repo.capNhatPhuXe(id, selected['id'] as int?);
+        }
+        ref.invalidate(chuyenXeDetailProvider(id));
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Lỗi lưu phụ xe: $e'), backgroundColor: Colors.red),
+          );
+        }
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    await _thucHienKetThuc(id);
+  }
+
+  /// Hiện dialog xác nhận rồi gọi API kết thúc chuyến (dùng chung cho mọi nhánh).
+  Future<void> _thucHienKetThuc(int id) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -752,7 +809,6 @@ class _TabBanHang extends ConsumerStatefulWidget {
 
 class _TabBanHangState extends ConsumerState<_TabBanHang> {
   final _repo = ChuyenXeRepository();
-  final Set<int> _deleting = {};
 
   // ── Phụ xe selection ────────────────────────────────────────────────────
   Map<String, dynamic>? _selectedPhuXe;
@@ -795,113 +851,31 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     super.dispose();
   }
 
-  Future<void> _delete(BanHangKhachHangModel b) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Xóa dòng bán hàng?'),
-        content: Text(
-            '${b.tenKhachHang ?? "Khách"} — ${b.tenMatHang ?? ""}\nDòng này sẽ bị xóa khỏi chuyến.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huỷ')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('Xóa'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
 
-    setState(() => _deleting.add(b.id));
-    try {
-      await _repo.deleteBanHang(widget.cx.id, b.id);
-      if (!mounted) return;
-      ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _deleting.remove(b.id));
-    }
-  }
-
-  Future<void> _deleteAllForKhachHang(List<BanHangKhachHangModel> rows) async {
-    final khachTen = rows.first.tenKhachHang ?? 'Khách';
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Xóa toàn bộ dữ liệu khách hàng?'),
-        content: Text('Xóa tất cả ${rows.length} dòng bán hàng của "$khachTen" khỏi chuyến.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Huỷ')),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red, foregroundColor: Colors.white),
-            child: const Text('Xóa tất cả'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
-
-    for (final b in rows) {
-      setState(() => _deleting.add(b.id));
-    }
-    try {
-      for (final b in rows) {
-        await _repo.deleteBanHang(widget.cx.id, b.id);
-      }
-      if (!mounted) return;
-      ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
-      );
-    } finally {
-      for (final b in rows) {
-        if (mounted) setState(() => _deleting.remove(b.id));
-      }
-    }
-  }
-
-  /// Xây dựng badge xác nhận khách hàng — bấm vào được khi chưa xác nhận
+  /// Xây dựng badge xác nhận khách hàng — chỉ hiển thị trạng thái (không bấm được).
+  /// Muốn ký/chụp lại phải vào màn sửa bán hàng của khách.
   Widget _buildXacNhanBadge(int khachHangId, Map<int, XacNhanKhachHangModel?> xacNhanMap) {
     final xn = xacNhanMap[khachHangId];
     final daXacNhan = xn?.daXacNhan ?? false;
 
-    return GestureDetector(
-      onTap: () => _openXacNhanAgain(khachHangId),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: daXacNhan ? Colors.green : Colors.orange,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          // trang thai don gian: da ky xac nhan hay chua
-          daXacNhan ? '✓ Đã ký' : '⚠ Chưa ký',
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: daXacNhan ? Colors.green : Colors.orange,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        // trang thai don gian: da ky xac nhan hay chua
+        daXacNhan ? '✓ Đã ký' : '⚠ Chưa ký',
+        style: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
         ),
       ),
     );
   }
 
-  /// Mở lại màn xác nhận khách hàng (dùng get-or-create endpoint)
   /// Lưu phụ xe ngay khi chọn/xóa ở màn chi tiết (không cần nhập bán hàng) → quay lại vẫn hiển thị.
   Future<void> _luuPhuXe(int? phuXeId) async {
     try {
@@ -912,53 +886,6 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Lỗi lưu phụ xe: $e'), backgroundColor: Colors.red),
-      );
-    }
-  }
-
-  Future<void> _openXacNhanAgain(int khachHangId) async {
-    try {
-      final xacNhanId = await _repo.getOrCreateXacNhan(widget.cx.id, khachHangId);
-      if (!mounted) return;
-      // Tinh toan du lieu bien lai tu cx.banHang filter theo khach hang nay
-      final banHangCuaKhach = widget.cx.banHang
-          .where((b) => b.khachHangId == khachHangId).toList();
-      // loc rieng cac dong mua gas du cua khach nay - nam trong list rieng cx.banHangGasDu
-      final gasDuCuaKhach = widget.cx.banHangGasDu
-          .where((g) => g.khachHangId == khachHangId).toList();
-      // thong tin thanh toan cua khach nay nam trong list rieng cx.banHangThanhToan
-      final thanhToanCuaKhach = widget.cx.banHangThanhToan
-          .where((t) => t.khachHangId == khachHangId).toList();
-      final tienMat = thanhToanCuaKhach.fold<double>(0, (s, t) => s + t.tienMat);
-      final tienCK  = thanhToanCuaKhach.fold<double>(0, (s, t) => s + t.tienCK);
-      final dieuChinhTien = thanhToanCuaKhach.isNotEmpty ? thanhToanCuaKhach.first.dieuChinhTien : 0.0;
-      final tienChenhLechVo = thanhToanCuaKhach.isNotEmpty ? thanhToanCuaKhach.first.tienChenhLechVo : 0.0;
-      final tongTien = banHangCuaKhach.fold<double>(0, (s, b) => s + b.thanhTien);
-      // tong tien lai xe da tra khach de mua lai gas du - phai tru vao conLai ben duoi
-      final tongTienGasDu = gasDuCuaKhach.fold<double>(0, (s, g) => s + g.thanhTien);
-      final noVoCuaKhach = widget.cx.banHangNoVo
-          .where((n) => n.khachHangId == khachHangId).toList();
-      final tenKhachHang = banHangCuaKhach.isNotEmpty
-          ? banHangCuaKhach.first.tenKhachHang
-          : null;
-      context.push('/xac-nhan/$xacNhanId', extra: {
-        'chuyenXeId': widget.cx.id,
-        'tenKhachHang': tenKhachHang,
-        'banHangList': banHangCuaKhach,
-        'tienMat': tienMat,
-        'tienCK': tienCK,
-        'dieuChinhTien': dieuChinhTien,
-        'tienChenhLechVo': tienChenhLechVo,
-        'noVoList': noVoCuaKhach,
-        // conLai = tien hang ban - tien mua gas du (da tra khach) + dieu chinh + chenh lech vo - tien da thu (mat + ck)
-        'conLai': tongTien - tongTienGasDu + dieuChinhTien + tienChenhLechVo - tienMat - tienCK,
-      }).then((_) {
-        ref.invalidate(chuyenXeDetailProvider(widget.cx.id));
-      });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Lỗi: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -1388,14 +1315,6 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                               ],
                             ),
                           ),
-                          if (canEdit)
-                            IconButton(
-                              icon: const Icon(Icons.person_remove_outlined, size: 18, color: Colors.white70),
-                              onPressed: () => _deleteAllForKhachHang(rows),
-                              tooltip: 'Xóa khách hàng này',
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                            ),
                           Text(
                             '${fmt.format(khachPhaiTra)}đ',
                             style: const TextStyle(
@@ -1461,24 +1380,6 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                                     ],
                                   ),
                                 ),
-                                if (canEdit)
-                                  _deleting.contains(b.id)
-                                      ? const SizedBox(
-                                          width: 20,
-                                          height: 20,
-                                          child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              color: Colors.red))
-                                      : IconButton(
-                                          padding: EdgeInsets.zero,
-                                          constraints: const BoxConstraints(
-                                              minWidth: 32, minHeight: 32),
-                                          icon: const Icon(
-                                              Icons.delete_outline,
-                                              size: 20,
-                                              color: Colors.red),
-                                          onPressed: () => _delete(b),
-                                        ),
                               ],
                             ),
                           ),

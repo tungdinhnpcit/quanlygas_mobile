@@ -7,7 +7,7 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // luu tru 
 import 'package:go_router/go_router.dart'; // thu vien dieu huong route
 
 import '../network/api_client.dart'; // client goi API, xu ly redirect khi het han token
-import '../../features/auth/presentation/screens/login_screen_v3.dart'; // man hinh dang nhap
+import '../../features/auth/presentation/screens/login_screen.dart'; // man hinh dang nhap (thiet ke moi theo Figma)
 import '../../features/home/presentation/screens/home_screen.dart'; // man hinh trang chu
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_detail_screen.dart'; // chi tiet chuyen xe
 import '../../features/chuyen_xe/presentation/screens/chuyen_xe_list_screen.dart'; // danh sach chuyen xe
@@ -84,7 +84,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(
         path: AppRoutes.login, // route /login
-        builder: (_, __) => const LoginScreenV3(), // man hinh dang nhap phien ban 3
+        builder: (_, __) => const LoginScreen(), // man hinh dang nhap (thiet ke moi theo Figma)
       ),
       // Detail routes tai root navigator -- full-screen, ho tro swipe-back va nut back vat ly
       GoRoute(
@@ -201,7 +201,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/khach-hang/:id', // route chi tiet khach hang
         pageBuilder: (_, state) => CupertinoPage(
           key: state.pageKey,
-          child: KhachHangDetailScreen(id: int.parse(state.pathParameters['id']!)),
+          child: KhachHangDetailScreen(
+            id: int.parse(state.pathParameters['id']!),
+            // ngay mua cuoi (optional) tu danh sach "lau chua mua" - hien thi "Mua cuoi"
+            ngayMuaCuoiCung: state.uri.queryParameters['ngayMua'] != null
+                ? DateTime.tryParse(state.uri.queryParameters['ngayMua']!)
+                : null,
+          ),
         ),
       ),
       GoRoute(

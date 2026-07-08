@@ -2,9 +2,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../../../core/router/app_routes.dart';
 import '../../data/models/tong_quan_model.dart';
 import '../providers/tong_quan_provider.dart';
 
@@ -123,7 +125,13 @@ class _DaiLyChuaMuaCard extends StatelessWidget {
     final hasMap     = (item.latitude != null && item.longitude != null) ||
                        (item.diaChi != null && item.diaChi!.isNotEmpty);
 
-    return Card(
+    return InkWell(
+      // Bấm mở chi tiết khách hàng kèm ngày mua cuối
+      onTap: () => context.push(
+        AppRoutes.khachHangChiTietChuaMua(item.khachHangId, item.ngayMuaCuoiCung),
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: Card(
       elevation: 1,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -242,6 +250,7 @@ class _DaiLyChuaMuaCard extends StatelessWidget {
             ],
           ],
         ),
+      ),
       ),
     );
   }

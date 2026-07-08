@@ -1,9 +1,11 @@
 // lib/features/kiem_ke/presentation/screens/kiem_ke_doi_chieu_screen.dart
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_routes.dart';
 import '../../../chuyen_xe/data/models/kiem_ke_doi_chieu_model.dart';
+import '../../../chuyen_xe/data/models/kiem_ke_model.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 
 /// Màn đối chiếu số bình/vỏ mang về giữa số kế toán nhập và số suy ra từ bán hàng
@@ -23,6 +25,8 @@ class _KiemKeDoiChieuScreenState extends State<KiemKeDoiChieuScreen> {
   bool _loading = true;
   String? _error;
   KiemKeDoiChieuModel? _data;
+  bool _daChot = false;
+  bool _chotLoading = false;
 
   static const _teal = Color(0xFF00897B);
   static const _red = Color(0xFFD32F2F);
@@ -39,10 +43,17 @@ class _KiemKeDoiChieuScreenState extends State<KiemKeDoiChieuScreen> {
       _error = null;
     });
     try {
-      final data = await _repo.getKiemKeDoiChieu(widget.chuyenXeId);
+      // Lấy song song bảng đối chiếu + trạng thái chốt của kiểm kê.
+      final results = await Future.wait([
+        _repo.getKiemKeDoiChieu(widget.chuyenXeId),
+        _repo.getKiemKe(widget.chuyenXeId),
+      ]);
       if (!mounted) return;
+      final data = results[0] as KiemKeDoiChieuModel?;
+      final kiemKe = results[1] as KiemKeChuyenXeModel?;
       setState(() {
         _data = data;
+        _daChot = kiemKe?.daChot ?? false;
         _loading = false;
       });
     } catch (e) {
@@ -68,7 +79,123 @@ class _KiemKeDoiChieuScreenState extends State<KiemKeDoiChieuScreen> {
         }),
       ),
       body: _buildBody(),
+      bottomNavigationBar: _buildBottomBar(),
     );
+  }
+
+  /// Thanh dưới cùng chứa nút chốt đối chiếu. Chỉ hiện khi có dữ liệu đối chiếu.
+  Widget? _buildBottomBar() {
+    final data = _data;
+    if (_loading || data == null || data.rows.isEmpty) return null;
+
+    return SafeArea(
+      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+      child: _daChot
+          ? Container(
+              height: 48,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade200,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.lock_outline, size: 18, color: Colors.grey),
+                  SizedBox(width: 8),
+                  Text('Đã chốt đối chiếu',
+                      style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
+                ],
+              ),
+            )
+          : ElevatedButton.icon(
+              onPressed: _chotLoading ? null : _confirmChot,
+              icon: _chotLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Icon(Icons.check_circle_outline),
+              label: const Text('Chốt đối chiếu & cập nhật tồn kho'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _teal,
+                foregroundColor: Colors.white,
+                minimumSize: const Size.fromHeight(48),
+              ),
+            ),
+    );
+  }
+
+  /// Xác nhận rồi gọi API chốt. Có chênh lệch vẫn cho chốt (chỉ cảnh báo trong dialog).
+  Future<void> _confirmChot() async {
+    final coChenhLech = _data?.coChenhLech ?? false;
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Chốt đối chiếu?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+                'Hệ thống sẽ ghi điều chỉnh tồn kho theo số mang về và khóa sửa kiểm kê.'),
+            if (coChenhLech) ...[
+              const SizedBox(height: 12),
+              Text(
+                '⚠ Đang có chênh lệch giữa số kế toán và số lái xe. Bạn vẫn muốn chốt?',
+                style: TextStyle(
+                    color: _red, fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Huỷ'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: _teal, foregroundColor: Colors.white),
+            child: const Text('Chốt'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+
+    setState(() => _chotLoading = true);
+    try {
+      await _repo.chotDoiChieuKiemKe(widget.chuyenXeId);
+      if (!mounted) return;
+      setState(() {
+        _daChot = true;
+        _chotLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã chốt đối chiếu & cập nhật tồn kho'),
+          backgroundColor: _teal,
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _chotLoading = false);
+      final msg = e is DioException
+          ? (e.response?.data is Map
+              ? (e.response!.data['message']?.toString() ?? e.message ?? 'Lỗi không xác định')
+              : (e.message ?? 'Lỗi không xác định'))
+          : e.toString();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg), backgroundColor: _red),
+      );
+    }
   }
 
   Widget _buildBody() {

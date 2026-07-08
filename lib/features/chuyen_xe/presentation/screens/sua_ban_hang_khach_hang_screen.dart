@@ -654,6 +654,110 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
     }
   }
 
+  // ── Xóa khách hàng ─────────────────────────────────────────────────────────
+
+  /// Xóa toàn bộ dữ liệu bán hàng của khách này khỏi chuyến (chi tiết + gas dư +
+  /// nợ vỏ + thanh toán). Sau khi xóa → pop về màn chi tiết (tự refresh).
+  Future<void> _xoaKhachHang() async {
+    final khachTen =
+        widget.rows.isNotEmpty ? widget.rows.first.tenKhachHang ?? 'Khách' : 'Khách';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Xóa khách hàng?'),
+        content: Text(
+            'Toàn bộ dữ liệu bán hàng của "$khachTen" trong chuyến sẽ bị xóa. Không thể hoàn tác.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Huỷ')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Xóa'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() => _saving = true);
+    try {
+      // Xóa thanh toán trước (cascade các dòng bán hàng liên quan), rồi dọn sạch
+      // gas dư + nợ vỏ + các dòng bán hàng còn lại.
+      if (widget.thanhToan != null) {
+        await _repo.deleteBanHangThanhToan(
+            widget.chuyenXeId, widget.thanhToan!.id);
+      }
+      for (final g in widget.gasDuRows) {
+        await _repo.deleteBanHangGasDu(widget.chuyenXeId, g.id);
+      }
+      for (final n in widget.noVoRows) {
+        await _repo.deleteBanHangNoVo(widget.chuyenXeId, n.id);
+      }
+      for (final b in widget.rows) {
+        await _repo.deleteBanHang(widget.chuyenXeId, b.id);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Đã xóa khách hàng khỏi chuyến'),
+          backgroundColor: Color(0xFF00897B),
+        ));
+        context.pop();
+      }
+    } catch (e) {
+      if (mounted) _showError(_extractErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  // ── Ký / chụp biên lai ─────────────────────────────────────────────────────
+
+  /// Mở màn xác nhận (ký + chụp biên lai) có sẵn cho khách này — dùng để ký/chụp
+  /// lại mà không cần sửa số liệu. Get-or-create bản ghi xác nhận rồi điều hướng.
+  Future<void> _moManXacNhan() async {
+    setState(() => _saving = true);
+    try {
+      final xacNhanId =
+          await _repo.getOrCreateXacNhan(widget.chuyenXeId, widget.khachHangId);
+      if (!mounted) return;
+      final tenKH =
+          widget.rows.isNotEmpty ? widget.rows.first.tenKhachHang : null;
+      final noVoList = _noVoRows
+          .where((r) => r.matHangId != null && r.soLuong > 0)
+          .map((r) => BanHangNoVoModel(
+                id: 0,
+                khachHangId: widget.khachHangId,
+                tenKhachHang: tenKH,
+                matHangId: r.matHangId!,
+                maMatHang: r.maMatHang,
+                tenMatHang: r.tenMatHang,
+                maNhaCungCap: r.maNhaCungCap,
+                tenNhaCungCap: r.tenNhaCungCap,
+                soLuong: r.soLuong,
+                createdAt: DateTime.now(),
+              ))
+          .toList();
+      context.push('/xac-nhan/$xacNhanId', extra: {
+        'chuyenXeId': widget.chuyenXeId,
+        'tenKhachHang': tenKH,
+        'banHangList': widget.rows,
+        'tienMat': _tienMat,
+        'tienCK': _tienCK,
+        'dieuChinhTien': _dieuChinhTien,
+        'tienChenhLechVo': _tienChenhLechVo,
+        'noVoList': noVoList,
+        'conLai': _conLai,
+      });
+    } catch (e) {
+      if (mounted) _showError(_extractErrorMessage(e));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
   String _extractErrorMessage(Object e) {
     if (e is DioException) {
       final data = e.response?.data;
@@ -778,6 +882,55 @@ class _SuaBanHangKhachHangScreenState extends ConsumerState<SuaBanHangKhachHangS
                     backgroundColor: const Color(0xFF00897B),
                     foregroundColor: Colors.white,
                     minimumSize: const Size.fromHeight(46),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // ── Cụm thao tác: ký / chụp biên lai / xóa khách ──────────────
+                // Ký & chụp biên lai dùng để xác nhận lại mà không cần sửa số liệu.
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _saving ? null : _moManXacNhan,
+                        icon: const Icon(Icons.draw_outlined, size: 18),
+                        label: const Text('Ký xác nhận'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF00897B),
+                          side: const BorderSide(color: Color(0xFF00897B)),
+                          minimumSize: const Size.fromHeight(44),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _saving ? null : _moManXacNhan,
+                        icon: const Icon(Icons.photo_camera_outlined, size: 18),
+                        label: const Text('Chụp biên lai'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF00897B),
+                          side: const BorderSide(color: Color(0xFF00897B)),
+                          minimumSize: const Size.fromHeight(44),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8)),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _saving ? null : _xoaKhachHang,
+                  icon: const Icon(Icons.person_remove_outlined, size: 18),
+                  label: const Text('Xóa khách hàng khỏi chuyến'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.red,
+                    side: const BorderSide(color: Colors.red),
+                    minimumSize: const Size.fromHeight(44),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                   ),
