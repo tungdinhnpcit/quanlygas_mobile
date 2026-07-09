@@ -9,6 +9,7 @@ import 'dart:async';
 import '../../../../core/database/local_database.dart';
 import '../../../../core/router/app_routes.dart';
 import '../../../../core/services/connectivity_service.dart';
+import '../../../../core/services/sync_service.dart';
 import '../../../chuyen_xe/data/repositories/chuyen_xe_repository.dart';
 import '../../data/models/chuyen_xe_model.dart';
 
@@ -104,11 +105,16 @@ class NhapBanHangScreen extends ConsumerStatefulWidget {
   /// Phụ xe đã chọn từ màn hình bán hàng (truyền vào để gửi API).
   final int? phuXeId;
 
+  /// Ngày xuất của chuyến — dùng lấy giá bán đã cấu hình cho ngày đó.
+  /// Null ⇒ dùng ngày hôm nay.
+  final DateTime? ngayXuat;
+
   const NhapBanHangScreen({
     super.key,
     this.chuyenXeServerId,
     this.chuyenXeLocalId,
     this.phuXeId,
+    this.ngayXuat,
   });
 
   @override
@@ -119,6 +125,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   final _repo = ChuyenXeRepository();
   final _db = LocalDatabase.instance;
   final _fmtMoney = NumberFormat('#,##0', 'vi_VN');
+
+  /// Ngày (yyyy-MM-dd) dùng tra giá bán đã cấu hình — theo ngày xuất chuyến.
+  String get _ngayGiaStr =>
+      (widget.ngayXuat ?? DateTime.now()).toIso8601String().substring(0, 10);
 
   // Cache
   List<Map<String, dynamic>> _nhaCCList = [];
@@ -241,6 +251,9 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
   }
 
   Future<void> _loadCaches() async {
+    // Kéo giá bán cấu hình cho ngày xuất chuyến (bỏ qua nếu offline — dùng cache cũ)
+    await SyncService.instance
+        .syncGiaBanNgay(widget.ngayXuat ?? DateTime.now());
     final ncc = await _db.getNhaCungCapList();
     final tk = await _db.getTaiKhoanList();
     final mh = await _db.getMatHangList();
@@ -962,11 +975,19 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                     );
                     if (selected != null && mounted) {
                       final label = _matHangLabel(selected);
-                      final dg = (selected['don_gia'] as num? ?? 0).toDouble();
                       final isVo =
                           (selected['don_vi_tinh'] as String? ?? '')
                               .toLowerCase() ==
                           'vỏ';
+                      // Giá mặc định = giá đã cấu hình cho ngày xuất chuyến.
+                      // Chưa cấu hình → null → để trống ô đơn giá.
+                      final dg = isVo
+                          ? null
+                          : await _db.getGiaBanNgay(
+                              selected['server_id'] as int,
+                              _ngayGiaStr,
+                            );
+                      if (!mounted) return;
                       setState(() {
                         row.matHangId = selected['server_id'] as int;
                         row.matHangLabel = label;
@@ -977,8 +998,10 @@ class _NhapBanHangScreenState extends ConsumerState<NhapBanHangScreen> {
                         row.tenNhaCungCap = selected['ten_ncc'] as String?;
                         row.donViTinh = selected['don_vi_tinh'] as String?;
                         row.isVo = isVo;
-                        if (!isVo && dg > 0) {
+                        if (dg != null && dg > 0) {
                           row.donGiaCtrl.text = _fmtMoney.format(dg.toInt());
+                        } else {
+                          row.donGiaCtrl.clear();
                         }
                         _autoFillTienMat();
                       });

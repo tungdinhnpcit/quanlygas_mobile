@@ -73,6 +73,32 @@ class SyncService {
     await prefs.setString(_syncDateKey, today);
   }
 
+  /// Kéo giá bán đã cấu hình của một ngày về cache. Mặt hàng chưa cấu hình
+  /// sẽ không có bản ghi ⇒ khi bán hàng ô đơn giá để trống.
+  Future<void> syncGiaBanNgay(DateTime ngay) async {
+    final ngayStr = ngay.toIso8601String().substring(0, 10);
+    try {
+      final res = await _dio.get(
+        '/api/gia-ban-theo-ngay/mobile',
+        queryParameters: {'ngay': ngayStr},
+      );
+      final items = (res.data as List?)?.cast<Map<String, dynamic>>() ?? [];
+      debugPrint('[SYNC] gia-ban-theo-ngay $ngayStr: ${items.length} items');
+      await _db.upsertGiaBanNgay(
+        ngayStr,
+        items
+            .map((e) => {
+                  'mat_hang_id': e['matHangId'],
+                  'ngay': ngayStr,
+                  'gia_ban': (e['giaBan'] ?? 0).toDouble(),
+                })
+            .toList(),
+      );
+    } catch (e) {
+      debugPrint('[SYNC] LỖI gia-ban-theo-ngay $ngayStr: $e');
+    }
+  }
+
   /// Kéo catalog từ server về SQLite. Trả về số lượng bản ghi mới/cập nhật.
   Future<SyncResult> syncCatalog() async {
     int matHangMoi = 0, nhaCCMoi = 0, khachHangMoi = 0, xeMoi = 0, nhanVienMoi = 0, taiKhoanMoi = 0;
@@ -99,6 +125,9 @@ class SyncService {
         }).toList());
       }
     } catch (e) { debugPrint('[SYNC] LỖI mat-hang: $e'); }
+
+    // Giá bán cấu hình cho hôm nay (mặt hàng chưa cấu hình sẽ không có trong cache)
+    await syncGiaBanNgay(DateTime.now());
 
     try {
       // Mapping bình → vỏ (để tự thêm dòng vỏ khi bán bình)

@@ -237,6 +237,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             child: NhapBanHangScreen(
               chuyenXeServerId: int.tryParse(state.pathParameters['id']!), // id chuyen xe tren server
               phuXeId: extra?['phuXeId'] as int?, // id phu xe neu co
+              ngayXuat: extra?['ngayXuat'] as DateTime?, // ngay xuat chuyen -> lay gia cau hinh theo ngay
             ),
           );
         },
@@ -251,6 +252,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             child: NhapBanHangScreen(
               chuyenXeLocalId: int.tryParse(state.pathParameters['localId']!), // id local trong SQLite
               phuXeId: extra?['phuXeId'] as int?,
+              ngayXuat: extra?['ngayXuat'] as DateTime?, // ngay xuat chuyen -> lay gia cau hinh theo ngay
             ),
           );
         },

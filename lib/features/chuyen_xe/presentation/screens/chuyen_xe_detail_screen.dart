@@ -1171,6 +1171,7 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
                       AppRoutes.nhapBanHang(cx.id),
                       extra: {
                         'phuXeId': _selectedPhuXe?['id'] as int?,
+                        'ngayXuat': cx.ngayXuat.toLocal(), // lay gia cau hinh theo ngay xuat chuyen
                       },
                     )
                     .then((_) => ref.invalidate(chuyenXeDetailProvider(cx.id))),

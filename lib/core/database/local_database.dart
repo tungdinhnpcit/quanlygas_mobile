@@ -17,7 +17,7 @@ class LocalDatabase {
     final dir = await getDatabasesPath();
     return openDatabase(
       join(dir, 'gasmanager.db'),
-      version: 7,
+      version: 8,
       onCreate: _create,
       onUpgrade: _onUpgrade,
     );
@@ -102,6 +102,16 @@ class LocalDatabase {
         )
       ''');
     }
+    if (oldVersion < 8) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS cache_gia_ban_ngay (
+          mat_hang_id INTEGER NOT NULL,
+          ngay        TEXT    NOT NULL,
+          gia_ban     REAL    NOT NULL DEFAULT 0,
+          PRIMARY KEY (mat_hang_id, ngay)
+        )
+      ''');
+    }
   }
 
   Future<void> _create(Database db, int version) async {
@@ -136,6 +146,14 @@ class LocalDatabase {
       CREATE TABLE cache_mat_hang_vo (
         binh_server_id INTEGER PRIMARY KEY,
         vo_server_id   INTEGER NOT NULL
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE cache_gia_ban_ngay (
+        mat_hang_id INTEGER NOT NULL,
+        ngay        TEXT    NOT NULL,
+        gia_ban     REAL    NOT NULL DEFAULT 0,
+        PRIMARY KEY (mat_hang_id, ngay)
       )
     ''');
     await db.execute('''
@@ -300,6 +318,36 @@ class LocalDatabase {
   Future<List<Map<String, dynamic>>> getMatHangList() async {
     final d = await db;
     return d.query('cache_mat_hang', where: 'is_active = 1');
+  }
+
+  // ── Cache giá bán theo ngày ──────────────────────────────────────────────
+
+  /// Ghi đè toàn bộ giá đã cấu hình của một ngày (ngay dạng yyyy-MM-dd).
+  Future<void> upsertGiaBanNgay(
+      String ngay, List<Map<String, dynamic>> items) async {
+    final d = await db;
+    final batch = d.batch();
+    batch.delete('cache_gia_ban_ngay', where: 'ngay = ?', whereArgs: [ngay]);
+    for (final item in items) {
+      batch.insert('cache_gia_ban_ngay', item,
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// Giá bán đã cấu hình của mặt hàng cho ngày; null nghĩa là chưa cấu hình.
+  Future<double?> getGiaBanNgay(int matHangId, String ngay) async {
+    final d = await db;
+    final rows = await d.query(
+      'cache_gia_ban_ngay',
+      columns: ['gia_ban'],
+      where: 'mat_hang_id = ? AND ngay = ?',
+      whereArgs: [matHangId, ngay],
+      limit: 1,
+    );
+    if (rows.isEmpty) return null;
+    final gia = (rows.first['gia_ban'] as num?)?.toDouble() ?? 0;
+    return gia > 0 ? gia : null;
   }
 
   // ── Cache mapping bình → vỏ ──────────────────────────────────────────────
