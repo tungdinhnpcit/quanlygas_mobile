@@ -105,6 +105,7 @@ class NotificationService {
     switch (loai) {
       case NotificationTypes.chuyenMoi:
       case NotificationTypes.capNhatChuyen:
+      case NotificationTypes.duyetChuyenXe:
         if (hasId) {
           _navigateTo?.call(AppRoutes.chuyenXeDetail(id));
         } else {

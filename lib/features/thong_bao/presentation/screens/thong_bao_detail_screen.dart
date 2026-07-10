@@ -140,8 +140,8 @@ class _DetailBody extends StatelessWidget {
             ),
           ),
 
-          // Nút xem chuyến xe (chỉ khi loai == CHUYEN_MOI)
-          if (item.loai == 'CHUYEN_MOI' && item.refId != null) ...[
+          // Nút xem chuyến xe (khi thông báo gắn với một chuyến xe cụ thể)
+          if (item.lienQuanChuyenXe && item.refId != null) ...[
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

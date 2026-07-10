@@ -1043,7 +1043,12 @@ class _TabBanHangState extends ConsumerState<_TabBanHang> {
     final fmt = NumberFormat('#,##0', 'vi_VN');
     final cx = widget.cx;
     final items = cx.banHang;
-    final total = items.fold<double>(0, (s, b) => s + b.thanhTien);
+    // Thực thu toàn chuyến = tiền bán hàng + điều chỉnh + chênh lệch vỏ − tiền mua gas dư.
+    // Cùng công thức với khachPhaiTra của từng card để footer = Σ các card.
+    final total = items.fold<double>(0, (s, b) => s + b.thanhTien) +
+        cx.banHangThanhToan
+            .fold<double>(0, (s, t) => s + t.dieuChinhTien + t.tienChenhLechVo) -
+        cx.banHangGasDu.fold<double>(0, (s, g) => s + g.thanhTien);
     final canEdit =
         cx.trangThai != 'hoan-thanh' && cx.trangThai != 'huy';
 
@@ -2716,8 +2721,10 @@ class _BanHangSummaryCard extends StatelessWidget {
     // Thông tin thanh toán nằm ở list riêng cx.banHangThanhToan — cộng dồn toàn chuyến
     final tongTienMat = cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.tienMat);
     final tongTienCK = cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.tienCK);
-    tongTienPhai += cx.banHangThanhToan.fold<double>(0, (s, t) => s + t.dieuChinhTien);
-    // tien phai thu THUC TE = tien ban hang + dieu chinh - tien mua gas du (da tra lai khach)
+    // tien phai thu THUC TE = tien ban hang + dieu chinh + chenh lech vo
+    //                        - tien mua gas du (da tra lai khach)
+    tongTienPhai += cx.banHangThanhToan
+        .fold<double>(0, (s, t) => s + t.dieuChinhTien + t.tienChenhLechVo);
     tongTienPhai -= tongTienGasDu;
     final tongConNo =
         (tongTienPhai - tongTienMat - tongTienCK).clamp(0.0, double.infinity);

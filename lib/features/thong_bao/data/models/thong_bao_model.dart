@@ -5,9 +5,9 @@ class ThongBaoModel {
   final int id;
   final String tieuDe;
   final String noiDung;
-  /// CHUYEN_MOI | THONG_BAO
+  /// CHUYEN_MOI | DUYET_CHUYEN_XE | CAP_NHAT_CHUYEN | LICH_TUAN | THONG_BAO
   final String loai;
-  /// chuyen_xe.id nếu loai = CHUYEN_MOI
+  /// chuyen_xe.id nếu loai liên quan đến chuyến xe
   final int? refId;
   final bool daDoc;
   final DateTime createdAt;
@@ -34,13 +34,48 @@ class ThongBaoModel {
             : DateTime.now(),
       );
 
-  IconData get icon =>
-      loai == 'CHUYEN_MOI' ? Icons.local_shipping_outlined : Icons.notifications_outlined;
+  /// Thông báo có gắn với một chuyến xe cụ thể (dùng để hiện nút "Xem chuyến xe")
+  bool get lienQuanChuyenXe =>
+      loai == 'CHUYEN_MOI' || loai == 'DUYET_CHUYEN_XE' || loai == 'CAP_NHAT_CHUYEN';
 
-  IconData get iconFilled =>
-      loai == 'CHUYEN_MOI' ? Icons.local_shipping_rounded : Icons.notifications_rounded;
+  IconData get icon {
+    switch (loai) {
+      case 'CHUYEN_MOI':
+        return Icons.local_shipping_outlined;
+      case 'DUYET_CHUYEN_XE':
+        return Icons.check_circle_outline;
+      case 'CAP_NHAT_CHUYEN':
+        return Icons.edit_note_outlined;
+      default:
+        return Icons.notifications_outlined;
+    }
+  }
 
-  String get loaiLabel => loai == 'CHUYEN_MOI' ? 'Chuyến xe mới' : 'Thông báo';
+  IconData get iconFilled {
+    switch (loai) {
+      case 'CHUYEN_MOI':
+        return Icons.local_shipping_rounded;
+      case 'DUYET_CHUYEN_XE':
+        return Icons.check_circle_rounded;
+      case 'CAP_NHAT_CHUYEN':
+        return Icons.edit_note_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  String get loaiLabel {
+    switch (loai) {
+      case 'CHUYEN_MOI':
+        return 'Chuyến xe mới';
+      case 'DUYET_CHUYEN_XE':
+        return 'Chuyến xe đã duyệt';
+      case 'CAP_NHAT_CHUYEN':
+        return 'Cập nhật chuyến';
+      default:
+        return 'Thông báo';
+    }
+  }
 
   ThongBaoModel copyWith({bool? daDoc}) => ThongBaoModel(
         id:        id,
