@@ -56,3 +56,7 @@ build_log.txt
 run-usb.ps1
 pubspec.lock
 pubspec.lock
+
+# macOS Flutter build artifacts (auto-generated)
+macos/Flutter/ephemeral/
+macos/Flutter/GeneratedPluginRegistrant.swift
