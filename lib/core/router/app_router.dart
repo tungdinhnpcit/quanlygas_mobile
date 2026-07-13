@@ -6,6 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart'; // quan ly state toan c
 import 'package:flutter_secure_storage/flutter_secure_storage.dart'; // luu tru an toan (JWT token)
 import 'package:go_router/go_router.dart'; // thu vien dieu huong route
 
+import '../../features/ghi_chu/data/models/ghi_chu_model.dart';
+import '../../features/ghi_chu/presentation/screens/ghi_chu_form_screen.dart';
+import '../../features/ghi_chu/presentation/screens/ghi_chu_list_screen.dart';
 import '../network/api_client.dart'; // client goi API, xu ly redirect khi het han token
 import '../../features/auth/presentation/screens/login_screen.dart'; // man hinh dang nhap (thiet ke moi theo Figma)
 import '../../features/home/presentation/screens/home_screen.dart'; // man hinh trang chu
@@ -82,6 +85,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null; // cho phep di chuyen binh thuong
     },
     routes: [
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: AppRoutes.ghiChuForm,
+        pageBuilder: (_, state) => CupertinoPage(
+          key: state.pageKey,
+          child: GhiChuFormScreen(item: state.extra as GhiChuModel?),
+        ),
+      ),
       GoRoute(
         path: AppRoutes.login, // route /login
         builder: (_, __) => const LoginScreen(), // man hinh dang nhap (thiet ke moi theo Figma)
@@ -495,6 +506,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.kiemKeList, // danh sach chuyen kiem ke hang hoa
             builder: (_, __) => const KiemKeListScreen(),
           ),
+          GoRoute(
+            path: AppRoutes.ghiChuList,
+            builder: (_, __) => const GhiChuListScreen(),
+          ),
         ],
       ),
     ],
@@ -688,6 +703,7 @@ class _MainShellState extends ConsumerState<_MainShell> {
     AppRoutes.doiMatKhau:       'Đổi mật khẩu',
     AppRoutes.dongBo:           'Đồng bộ dữ liệu',
     AppRoutes.kiemKeList:       'Kiểm kê',
+    AppRoutes.ghiChuList: 'Ghi chú bảo mật'
   };
 
   // tra ve tieu de AppBar tuong ung voi route hien tai

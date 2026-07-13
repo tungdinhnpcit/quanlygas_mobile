@@ -1,3 +1,5 @@
+[DONE - 2026-07-13, kiến trúc đổi sang Backend lưu DB + mã hoá server-side, xem plan mới tại C:\Users\tungdt\.claude\plans\d-gasmanager-quan-ly-gas-app-plans-ghi-c-iridescent-pinwheel.md]
+
 # Plan: Chức năng "Ghi chú bảo mật" (lưu tài khoản/mật khẩu theo từng user, mã hoá bằng key tự định nghĩa)
 
 ## Context (Vì sao làm)

@@ -10,6 +10,8 @@ class AppRoutes {
   static const String xeList         = '/xe';
   static const String matHangList    = '/mat-hang';
   static const String nhaCungCapList = '/nha-cung-cap';
+  static const String ghiChuList = '/ghi-chu';
+  static const String ghiChuForm = '/ghi-chu/form';
 
   static String chuyenXeDetail(String id)   => '/chuyen-xe/$id';
   static String thongBaoDetail(String id)   => '/thong-bao/$id';

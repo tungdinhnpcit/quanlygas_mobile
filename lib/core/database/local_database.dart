@@ -112,6 +112,7 @@ class LocalDatabase {
         )
       ''');
     }
+
   }
 
   Future<void> _create(Database db, int version) async {
@@ -572,4 +573,5 @@ class LocalDatabase {
         'SELECT COUNT(*) FROM ban_hang_gas_du_local WHERE is_synced = 0')) ?? 0;
     return kh + cx + bh + gd;
   }
+
 }
