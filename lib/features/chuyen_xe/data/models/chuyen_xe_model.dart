@@ -418,6 +418,29 @@ class KetThucChiTietModel {
       );
 }
 
+// ---------- Ảnh bản kê xác nhận ----------
+
+class AnhBanKeModel {
+  final int id;
+  final String url;
+  final String nguoiUpload;
+  final DateTime uploadedAt;
+
+  const AnhBanKeModel({
+    required this.id,
+    required this.url,
+    required this.nguoiUpload,
+    required this.uploadedAt,
+  });
+
+  factory AnhBanKeModel.fromJson(Map<String, dynamic> json) => AnhBanKeModel(
+        id:          json['id'] as int,
+        url:         json['url'] as String,
+        nguoiUpload: json['nguoiUpload'] as String? ?? '',
+        uploadedAt:  DateTime.tryParse(json['uploadedAt'] as String? ?? '') ?? DateTime.now(),
+      );
+}
+
 // ---------- Kết thúc chuyến: Tổng hợp ----------
 
 class KetThucChuyenXeModel {
@@ -437,6 +460,7 @@ class KetThucChuyenXeModel {
   final List<VoThuChiTietModel> voThu;
   final List<GasDuChiTietModel> gasDu;
   final List<TraNoCuModel> traNoCu;
+  final List<AnhBanKeModel> anhBanKe;
 
   const KetThucChuyenXeModel({
     required this.id,
@@ -455,6 +479,7 @@ class KetThucChuyenXeModel {
     required this.voThu,
     required this.gasDu,
     required this.traNoCu,
+    required this.anhBanKe,
   });
 
   factory KetThucChuyenXeModel.fromJson(Map<String, dynamic> json) => KetThucChuyenXeModel(
@@ -483,6 +508,9 @@ class KetThucChuyenXeModel {
             .toList(),
         traNoCu: (json['traNoCu'] as List? ?? [])
             .map((e) => TraNoCuModel.fromJson(e as Map<String, dynamic>))
+            .toList(),
+        anhBanKe: (json['anhBanKe'] as List? ?? [])
+            .map((e) => AnhBanKeModel.fromJson(e as Map<String, dynamic>))
             .toList(),
       );
 }

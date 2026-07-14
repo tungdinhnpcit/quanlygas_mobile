@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../../core/providers/user_info_provider.dart';
 import '../../../../core/router/app_routes.dart';
@@ -45,6 +46,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _biometricAvailable = false;
   bool _biometricReady = false;
   String? _error;
+  String _versionText = '';
 
   final _repo = AuthRepository();
   final _biometric = BiometricService();
@@ -57,6 +59,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _passwordCtrl.text = 'diepSam@2026##';
     }
     _checkBiometric();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() => _versionText = 'v${info.version}+${info.buildNumber}');
   }
 
   Future<void> _checkBiometric() async {
@@ -492,10 +501,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  'v1.0.0',
+                Text(
+                  _versionText,
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, color: Color(0xFF64748B)),
+                  style: const TextStyle(fontSize: 11, color: Color(0xFF64748B)),
                 ),
               ],
             ),

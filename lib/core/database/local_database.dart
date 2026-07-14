@@ -17,7 +17,7 @@ class LocalDatabase {
     final dir = await getDatabasesPath();
     return openDatabase(
       join(dir, 'gasmanager.db'),
-      version: 8,
+      version: 9,
       onCreate: _create,
       onUpgrade: _onUpgrade,
     );
@@ -112,6 +112,14 @@ class LocalDatabase {
         )
       ''');
     }
+    if (oldVersion < 9) {
+      await db.execute(
+        'ALTER TABLE cache_xe ADD COLUMN nhan_vien_lai_xe_id INTEGER',
+      );
+      await db.execute(
+        'ALTER TABLE cache_xe ADD COLUMN nhan_vien_phu_xe_id INTEGER',
+      );
+    }
 
   }
 
@@ -167,10 +175,12 @@ class LocalDatabase {
     ''');
     await db.execute('''
       CREATE TABLE cache_xe (
-        server_id   INTEGER PRIMARY KEY,
-        bien_so_xe  TEXT NOT NULL,
-        loai_xe     TEXT,
-        is_active   INTEGER DEFAULT 1
+        server_id             INTEGER PRIMARY KEY,
+        bien_so_xe            TEXT NOT NULL,
+        loai_xe               TEXT,
+        nhan_vien_lai_xe_id   INTEGER,
+        nhan_vien_phu_xe_id   INTEGER,
+        is_active             INTEGER DEFAULT 1
       )
     ''');
     await db.execute('''

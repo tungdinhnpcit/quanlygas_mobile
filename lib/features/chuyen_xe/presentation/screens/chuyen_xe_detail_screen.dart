@@ -38,6 +38,9 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     with SingleTickerProviderStateMixin {
   final _repo = ChuyenXeRepository();
   bool _uploading = false;
+  bool _uploadingBanKe = false;
+  int _uploadedBanKeCount = 0;
+  int _totalBanKeToUpload = 0;
   bool _ketThucLoading = false;
   late final TabController _tabController;
 
@@ -264,6 +267,94 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
     }
   }
 
+  /// Kế toán chụp ảnh bản kê xác nhận — cho phép bấm lặp lại nhiều lần liên tục để chụp nhiều tấm.
+  Future<void> _handleChupAnhBanKe(ChuyenXeModel cx) async {
+    final picker = ImagePicker();
+    final photo = await picker.pickImage(source: ImageSource.camera, imageQuality: 85);
+    if (photo == null) return;
+
+    setState(() {
+      _uploadingBanKe = true;
+      _uploadedBanKeCount = 0;
+      _totalBanKeToUpload = 1;
+    });
+    try {
+      final upload = ref.read(uploadBanKeProvider);
+      await upload(cx.id, photo);
+      final id = int.tryParse(widget.chuyenXeId) ?? 0;
+      ref.invalidate(chuyenXeDetailProvider(id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload thất bại: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingBanKe = false);
+    }
+  }
+
+  /// Chọn nhiều ảnh bản kê từ thư viện và upload tuần tự, có đếm tiến trình.
+  Future<void> _handleChonNhieuAnhBanKe(ChuyenXeModel cx) async {
+    final picker = ImagePicker();
+    final photos = await picker.pickMultiImage(imageQuality: 85);
+    if (photos.isEmpty) return;
+
+    setState(() {
+      _uploadingBanKe = true;
+      _uploadedBanKeCount = 0;
+      _totalBanKeToUpload = photos.length;
+    });
+    try {
+      final upload = ref.read(uploadBanKeProvider);
+      for (final photo in photos) {
+        await upload(cx.id, photo);
+        if (mounted) setState(() => _uploadedBanKeCount++);
+      }
+      final id = int.tryParse(widget.chuyenXeId) ?? 0;
+      ref.invalidate(chuyenXeDetailProvider(id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Upload thất bại: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingBanKe = false);
+    }
+  }
+
+  /// Xóa ảnh bản kê đã upload — cho phép chọn/chụp ảnh khác thay thế.
+  Future<void> _handleXoaAnhBanKe(int chuyenXeId, int anhId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Xóa ảnh bản kê'),
+        content: const Text('Xóa ảnh này? Hành động không thể hoàn tác.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Xóa', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await _repo.deleteBanKe(chuyenXeId, anhId);
+      final id = int.tryParse(widget.chuyenXeId) ?? 0;
+      ref.invalidate(chuyenXeDetailProvider(id));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Lỗi khi xóa ảnh: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final id = int.tryParse(widget.chuyenXeId) ?? 0;
@@ -363,6 +454,12 @@ class _ChuyenXeDetailScreenState extends ConsumerState<ChuyenXeDetailScreen>
                   cx: cx,
                   uploading: _uploading,
                   onUpload: () => _handleUpload(cx),
+                  uploadingBanKe: _uploadingBanKe,
+                  uploadedBanKeCount: _uploadedBanKeCount,
+                  totalBanKeToUpload: _totalBanKeToUpload,
+                  onChupAnhBanKe: () => _handleChupAnhBanKe(cx),
+                  onChonNhieuAnhBanKe: () => _handleChonNhieuAnhBanKe(cx),
+                  onXoaAnhBanKe: (anhId) => _handleXoaAnhBanKe(cx.id, anhId),
                 ),
                 _TabGasDu(cx: cx),
                 _TabThuNo(cx: cx),
@@ -1863,6 +1960,7 @@ class _TabThuTien extends StatelessWidget {
       voThu: const [],
       gasDu: const [],
       traNoCu: const [],
+      anhBanKe: const [],
     );
   }
 
@@ -1998,11 +2096,23 @@ class _TabAnh extends StatelessWidget {
   final ChuyenXeModel cx;
   final bool uploading;
   final VoidCallback onUpload;
+  final bool uploadingBanKe;
+  final int uploadedBanKeCount;
+  final int totalBanKeToUpload;
+  final VoidCallback onChupAnhBanKe;
+  final VoidCallback onChonNhieuAnhBanKe;
+  final void Function(int anhId) onXoaAnhBanKe;
 
   const _TabAnh({
     required this.cx,
     required this.uploading,
     required this.onUpload,
+    required this.uploadingBanKe,
+    required this.uploadedBanKeCount,
+    required this.totalBanKeToUpload,
+    required this.onChupAnhBanKe,
+    required this.onChonNhieuAnhBanKe,
+    required this.onXoaAnhBanKe,
   });
 
   /// Mở dialog xem ảnh toàn màn hình, cho phép swipe và pinch-to-zoom.
@@ -2173,8 +2283,207 @@ class _TabAnh extends StatelessWidget {
           _SectionLabel('Ảnh xác nhận khách hàng'),
           const SizedBox(height: 12),
           _XacNhanKhachHangSection(cx: cx, baseUrl: baseUrl),
+
+          const SizedBox(height: 28),
+          _AnhBanKeSection(
+            cx: cx,
+            baseUrl: baseUrl,
+            uploading: uploadingBanKe,
+            uploadedCount: uploadedBanKeCount,
+            totalToUpload: totalBanKeToUpload,
+            onChupAnh: onChupAnhBanKe,
+            onChonNhieuAnh: onChonNhieuAnhBanKe,
+            onXoaAnh: onXoaAnhBanKe,
+          ),
         ],
       ),
+    );
+  }
+}
+
+// Ảnh bản kê xác nhận (bản kê giấy đã in và ký, chụp lại sau khi kế toán phê duyệt chuyến xe)
+class _AnhBanKeSection extends StatelessWidget {
+  final ChuyenXeModel cx;
+  final String baseUrl;
+  final bool uploading;
+  final int uploadedCount;
+  final int totalToUpload;
+  final VoidCallback onChupAnh;
+  final VoidCallback onChonNhieuAnh;
+  final void Function(int anhId) onXoaAnh;
+
+  const _AnhBanKeSection({
+    required this.cx,
+    required this.baseUrl,
+    required this.uploading,
+    required this.uploadedCount,
+    required this.totalToUpload,
+    required this.onChupAnh,
+    required this.onChonNhieuAnh,
+    required this.onXoaAnh,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final ketThuc = cx.ketThuc;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            _SectionLabel('Bản kê xác nhận'),
+            const Spacer(),
+            if (ketThuc != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: ketThuc.anhBanKe.isNotEmpty
+                      ? Colors.green.withValues(alpha: 0.12)
+                      : Colors.orange.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  ketThuc.anhBanKe.isNotEmpty ? '${ketThuc.anhBanKe.length} ảnh' : '⚠ Chưa có',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: ketThuc.anhBanKe.isNotEmpty ? Colors.green : Colors.orange,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 12),
+
+        if (ketThuc == null)
+          _EmptyState(
+            icon: Icons.pending_actions_outlined,
+            label: 'Chuyến xe chưa được kế toán phê duyệt/chốt số liệu.',
+          )
+        else ...[
+          if (ketThuc.anhBanKe.isEmpty)
+            _EmptyState(
+              icon: Icons.receipt_long_outlined,
+              label: 'Chưa có ảnh bản kê. Chụp lại bản kê đã in và ký để lưu trữ.',
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: ketThuc.anhBanKe.length,
+              itemBuilder: (_, i) {
+                final anh = ketThuc.anhBanKe[i];
+                return Stack(
+                  children: [
+                    GestureDetector(
+                      onTap: () => showDialog<void>(
+                        context: context,
+                        barrierColor: Colors.black87,
+                        builder: (_) => Dialog(
+                          backgroundColor: Colors.transparent,
+                          insetPadding: const EdgeInsets.all(12),
+                          child: InteractiveViewer(
+                            child: Image.network('$baseUrl${anh.url}'),
+                          ),
+                        ),
+                      ),
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              '$baseUrl${anh.url}',
+                              fit: BoxFit.cover,
+                              width: double.infinity,
+                              height: double.infinity,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: Colors.grey.shade200,
+                                child: const Icon(Icons.broken_image, color: Colors.grey),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 6,
+                            left: 6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                anh.nguoiUpload,
+                                style: const TextStyle(color: Colors.white, fontSize: 10),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => onXoaAnh(anh.id),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: Colors.black54,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close, color: Colors.white, size: 16),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+          if (uploading) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const SizedBox(
+                  width: 16, height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                const SizedBox(width: 8),
+                Text(totalToUpload > 1
+                    ? 'Đang upload $uploadedCount/$totalToUpload...'
+                    : 'Đang upload...'),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: uploading ? null : onChupAnh,
+                  icon: const Icon(Icons.camera_alt_outlined),
+                  label: const Text('Chụp ảnh'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: uploading ? null : onChonNhieuAnh,
+                  icon: const Icon(Icons.photo_library_outlined),
+                  label: const Text('Chọn nhiều ảnh'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 }

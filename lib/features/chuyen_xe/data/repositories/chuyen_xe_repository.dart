@@ -370,6 +370,34 @@ class ChuyenXeRepository {
     return res.data['url'] as String;
   }
 
+  /// Lấy danh sách ảnh bản kê xác nhận (bản kê giấy đã ký, chụp lại sau khi kế toán phê duyệt).
+  Future<List<AnhBanKeModel>> getBanKe(int chuyenXeId) async {
+    final res = await ApiClient.instance.dio.get('/api/chuyen-xe/$chuyenXeId/ban-ke');
+    return (res.data as List)
+        .map((e) => AnhBanKeModel.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  /// Upload ảnh bản kê xác nhận — chỉ dùng được sau khi chuyến xe đã được phê duyệt/chốt số liệu.
+  Future<String> uploadBanKe(int chuyenXeId, XFile photo) async {
+    final compressed = await _compressToUnder1MB(photo);
+    final formData = FormData.fromMap({
+      'file': await MultipartFile.fromFile(
+        compressed.path,
+        filename: compressed.name,
+      ),
+    });
+    final res = await ApiClient.instance.dio.post(
+      '/api/chuyen-xe/$chuyenXeId/ban-ke',
+      data: formData,
+    );
+    return res.data['url'] as String;
+  }
+
+  /// Xóa ảnh bản kê xác nhận theo ID, backend xóa cả file vật lý trên server.
+  Future<void> deleteBanKe(int chuyenXeId, int anhId) =>
+      ApiClient.instance.dio.post('/api/chuyen-xe/$chuyenXeId/ban-ke/$anhId/delete');
+
   /// Lấy kiểm kê xuất hàng của chuyến xe. Trả null nếu chưa lập (HTTP 204).
   Future<KiemKeChuyenXeModel?> getKiemKe(int chuyenXeId) async {
     try {

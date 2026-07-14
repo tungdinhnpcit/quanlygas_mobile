@@ -39,9 +39,34 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
     _loadNhanVienList();
   }
 
+  /// Tải danh sách xe từ local cache.
+  /// Nếu người dùng là lái xe (role == LaiXe), tự động chọn sẵn xe đã được
+  /// gán cho họ trên web (Xe.NhanVienLaiXeId), nhưng vẫn cho phép đổi xe khác.
   Future<void> _loadXeList() async {
     final xe = await _db.getXeList();
-    if (mounted) setState(() => _xeList = xe);
+    final userInfo = await ref.read(userInfoProvider.future);
+    final roleCode = userInfo.roleCode;
+    final userNvId = userInfo.nhanVienId;
+
+    int? preXeId;
+    String? preBienSo;
+    if (roleCode == 'LaiXe' && userNvId > 0) {
+      final match = xe.where((e) => e['nhan_vien_lai_xe_id'] == userNvId);
+      if (match.isNotEmpty) {
+        preXeId = match.first['server_id'] as int;
+        preBienSo = match.first['bien_so_xe'] as String?;
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _xeList = xe;
+        if (preXeId != null) {
+          _selectedXeId = preXeId;
+          _selectedBienSo = preBienSo;
+        }
+      });
+    }
   }
 
   /// Tải danh sách lái xe từ local cache và xác định vai trò người dùng.
@@ -49,9 +74,9 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
   /// - Nếu Admin/QuanLy/KeToan: hiển thị autocomplete để chọn lái xe.
   Future<void> _loadNhanVienList() async {
     final list = await _db.getNhanVienList();
-    final userInfo = ref.read(userInfoProvider).value;
-    final roleCode = userInfo?.roleCode ?? '';
-    final userNvId = userInfo?.nhanVienId ?? 0;
+    final userInfo = await ref.read(userInfoProvider.future);
+    final roleCode = userInfo.roleCode;
+    final userNvId = userInfo.nhanVienId;
     final isNhanVien = roleCode == 'LaiXe';
 
     String preText = '';
@@ -65,7 +90,7 @@ class _BatDauChuyenScreenState extends ConsumerState<BatDauChuyenScreen> {
         preText = match.first['ho_ten'] as String;
       } else {
         preId = userNvId;
-        preText = userInfo?.fullName ?? '';
+        preText = userInfo.fullName;
       }
     }
 

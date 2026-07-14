@@ -200,6 +200,8 @@ class SyncService {
           'server_id': e['id'],
           'bien_so_xe': e['bienSoXe'] ?? '',
           'loai_xe': e['loaiXe'],
+          'nhan_vien_lai_xe_id': e['nhanVienLaiXeId'],
+          'nhan_vien_phu_xe_id': e['nhanVienPhuXeId'],
           'is_active': (e['isActive'] == true) ? 1 : 0,
         }).toList());
       }

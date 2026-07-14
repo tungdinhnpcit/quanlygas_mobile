@@ -68,6 +68,12 @@ final uploadPhotoProvider = Provider<Future<String> Function(int, XFile)>((ref) 
   return (chuyenXeId, photo) => repo.uploadPhoto(chuyenXeId, photo);
 });
 
+/// Provider action upload ảnh bản kê xác nhận: nhận (chuyenXeId, XFile) → trả URL ảnh.
+final uploadBanKeProvider = Provider<Future<String> Function(int, XFile)>((ref) {
+  final repo = ref.watch(chuyenXeRepositoryProvider);
+  return (chuyenXeId, photo) => repo.uploadBanKe(chuyenXeId, photo);
+});
+
 /// Provider kiểm kê xuất hàng của một chuyến xe theo ID — null nếu chưa lập.
 final kiemKeProvider =
     FutureProvider.family<KiemKeChuyenXeModel?, int>((ref, chuyenXeId) {

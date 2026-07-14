@@ -1,8 +1,7 @@
-name: quan_ly_gas_app
+﻿name: quan_ly_gas_app
 description: Ứng dụng quản lý gas cho lái xe
 publish_to: 'none'
-version: 1.0.0+1
-
+version: 1.0.0+4
 environment:
   sdk: ^3.9.2
 
@@ -74,6 +73,9 @@ dependencies:
 
   # Device detection (emulator vs real device)
   device_info_plus: ^10.1.0
+
+  # App version info (hiển thị version ở login screen)
+  package_info_plus: ^8.1.2
 
   # Utilities
   intl: ^0.20.2
