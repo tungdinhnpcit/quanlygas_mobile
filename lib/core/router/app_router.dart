@@ -641,22 +641,8 @@ class _MainShellState extends ConsumerState<_MainShell> {
       final userId = int.tryParse(userIdStr ?? '');
       if (userId == null || !mounted) return;
 
-      final res = await ApiClient.instance.dio.get( // goi API lay so thong bao chua doc
-        '/api/thong-bao/so-chua-doc',
-        queryParameters: {'userId': userId},
-      );
-      final count = (res.data as int?) ?? 0;
-      if (count > 0) {
-        final lastKnown = await BackgroundPollingService.getLastKnownCount(); // lay so lan truoc da biet
-        if (count > lastKnown) { // neu co them thong bao moi tu lan truoc thi hien local notification
-          await NotificationService.showSimpleNotification(
-            title: 'Thông báo chưa đọc',
-            body: 'Bạn có $count thông báo chưa đọc',
-          );
-          debugPrint('[POST-LOGIN] Notification shown: $count new messages');
-        }
-        await BackgroundPollingService.updateLastKnownCount(count); // cap nhat so lan nay lam moc so sanh lan sau
-      }
+      await BackgroundPollingService.checkAndNotifyIfIncreased(userId);
+      debugPrint('[POST-LOGIN] Notification check done for userId=$userId');
     } catch (e) {
       debugPrint('[POST-LOGIN] Notification check failed: $e');
     }

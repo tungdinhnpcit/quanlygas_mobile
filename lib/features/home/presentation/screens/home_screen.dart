@@ -11,12 +11,55 @@ import '../../../../core/utils/menu_icon_mapper.dart';
 import '../../../../features/menu/providers/menu_provider.dart';
 import '../../../../features/auth/data/auth_models.dart';
 import '../../../../features/thong_bao/presentation/providers/thong_bao_provider.dart';
+import '../../../../core/services/background_polling_service.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-class HomeScreen extends ConsumerWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkNotifications());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _checkNotifications();
+    }
+  }
+
+  // Kiem tra so thong bao chua doc moi khi vao/quay lai man hinh Home,
+  // hien local notification banner neu co thong bao moi ke tu lan kiem tra truoc.
+  Future<void> _checkNotifications() async {
+    const storage = FlutterSecureStorage();
+    final userIdStr = await storage.read(key: 'user_id');
+    final userId = int.tryParse(userIdStr ?? '');
+    if (userId == null || !mounted) return;
+
+    try {
+      await BackgroundPollingService.checkAndNotifyIfIncreased(userId);
+      if (mounted) ref.invalidate(soChuaDocProvider);
+    } catch (_) {
+      // best-effort — khong lam gian doan trai nghiem Home neu API loi
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final menusAsync = ref.watch(menuProvider);
     final userAsync  = ref.watch(userInfoProvider);
     final soChuaDoc  = ref.watch(soChuaDocProvider);

@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart'; // Lưu baseline co
 import 'package:workmanager/workmanager.dart'; // Periodic background task
 
 import '../constants/app_constants.dart'; // Notification channel ID, API base URL
+import '../../features/thong_bao/data/repositories/thong_bao_repository.dart'; // Gọi API so-chua-doc từ trong app (dùng ApiClient/Dio, khác isolate polling)
 
 // Mã định danh task duy nhất — Workmanager dùng để track task
 const _taskKey = 'notification_polling';
@@ -205,5 +206,16 @@ class BackgroundPollingService {
   static Future<int> getLastKnownCount() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt(_prefKeyLastCount) ?? 0;
+  }
+
+  /// Gọi API so-chua-doc, so với baseline đã lưu, nếu tăng thì hiển thị local notification banner
+  /// và cập nhật baseline mới. Dùng chung cho post-login (_runPostLoginTasks) và mỗi khi vào Home.
+  static Future<void> checkAndNotifyIfIncreased(int userId) async {
+    final newCount = await ThongBaoRepository().getSoChuaDoc(userId);
+    final lastCount = await getLastKnownCount();
+    if (newCount > lastCount) {
+      await _showLocalNotification(newCount - lastCount);
+    }
+    await updateLastKnownCount(newCount);
   }
 }
