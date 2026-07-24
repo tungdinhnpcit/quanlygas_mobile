@@ -12,6 +12,7 @@ class AppRoutes {
   static const String nhaCungCapList = '/nha-cung-cap';
   static const String ghiChuList = '/ghi-chu';
   static const String ghiChuForm = '/ghi-chu/form';
+  static const String thanSoHoc = '/than-so-hoc';
 
   static String chuyenXeDetail(String id)   => '/chuyen-xe/$id';
   static String thongBaoDetail(String id)   => '/thong-bao/$id';

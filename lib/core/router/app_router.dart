@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart'; // thu vien dieu huong route
 import '../../features/ghi_chu/data/models/ghi_chu_model.dart';
 import '../../features/ghi_chu/presentation/screens/ghi_chu_form_screen.dart';
 import '../../features/ghi_chu/presentation/screens/ghi_chu_list_screen.dart';
+import '../../features/than_so_hoc/presentation/screens/than_so_hoc_screen.dart'; // man hinh than so hoc
 import '../network/api_client.dart'; // client goi API, xu ly redirect khi het han token
 import '../../features/auth/presentation/screens/login_screen.dart'; // man hinh dang nhap (thiet ke moi theo Figma)
 import '../../features/home/presentation/screens/home_screen.dart'; // man hinh trang chu
@@ -510,6 +511,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: AppRoutes.ghiChuList,
             builder: (_, __) => const GhiChuListScreen(),
           ),
+          GoRoute(
+            path: AppRoutes.thanSoHoc, // man hinh than so hoc
+            builder: (_, __) => const ThanSoHocScreen(),
+          ),
         ],
       ),
     ],
@@ -689,7 +694,8 @@ class _MainShellState extends ConsumerState<_MainShell> {
     AppRoutes.doiMatKhau:       'Đổi mật khẩu',
     AppRoutes.dongBo:           'Đồng bộ dữ liệu',
     AppRoutes.kiemKeList:       'Kiểm kê',
-    AppRoutes.ghiChuList: 'Ghi chú bảo mật'
+    AppRoutes.ghiChuList: 'Ghi chú bảo mật',
+    AppRoutes.thanSoHoc: 'Thần số học',
   };
 
   // tra ve tieu de AppBar tuong ung voi route hien tai

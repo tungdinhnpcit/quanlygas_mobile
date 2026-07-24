@@ -29,6 +29,7 @@ IconData mapMenuIcon(String menuCode) {
     'HT_NHOMQUYEN'                 => Icons.shield_rounded,
     'HT_PHANQUYEN'                 => Icons.security_rounded,
     'HT_CHUCNANG' || 'HT_MENU'    => Icons.menu_book_rounded,
+    'THAN_SO_HOC'                  => Icons.auto_awesome_rounded,
     _                              => Icons.apps_rounded,
   };
 }
